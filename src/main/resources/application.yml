@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: kos-auth-backend
+
+  # R2DBC Configuration
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kos-auth}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:}
+
+  # Flyway Configuration (for database migrations)
+  flyway:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kos-auth}
+    user: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+## Logging configuration
+#logging:
+#  level:
+#    org.springframework.r2dbc: DEBUG
+#    io.r2dbc.postgresql.QUERY: DEBUG
+#    io.r2dbc.postgresql.PARAM: DEBUG
