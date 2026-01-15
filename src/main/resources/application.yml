@@ -4,7 +4,7 @@ spring:
 
   # R2DBC Configuration
   r2dbc:
-    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kos-auth}
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5423}/${DB_NAME:kos-auth}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:}
 
@@ -15,6 +15,22 @@ spring:
     password: ${DB_PASSWORD:}
     locations: classpath:db/migration
     baseline-on-migrate: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          saas-admin:
+            provider: keycloak-saas
+            client-id: admin-console
+            client-secret: ${SAAS_ADMIN_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email
+
+        provider:
+          keycloak-saas:
+            issuer-uri: ${KEYCLOAK_SAAS_ISSUER_URI}
 
 ## Logging configuration
 #logging:
