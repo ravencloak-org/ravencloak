@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-# Build the project
+# Build the entire project (all modules)
 ./gradlew build
 
-# Run the application
+# Run the main application
 ./gradlew bootRun
 
 # Run tests
@@ -19,6 +19,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Clean build
 ./gradlew clean build
+
+# Build keycloak-spi module only (produces fat JAR)
+./gradlew :keycloak-spi:shadowJar
 ```
 
 ## Environment Setup
@@ -33,6 +36,15 @@ Required environment variables:
 - `KEYCLOAK_SAAS_ISSUER_URI` - Full issuer URI for saas-admin realm
 - `SAAS_ADMIN_CLIENT_SECRET` - OAuth2 client secret for admin-console
 
+## Project Structure
+
+This is a multi-module Gradle project:
+
+| Module | Description |
+|--------|-------------|
+| `auth` (root) | Main Spring Boot authentication backend |
+| `keycloak-spi` | Keycloak User Storage SPI for external user validation |
+
 ## Architecture
 
 ### Tech Stack
@@ -41,6 +53,24 @@ Required environment variables:
 - R2DBC for reactive PostgreSQL connectivity
 - Flyway for database migrations (uses JDBC, not R2DBC)
 - Spring Security with OAuth2/OIDC (Keycloak)
+
+### Keycloak User Storage SPI (`keycloak-spi`)
+
+A read-only User Storage Provider that validates users against the auth backend API.
+
+**Key Classes:**
+- `ExternalUser` - Data class for user data from REST API
+- `ExternalUserAdapter` - Maps ExternalUser to Keycloak's UserModel (read-only)
+- `ExternalUserStorageProvider` - Implements user lookup via HTTP client
+- `ExternalUserStorageProviderFactory` - Factory registered with Keycloak SPI
+
+**Dependencies:**
+- `compileOnly` for Keycloak SPI (provided at runtime by Keycloak)
+- Kotlin stdlib bundled and relocated via Shadow plugin
+- Uses native Java 11+ `java.net.http.HttpClient` (no external HTTP libraries)
+
+**API Endpoint Called:**
+- `GET http://auth-backend:8080/api/users/{email}` - Returns user if exists (200) or not found (404)
 
 ### Multi-Tenant Authentication
 
