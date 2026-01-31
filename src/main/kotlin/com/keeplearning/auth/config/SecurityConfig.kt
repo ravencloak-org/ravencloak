@@ -1,37 +1,44 @@
 package com.keeplearning.auth.config
 
+import com.keeplearning.auth.security.SuperAdminAuthorizationManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.ServerHttpSecurity
+import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoders
-import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager
-
 import org.springframework.security.oauth2.server.resource.authentication.JwtIssuerReactiveAuthenticationManagerResolver
+import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager
 import org.springframework.security.web.server.SecurityWebFilterChain
+import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository
-
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.reactive.CorsConfigurationSource
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
 import reactor.core.publisher.Mono
-import com.keeplearning.auth.security.SuperAdminAuthorizationManager
 
 @Configuration
 @EnableReactiveMethodSecurity
+@EnableWebFluxSecurity
 class SecurityConfig(
     private val superAdminAuthorizationManager: SuperAdminAuthorizationManager, // Ensure this is a @Component in a scanned package
     @Value("\${KEYCLOAK_ISSUER_PREFIX}") private val keycloakIssuerPrefix: String
 ) {
 
     @Bean
-    fun securityWebFilterChain(http: ServerHttpSecurity): SecurityWebFilterChain {
+    fun securityWebFilterChain(http: ServerHttpSecurity, logoutSuccessHandler: ServerLogoutSuccessHandler): SecurityWebFilterChain {
         return http
             .csrf { it.disable() }
+            .cors { }
             .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
             .authorizeExchange { exchanges ->
                 exchanges
                     .pathMatchers("/api/public/**").permitAll()
+                    .pathMatchers("/auth/super/login", "/oauth2/**",).permitAll()
                     .pathMatchers("/api/super/**").access(superAdminAuthorizationManager)
                     .pathMatchers("/api/account/**").hasAnyRole("ACCOUNT_ADMIN", "INSTITUTE_ADMIN")
                     .anyExchange().authenticated()
@@ -39,7 +46,21 @@ class SecurityConfig(
             .oauth2ResourceServer { oauth2 ->
                 oauth2.authenticationManagerResolver(reactiveJwtIssuerResolver())
             }
+            .oauth2Login { }
+            .logout {
+                it.logoutUrl("/auth/super/logout")
+                it.logoutSuccessHandler(logoutSuccessHandler)
+            }
             .build()
+    }
+
+    @Bean
+    fun oidcLogoutSuccessHandler(
+        clientRegistrationRepository: ReactiveClientRegistrationRepository
+    ): ServerLogoutSuccessHandler {
+        val oidcLogoutSuccessHandler = OidcClientInitiatedServerLogoutSuccessHandler(clientRegistrationRepository)
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}/")
+        return oidcLogoutSuccessHandler
     }
 
     /**
@@ -54,4 +75,18 @@ class SecurityConfig(
             Mono.just(JwtReactiveAuthenticationManager(decoder))
         }
     }
+
+    @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val corsConfig = CorsConfiguration()
+        corsConfig.allowedOrigins = listOf("http://localhost:5173")
+        corsConfig.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        corsConfig.allowedHeaders = listOf("Content-Type", "Authorization")
+        corsConfig.allowCredentials = true
+        val source = UrlBasedCorsConfigurationSource()
+        source.registerCorsConfiguration("/**", corsConfig)
+        return source
+    }
+
+
 }
