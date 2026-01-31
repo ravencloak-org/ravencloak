@@ -21,20 +21,17 @@ spring:
       client:
         registration:
           saas-admin:
-            provider: keycloak-saas
+            provider: keycloak
             client-id: admin-console
             client-secret: ${SAAS_ADMIN_CLIENT_SECRET}
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: openid,profile,email
-
         provider:
-          keycloak-saas:
+          keycloak:
             issuer-uri: ${KEYCLOAK_SAAS_ISSUER_URI}
 
-## Logging configuration
-#logging:
-#  level:
-#    org.springframework.r2dbc: DEBUG
-#    io.r2dbc.postgresql.QUERY: DEBUG
-#    io.r2dbc.postgresql.PARAM: DEBUG
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
