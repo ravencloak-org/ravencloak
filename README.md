@@ -51,6 +51,118 @@ The application will start on the default Spring Boot port (8080).
 - OAuth2 client support
 - WebFlux reactive web framework
 
+## Modules
+
+### Main Application (`auth`)
+
+The core authentication backend service.
+
+### Keycloak User Storage SPI (`keycloak-spi`)
+
+A read-only Keycloak User Storage Provider that validates users by calling the auth backend's REST API.
+
+#### Building the SPI
+
+```bash
+./gradlew :keycloak-spi:shadowJar
+```
+
+The fat JAR will be created at `keycloak-spi/build/libs/keycloak-user-storage-spi-0.0.1-SNAPSHOT.jar`.
+
+#### Deploying to Keycloak
+
+**Option 1: Local/Standalone Keycloak**
+
+1. Copy the JAR to Keycloak's providers directory:
+   ```bash
+   cp keycloak-spi/build/libs/keycloak-user-storage-spi-0.0.1-SNAPSHOT.jar $KEYCLOAK_HOME/providers/
+   ```
+
+2. Rebuild Keycloak (or restart):
+   ```bash
+   $KEYCLOAK_HOME/bin/kc.sh build
+   ```
+
+3. In Keycloak Admin Console, go to **User Federation** and add `external-user-storage` provider.
+
+**Option 2: Docker Compose (Development)**
+
+For local development, the JAR is mounted directly into the container:
+
+```bash
+# Build the SPI first
+./gradlew :keycloak-spi:shadowJar
+
+# Start Keycloak with the SPI
+docker compose up -d
+```
+
+The `docker-compose.yml` mounts the local JAR into Keycloak's providers directory.
+
+**Option 3: Docker Compose (Production)**
+
+For production, build a custom Keycloak image with the SPI baked in:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+The `keycloak/Dockerfile` downloads the JAR from GitHub Releases during image build. Update the build args in `docker-compose.prod.yml`:
+- `SPI_VERSION`: Version tag (e.g., `0.0.1-SNAPSHOT`)
+- `GITHUB_REPO`: Your GitHub repository (e.g., `your-org/auth`)
+
+**Option 4: Docker Compose (Remote Download at Runtime)**
+
+For runtime download without rebuilding the image:
+
+```bash
+docker compose -f docker-compose.remote.yml up -d
+```
+
+This uses an init container to download the JAR from GitHub Releases before Keycloak starts.
+
+#### Docker Compose Files
+
+| File | Use Case |
+|------|----------|
+| `docker-compose.yml` | Development (mounts local JAR) |
+| `docker-compose.prod.yml` | Production (JAR baked into image) |
+| `docker-compose.remote.yml` | Runtime download from GitHub |
+
+#### How it Works
+
+- The SPI calls `http://auth-backend:8080/api/users/{email}` to validate if a user exists
+- Returns user data (id, email, firstName, lastName) on HTTP 200
+- Returns null (user not found) on HTTP 404
+- Uses Java 11+ HttpClient for REST calls
+- Uses Keycloak's JsonSerialization for JSON parsing
+
+#### CI/CD
+
+The Keycloak SPI is built automatically via GitHub Actions (`.github/workflows/keycloak-spi.yml`).
+
+**Automatic Builds:**
+- Triggers on push/PR to `master`/`main` when `keycloak-spi/**` files change
+- Uploads JAR as a workflow artifact (retained for 30 days)
+
+**Creating a Release:**
+
+1. Tag the commit with a version:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. GitHub Actions will automatically:
+   - Build the SPI JAR with the tagged version
+   - Create a GitHub Release with the JAR attached
+   - Generate release notes
+
+The JAR will be available at:
+```
+https://github.com/<your-org>/auth/releases/download/v1.0.0/keycloak-user-storage-spi-1.0.0.jar
+```
+
 ## Configuration
 
 The application uses environment variables for configuration. All database-related settings can be configured via the `.env` file:
