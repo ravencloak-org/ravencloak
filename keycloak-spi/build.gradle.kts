@@ -17,7 +17,7 @@ dependencies {
     compileOnly("org.keycloak:keycloak-server-spi:$keycloakVersion")
     compileOnly("org.keycloak:keycloak-core:$keycloakVersion")
     compileOnly("org.keycloak:keycloak-server-spi-private:$keycloakVersion")
-    compileOnly("org.keycloak:keycloak-model-legacy:$keycloakVersion")
+    compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
 
     // Kotlin stdlib - will be bundled in the fat JAR
     implementation(kotlin("stdlib"))
