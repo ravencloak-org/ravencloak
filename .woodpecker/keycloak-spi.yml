@@ -28,5 +28,3 @@ steps:
       - echo "Building and testing Keycloak SPI module..."
       - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
       - echo "Build successful!"
-    volumes:
-      - /opt/woodpecker-cache/gradle:/root/.gradle
