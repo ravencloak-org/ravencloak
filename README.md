@@ -85,49 +85,37 @@ The fat JAR will be created at `keycloak-spi/build/libs/keycloak-user-storage-sp
 
 3. In Keycloak Admin Console, go to **User Federation** and add `external-user-storage` provider.
 
-**Option 2: Docker Compose (Development)**
+**Option 2: Docker Compose with Drone CI**
 
-For local development, the JAR is mounted directly into the container:
+Drone CI builds the SPI and places the JAR in a shared volume accessible to Keycloak.
+
+1. Create the shared providers directory on the host:
+   ```bash
+   sudo mkdir -p /opt/keycloak-providers
+   sudo chmod 755 /opt/keycloak-providers
+   ```
+
+2. Push changes to trigger Drone CI build, then start Keycloak:
+   ```bash
+   docker compose up -d
+   ```
+
+The `docker-compose.yml` mounts the shared `/opt/keycloak-providers` folder into Keycloak's providers directory.
+
+**Option 3: Docker Compose (Local Development)**
+
+For local development without Drone CI:
 
 ```bash
 # Build the SPI first
 ./gradlew :keycloak-spi:shadowJar
 
-# Start Keycloak with the SPI
+# Copy to shared providers folder
+cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /opt/keycloak-providers/keycloak-user-storage-spi.jar
+
+# Start Keycloak
 docker compose up -d
 ```
-
-The `docker-compose.yml` mounts the local JAR into Keycloak's providers directory.
-
-**Option 3: Docker Compose (Production)**
-
-For production, build a custom Keycloak image with the SPI baked in:
-
-```bash
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-The `keycloak/Dockerfile` downloads the JAR from GitHub Releases during image build. Update the build args in `docker-compose.prod.yml`:
-- `SPI_VERSION`: Version tag (e.g., `0.0.1-SNAPSHOT`)
-- `GITHUB_REPO`: Your GitHub repository (e.g., `your-org/auth`)
-
-**Option 4: Docker Compose (Remote Download at Runtime)**
-
-For runtime download without rebuilding the image:
-
-```bash
-docker compose -f docker-compose.remote.yml up -d
-```
-
-This uses an init container to download the JAR from GitHub Releases before Keycloak starts.
-
-#### Docker Compose Files
-
-| File | Use Case |
-|------|----------|
-| `docker-compose.yml` | Development (mounts local JAR) |
-| `docker-compose.prod.yml` | Production (JAR baked into image) |
-| `docker-compose.remote.yml` | Runtime download from GitHub |
 
 #### How it Works
 
@@ -139,11 +127,12 @@ This uses an init container to download the JAR from GitHub Releases before Keyc
 
 #### CI/CD
 
-The Keycloak SPI is built automatically via GitHub Actions (`.github/workflows/keycloak-spi.yml`).
+The Keycloak SPI is built automatically via Drone CI (`.drone.yml`).
 
 **Automatic Builds:**
-- Triggers on push/PR to `master`/`main` when `keycloak-spi/**` files change
-- Uploads JAR as a workflow artifact (retained for 30 days)
+- Triggers on push to `master`/`main` when `keycloak-spi/**` files change
+- Builds the JAR and copies it to `/opt/keycloak-providers/keycloak-user-storage-spi.jar`
+- Keycloak container mounts this shared folder, picking up the JAR on restart
 
 **Creating a Release:**
 
@@ -153,14 +142,15 @@ The Keycloak SPI is built automatically via GitHub Actions (`.github/workflows/k
    git push origin v1.0.0
    ```
 
-2. GitHub Actions will automatically:
+2. Drone CI will automatically:
    - Build the SPI JAR with the tagged version
-   - Create a GitHub Release with the JAR attached
-   - Generate release notes
+   - Deploy to the shared providers folder
 
-The JAR will be available at:
-```
-https://github.com/<your-org>/auth/releases/download/v1.0.0/keycloak-user-storage-spi-1.0.0.jar
+**Restarting Keycloak after Build:**
+
+After Drone CI completes, restart Keycloak to load the new SPI:
+```bash
+docker compose restart keycloak
 ```
 
 ## Configuration

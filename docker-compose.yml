@@ -1,12 +1,5 @@
 services:
   keycloak:
-    # For production: use custom image with SPI baked in
-    # build:
-    #   context: ./keycloak
-    #   args:
-    #     SPI_VERSION: 0.0.1-SNAPSHOT
-    #     GITHUB_REPO: your-org/auth
-    # For development: use base image with local JAR mount
     image: quay.io/keycloak/keycloak:26.5.0
     container_name: keycloak
     ports:
@@ -19,6 +12,14 @@ services:
       - KC_DB_USERNAME=postgres
       - KC_DB_PASSWORD=postgres
     volumes:
-      # Development only: mount local JAR (comment out when using build)
-      - ./keycloak-spi/build/libs/keycloak-user-storage-spi-0.0.1-SNAPSHOT.jar:/opt/keycloak/providers/keycloak-user-storage-spi.jar:ro
+      # Shared providers folder - populated by Drone CI build
+      - keycloak-providers:/opt/keycloak/providers:ro
     command: start-dev
+
+volumes:
+  keycloak-providers:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/keycloak-providers
