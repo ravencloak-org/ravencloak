@@ -9,25 +9,11 @@ when:
         - "settings.gradle.kts"
 
 steps:
-  - name: compile
+  - name: build-and-test
     image: eclipse-temurin:21-jdk
     commands:
-      - echo "Building Keycloak SPI module..."
-      - ./gradlew :keycloak-spi:compileKotlin --no-daemon --build-cache
-    volumes:
-      - /opt/woodpecker-cache/gradle:/root/.gradle
-
-  - name: test
-    image: eclipse-temurin:21-jdk
-    commands:
-      - ./gradlew :keycloak-spi:test --no-daemon --build-cache
-    volumes:
-      - /opt/woodpecker-cache/gradle:/root/.gradle
-
-  - name: build-jar
-    image: eclipse-temurin:21-jdk
-    commands:
-      - ./gradlew :keycloak-spi:shadowJar --no-daemon --build-cache
-      - echo "JAR built successfully (not deployed - use tag for release)"
+      - echo "Building and testing Keycloak SPI module..."
+      - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon --build-cache
+      - echo "Build successful!"
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle

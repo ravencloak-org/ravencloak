@@ -4,18 +4,12 @@ when:
     ref: refs/tags/spi-v*
 
 steps:
-  - name: build
+  - name: build-and-deploy
     image: eclipse-temurin:21-jdk
     commands:
       - export VERSION=${CI_COMMIT_TAG#spi-v}
       - echo "Building Keycloak SPI version $VERSION"
       - ./gradlew :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon --build-cache
-    volumes:
-      - /opt/woodpecker-cache/gradle:/root/.gradle
-
-  - name: deploy
-    image: eclipse-temurin:21-jdk
-    commands:
       - mkdir -p /shared/providers
       - rm -f /shared/providers/keycloak-user-storage-spi*.jar
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
