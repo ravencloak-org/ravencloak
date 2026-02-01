@@ -4,22 +4,62 @@ when:
     ref: refs/tags/spi-v*
 
 steps:
-  - name: build-and-deploy
+  - name: build-and-test
     image: eclipse-temurin:21-jdk
     commands:
       - export VERSION=${CI_COMMIT_TAG#spi-v}
       - echo "Building Keycloak SPI version $VERSION"
-      - ./gradlew :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon --build-cache
+      - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon --build-cache
+      - mkdir -p release-assets
+      - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar release-assets/
+      - cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
+      - echo "Build successful!"
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: generate-changelog
+    image: alpine/git
+    commands:
+      - |
+        PREV_TAG=$(git tag -l 'spi-v*' --sort=-v:refname | grep -v ${CI_COMMIT_TAG} | head -n1)
+        if [ -z "$PREV_TAG" ]; then
+          PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          echo "No previous tag found, using initial commit"
+        fi
+        echo "Generating changelog from $PREV_TAG to ${CI_COMMIT_TAG}"
+
+        echo "# Changelog for ${CI_COMMIT_TAG}" > release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "## Keycloak SPI Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- keycloak-spi/ >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Auth Backend Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- src/ build.gradle.kts >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Other Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- . ':!keycloak-spi/' ':!src/' >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        cat release-assets/CHANGELOG.md
+
+  - name: deploy
+    image: alpine
+    commands:
       - mkdir -p /shared/providers
       - rm -f /shared/providers/keycloak-user-storage-spi*.jar
-      - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
+      - cp release-assets/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
       - echo "Deployed to /opt/keycloak-providers/"
     volumes:
       - /opt/keycloak-providers:/shared/providers
-      - /opt/woodpecker-cache/gradle:/root/.gradle
 
   - name: update-readme
     image: alpine/git
+    environment:
+      GIT_TERMINAL_PROMPT: "0"
     commands:
       - git config --global user.email "ci@keeplearningos.com"
       - git config --global user.name "Woodpecker CI"
@@ -29,15 +69,13 @@ steps:
       - git add README.md
       - git diff --cached --quiet || git commit -m "Update keycloak-spi version badge to ${CI_COMMIT_TAG}"
       - git push origin main
-    environment:
-      - GIT_TERMINAL_PROMPT=0
 
   - name: github-release
     image: woodpeckerci/plugin-release
     settings:
       files:
-        - keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar
+        - release-assets/*
       title: "Keycloak SPI ${CI_COMMIT_TAG}"
-      note: "Keycloak User Storage SPI Release ${CI_COMMIT_TAG}"
+      note: release-assets/CHANGELOG.md
       api_key:
         from_secret: github_token
