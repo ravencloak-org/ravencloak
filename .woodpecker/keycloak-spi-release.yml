@@ -141,15 +141,18 @@ steps:
     commands:
       - apk add --no-cache github-cli
       - VERSION=$(cat .version)
+      - echo "Files in release-assets:" && ls -la release-assets/
+      - SPI_JAR=$(find release-assets -name "*.jar" -type f | head -1)
+      - echo "Using JAR file:" $SPI_JAR
       - |
         if gh release view $VERSION --repo $CI_REPO > /dev/null 2>&1; then
           echo "Release $VERSION already exists, updating notes and uploading assets..."
           gh release edit $VERSION --repo $CI_REPO --notes-file release-assets/CHANGELOG.md
-          gh release upload $VERSION --repo $CI_REPO --clobber release-assets/keycloak-user-storage-spi-*.jar
+          gh release upload $VERSION --repo $CI_REPO --clobber "$SPI_JAR"
         else
           gh release create $VERSION \
             --repo $CI_REPO \
             --title "Keycloak SPI $VERSION" \
             --notes-file release-assets/CHANGELOG.md \
-            release-assets/keycloak-user-storage-spi-*.jar
+            "$SPI_JAR"
         fi
