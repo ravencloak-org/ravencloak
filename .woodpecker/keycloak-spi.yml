@@ -1,0 +1,33 @@
+# Keycloak SPI - Build & Test (Push/PR)
+when:
+  - event: [push, pull_request]
+    path:
+      include:
+        - "keycloak-spi/**"
+        - ".woodpecker/keycloak-spi*.yml"
+        - "build.gradle.kts"
+        - "settings.gradle.kts"
+
+steps:
+  - name: compile
+    image: eclipse-temurin:21-jdk
+    commands:
+      - echo "Building Keycloak SPI module..."
+      - ./gradlew :keycloak-spi:compileKotlin --no-daemon --build-cache
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: test
+    image: eclipse-temurin:21-jdk
+    commands:
+      - ./gradlew :keycloak-spi:test --no-daemon --build-cache
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: build-jar
+    image: eclipse-temurin:21-jdk
+    commands:
+      - ./gradlew :keycloak-spi:shadowJar --no-daemon --build-cache
+      - echo "JAR built successfully (not deployed - use tag for release)"
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle

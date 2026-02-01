@@ -1,0 +1,35 @@
+# Auth Backend - Build & Test (Push/PR)
+when:
+  - event: [push, pull_request]
+    path:
+      include:
+        - "src/**"
+        - "build.gradle.kts"
+        - "settings.gradle.kts"
+        - ".woodpecker/auth*.yml"
+      exclude:
+        - "keycloak-spi/**"
+
+steps:
+  - name: compile
+    image: eclipse-temurin:21-jdk
+    commands:
+      - echo "Building Auth Backend..."
+      - ./gradlew compileKotlin --no-daemon --build-cache -x :keycloak-spi:compileKotlin
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: test
+    image: eclipse-temurin:21-jdk
+    commands:
+      - ./gradlew test --no-daemon --build-cache -x :keycloak-spi:test
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: build
+    image: eclipse-temurin:21-jdk
+    commands:
+      - ./gradlew bootJar --no-daemon --build-cache
+      - echo "Auth Backend JAR built successfully"
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle

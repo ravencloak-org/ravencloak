@@ -13,7 +13,7 @@ class ExternalUserStorageProviderFactory : UserStorageProviderFactory<ExternalUs
 
     companion object {
         private val logger: Logger = Logger.getLogger(ExternalUserStorageProviderFactory::class.java.name)
-        const val PROVIDER_ID = "external-user-storage"
+        const val PROVIDER_ID = "kos-auth-storage"
     }
 
     override fun getId(): String = PROVIDER_ID
