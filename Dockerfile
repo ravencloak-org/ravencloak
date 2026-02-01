@@ -1,28 +1,38 @@
+# syntax=docker/dockerfile:1.4
+
 # Build stage
 FROM eclipse-temurin:21-jdk AS builder
 
 WORKDIR /app
 
-# Copy Gradle wrapper and build files
+# Copy Gradle wrapper and build files first (changes less frequently)
 COPY gradle/ gradle/
 COPY gradlew build.gradle.kts settings.gradle.kts ./
+
+# Download dependencies (cached unless build files change)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew dependencies --no-daemon
 
 # Copy source code
 COPY src/ src/
 
-# Build the application (skip tests - they run in CI)
-RUN ./gradlew bootJar -x test --no-daemon
+# Build the application with Gradle cache
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew bootJar -x test --no-daemon && \
+    cp build/libs/*.jar /app.jar
 
 # Runtime stage
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-# Create non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+# Install curl for healthcheck and create non-root user
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r appgroup && useradd -r -g appgroup appuser
 
 # Copy the built JAR
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY --from=builder /app.jar app.jar
 
 # Set ownership
 RUN chown -R appuser:appgroup /app

@@ -149,7 +149,7 @@ steps:
         fi
 
   - name: build-and-push-docker
-    image: plugins/docker
+    image: woodpeckerci/plugin-docker-buildx
     settings:
       repo: ghcr.io/dsjkeeplearning/kos-auth-backend
       tags:
@@ -160,6 +160,9 @@ steps:
       password:
         from_secret: github_token
       dockerfile: Dockerfile
+      # Registry-based layer caching
+      cache_from: ghcr.io/dsjkeeplearning/kos-auth-backend:cache
+      cache_to: ghcr.io/dsjkeeplearning/kos-auth-backend:cache
 
   - name: deploy
     image: docker:cli
