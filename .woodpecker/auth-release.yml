@@ -1,4 +1,5 @@
 # Auth Backend - Release (Tag: v*)
+# Triggered automatically when ready-release-go creates a tag after release PR merge
 when:
   - event: tag
     ref: refs/tags/v*
@@ -7,32 +8,66 @@ steps:
   - name: build
     image: eclipse-temurin:21-jdk
     commands:
-      - export VERSION=${CI_COMMIT_TAG#v}
+      - VERSION=${CI_COMMIT_TAG#v}
       - echo "Building Auth Backend version $VERSION"
-      - ./gradlew bootJar -Pversion=$VERSION --no-daemon --build-cache
+      - ./gradlew bootJar -Pversion=$VERSION --no-daemon --build-cache -x test
+      - mkdir -p release-assets
+      - cp build/libs/*.jar release-assets/
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle
 
+  - name: generate-changelog
+    image: alpine/git
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG}
+        PREV_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v 'spi-v' | grep -v 'release-v' | grep -v $VERSION | head -n1)
+        if [ -z "$PREV_TAG" ]; then
+          PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+        fi
+        echo "Generating changelog from $PREV_TAG to $VERSION"
+
+        echo "# Changelog for $VERSION" > release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Auth Backend Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- src/ build.gradle.kts >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Keycloak SPI Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- keycloak-spi/ >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Other Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- . ':!keycloak-spi/' ':!src/' >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        cat release-assets/CHANGELOG.md
+
   - name: update-readme
     image: alpine/git
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
     commands:
       - git config --global user.email "ci@keeplearningos.com"
       - git config --global user.name "Woodpecker CI"
+      - git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
       - git fetch origin main
       - git checkout main
       - sed -i "s|auth-v[0-9.]*-|auth-${CI_COMMIT_TAG}-|g" README.md
       - git add README.md
       - git diff --cached --quiet || git commit -m "Update auth version badge to ${CI_COMMIT_TAG}"
       - git push origin main
-    environment:
-      - GIT_TERMINAL_PROMPT=0
 
   - name: github-release
     image: woodpeckerci/plugin-release
     settings:
       files:
-        - build/libs/*.jar
+        - release-assets/*
       title: "Auth Backend ${CI_COMMIT_TAG}"
-      note: "KOS Auth Backend Release ${CI_COMMIT_TAG}"
+      note: release-assets/CHANGELOG.md
       api_key:
         from_secret: github_token

@@ -1,7 +1,8 @@
-# Keycloak SPI - Release (Tag: spi-v* or Manual)
+# Combined Release (Tag: release-v* or Manual)
+# Use this to release both modules together
 when:
   - event: tag
-    ref: refs/tags/spi-v*
+    ref: refs/tags/release-v*
   - event: manual
 
 steps:
@@ -13,19 +14,19 @@ steps:
     commands:
       - |
         if [ "$CI_PIPELINE_EVENT" = "manual" ]; then
-          # Auto-increment: find latest spi-v* tag and bump patch version
-          LATEST_TAG=$(git tag -l 'spi-v*' --sort=-v:refname | head -n1)
+          # Auto-increment: find latest release-v* tag and bump patch version
+          LATEST_TAG=$(git tag -l 'release-v*' --sort=-v:refname | head -n1)
           if [ -z "$LATEST_TAG" ]; then
-            NEW_VERSION="spi-v1.0.0"
+            NEW_VERSION="release-v1.0.0"
           else
             # Extract version numbers
-            VERSION=${LATEST_TAG#spi-v}
+            VERSION=${LATEST_TAG#release-v}
             MAJOR=$(echo $VERSION | cut -d. -f1)
             MINOR=$(echo $VERSION | cut -d. -f2)
             PATCH=$(echo $VERSION | cut -d. -f3)
             # Increment patch
             PATCH=$((PATCH + 1))
-            NEW_VERSION="spi-v$MAJOR.$MINOR.$PATCH"
+            NEW_VERSION="release-v$MAJOR.$MINOR.$PATCH"
           fi
           echo "Auto-incrementing to $NEW_VERSION"
 
@@ -42,17 +43,16 @@ steps:
         fi
         echo "Version: $(cat .version)"
 
-  - name: build-and-test
+  - name: build-all
     image: eclipse-temurin:21-jdk
     commands:
       - VERSION=$(cat .version)
-      - VERSION=${VERSION#spi-v}
-      - echo "Building Keycloak SPI version $VERSION"
-      - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon --build-cache
+      - VERSION=${VERSION#release-v}
+      - echo "Building all modules version $VERSION"
+      - ./gradlew :keycloak-spi:shadowJar bootJar -Pversion=$VERSION --no-daemon --build-cache -x test
       - mkdir -p release-assets
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar release-assets/
-      - cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
-      - echo "Build successful!"
+      - cp build/libs/*.jar release-assets/
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle
 
@@ -61,22 +61,22 @@ steps:
     commands:
       - |
         VERSION=$(cat .version)
-        PREV_TAG=$(git tag -l 'spi-v*' --sort=-v:refname | grep -v $VERSION | head -n1)
+        PREV_TAG=$(git tag -l 'release-v*' --sort=-v:refname | grep -v $VERSION | head -n1)
         if [ -z "$PREV_TAG" ]; then
           PREV_TAG=$(git rev-list --max-parents=0 HEAD)
-          echo "No previous tag found, using initial commit"
         fi
         echo "Generating changelog from $PREV_TAG to $VERSION"
 
         echo "# Changelog for $VERSION" > release-assets/CHANGELOG.md
         echo "" >> release-assets/CHANGELOG.md
-        echo "## Keycloak SPI Changes" >> release-assets/CHANGELOG.md
-        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- keycloak-spi/ >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
 
         echo "## Auth Backend Changes" >> release-assets/CHANGELOG.md
         git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- src/ build.gradle.kts >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Keycloak SPI Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- keycloak-spi/ >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
         echo "" >> release-assets/CHANGELOG.md
         echo "" >> release-assets/CHANGELOG.md
 
@@ -86,13 +86,13 @@ steps:
 
         cat release-assets/CHANGELOG.md
 
-  - name: deploy
+  - name: deploy-spi
     image: alpine
     commands:
       - mkdir -p /shared/providers
       - rm -f /shared/providers/keycloak-user-storage-spi*.jar
       - cp release-assets/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
-      - echo "Deployed to /opt/keycloak-providers/"
+      - echo "Deployed SPI to /opt/keycloak-providers/"
     volumes:
       - /opt/keycloak-providers:/shared/providers
 
@@ -108,9 +108,10 @@ steps:
       - git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
       - git fetch origin main
       - git checkout main
+      - sed -i "s|auth-v[0-9.]*-|auth-${VERSION}-|g" README.md
       - sed -i "s|keycloak--spi-spi--v[0-9.]*-|keycloak--spi-${VERSION}-|g" README.md
       - git add README.md
-      - git diff --cached --quiet || git commit -m "Update keycloak-spi version badge to ${VERSION}"
+      - git diff --cached --quiet || git commit -m "Update version badges to ${VERSION}"
       - git push origin main
 
   - name: github-release
@@ -124,6 +125,6 @@ steps:
       - |
         gh release create $VERSION \
           --repo $CI_REPO \
-          --title "Keycloak SPI $VERSION" \
+          --title "Release $VERSION" \
           --notes-file release-assets/CHANGELOG.md \
-          release-assets/keycloak-user-storage-spi-*.jar
+          release-assets/*.jar
