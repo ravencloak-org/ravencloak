@@ -85,9 +85,9 @@ The fat JAR will be created at `keycloak-spi/build/libs/keycloak-user-storage-sp
 
 3. In Keycloak Admin Console, go to **User Federation** and add `external-user-storage` provider.
 
-**Option 2: Docker Compose with Drone CI**
+**Option 2: Docker Compose with Woodpecker CI**
 
-Drone CI builds the SPI and places the JAR in a shared volume accessible to Keycloak.
+Woodpecker CI builds the SPI and places the JAR in a shared volume accessible to Keycloak.
 
 1. Create the shared providers directory on the host:
    ```bash
@@ -95,7 +95,7 @@ Drone CI builds the SPI and places the JAR in a shared volume accessible to Keyc
    sudo chmod 755 /opt/keycloak-providers
    ```
 
-2. Push changes to trigger Drone CI build, then start Keycloak:
+2. Push changes to trigger Woodpecker CI build, then start Keycloak:
    ```bash
    docker compose up -d
    ```
@@ -104,7 +104,7 @@ The `docker-compose.yml` mounts the shared `/opt/keycloak-providers` folder into
 
 **Option 3: Docker Compose (Local Development)**
 
-For local development without Drone CI:
+For local development without Woodpecker CI:
 
 ```bash
 # Build the SPI first
@@ -127,7 +127,7 @@ docker compose up -d
 
 #### CI/CD
 
-The Keycloak SPI is built automatically via Drone CI (`.drone.yml`).
+The Keycloak SPI is built automatically via Woodpecker CI (`.woodpecker/`).
 
 **Automatic Builds:**
 - Triggers on push to `master`/`main` when `keycloak-spi/**` files change
@@ -142,13 +142,13 @@ The Keycloak SPI is built automatically via Drone CI (`.drone.yml`).
    git push origin v1.0.0
    ```
 
-2. Drone CI will automatically:
+2. Woodpecker CI will automatically:
    - Build the SPI JAR with the tagged version
    - Deploy to the shared providers folder
 
 **Restarting Keycloak after Build:**
 
-After Drone CI completes, restart Keycloak to load the new SPI:
+After Woodpecker CI completes, restart Keycloak to load the new SPI:
 ```bash
 docker compose restart keycloak
 ```
