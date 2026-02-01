@@ -72,8 +72,8 @@ A read-only User Storage Provider that validates users against the auth backend 
 **API Endpoint Called:**
 - `GET http://auth-backend:8080/api/users/{email}` - Returns user if exists (200) or not found (404)
 
-**CI/CD (Drone CI):**
-- `.drone.yml` builds the SPI JAR on push to `master`/`main`
+**CI/CD (Woodpecker CI):**
+- `.woodpecker/` builds the SPI JAR on push to `master`/`main`
 - JAR is copied to `/opt/keycloak-providers/` shared volume
 - Keycloak mounts this folder and loads the SPI on restart
 
