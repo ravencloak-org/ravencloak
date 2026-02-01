@@ -73,9 +73,51 @@ A read-only User Storage Provider that validates users against the auth backend 
 - `GET http://auth-backend:8080/api/users/{email}` - Returns user if exists (200) or not found (404)
 
 **CI/CD (Woodpecker CI):**
-- `.woodpecker/` builds the SPI JAR on push to `master`/`main`
-- JAR is copied to `/opt/keycloak-providers/` shared volume
+- `.woodpecker/` contains all pipeline configurations
+- JAR is copied to `/opt/keycloak-providers/` shared volume on release
 - Keycloak mounts this folder and loads the SPI on restart
+- See [.woodpecker/README.md](.woodpecker/README.md) for detailed CI/CD documentation
+
+## Woodpecker CI
+
+### Pipeline Overview
+
+| Pipeline | Trigger | Description |
+|----------|---------|-------------|
+| `auth.yml` | Push to `src/**` | Build auth backend |
+| `keycloak-spi.yml` | Push to `keycloak-spi/**` | Build and test SPI |
+| `auth-release.yml` | Tag `v*` | Release auth backend |
+| `keycloak-spi-release.yml` | Tag `spi-v*` or manual | Release SPI |
+| `release-all.yml` | Tag `release-v*` or manual | Release both modules |
+
+### Manual Release Triggers (CLI)
+
+```bash
+# Keycloak SPI release (auto-increments version)
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
+
+# Combined release (auto-increments version)
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=release-all
+```
+
+### Caching
+
+- **Gradle dependencies**: Volume mount at `/var/lib/woodpecker/cache/gradle:/root/.gradle`
+- **S3 build cache**: Cloudflare R2 via `com.github.burrunan.s3-build-cache` plugin
+- **Docker cache**: Registry-based cache at `ghcr.io/dsjkeeplearning/kos-auth-backend:cache`
+
+### Required Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `github_token` | GitHub releases, README updates, Docker registry |
+| `s3_build_cache_*` | Remote Gradle build cache |
+| `db_*`, `keycloak_*` | Application deployment |
+
+### Deployment Flow
+
+- **Auth Backend**: Docker image pushed to ghcr.io, container restarted on EC2
+- **Keycloak SPI**: JAR copied to `/opt/keycloak-providers/`, Keycloak restarted
 
 ### Multi-Tenant Authentication
 
