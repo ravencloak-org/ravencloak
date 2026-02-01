@@ -209,27 +209,21 @@ This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous int
 
 **Woodpecker Dashboard:** https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend
 
+**Full CI/CD Documentation:** [.woodpecker/README.md](.woodpecker/README.md)
+
 ### Pipelines
 
 | Pipeline | Trigger | Description |
 |----------|---------|-------------|
 | `auth.yml` | Push/PR to `src/**` | Compile, build bootJar |
 | `keycloak-spi.yml` | Push/PR to `keycloak-spi/**` | Compile, test, build JAR |
-| `auth-release.yml` | Tag `v*` | Build auth backend, GitHub release |
-| `keycloak-spi-release.yml` | Tag `spi-v*` | Build, test, deploy SPI, GitHub release |
-| `release-all.yml` | Tag `release-v*` | Build both modules, GitHub release |
+| `auth-release.yml` | Tag `v*` | Build auth backend, GitHub release, Docker deploy |
+| `keycloak-spi-release.yml` | Tag `spi-v*` or manual | Build, test, deploy SPI, GitHub release |
+| `release-all.yml` | Tag `release-v*` or manual | Build both modules, full deploy |
 
-### Automatic Builds
+### Release Workflow
 
-- **Pull Requests**: Runs compile and tests for affected modules only
-- **Push to main**: Runs build for affected modules
-- **Path filtering**: Changes to `keycloak-spi/**` only trigger SPI pipeline, changes to `src/**` only trigger auth pipeline
-- **Gradle caching**: Dependencies cached at `/opt/woodpecker-cache/gradle` for faster builds
-
-### Release Workflow (Tag-Based)
-
-All releases are triggered by git tags:
-
+**Tag-Based (Automatic):**
 ```bash
 # Auth backend release
 git tag v1.0.0 && git push origin v1.0.0
@@ -241,62 +235,31 @@ git tag spi-v1.0.0 && git push origin spi-v1.0.0
 git tag release-v1.0.0 && git push origin release-v1.0.0
 ```
 
-Each release pipeline will:
-1. Build and test the module(s)
-2. Generate changelog from commits
-3. Update version badge in README
-4. Create GitHub release with artifacts
-
-### Release Pipeline Actions
-
-| Step | Auth Backend | Keycloak SPI | Combined |
-|------|--------------|--------------|----------|
-| Build | `./gradlew bootJar` | `./gradlew :keycloak-spi:shadowJar` | Both |
-| Test | Skipped (tested in PR) | `./gradlew :keycloak-spi:test` | SPI only |
-| Deploy JAR | - | Copy to `/opt/keycloak-providers/` | SPI only |
-| Changelog | Generate from commits | Generate from commits | Generate from commits |
-| Update README | Update version badge | Update version badge | Both badges |
-| GitHub Release | Create with JAR | Create with JAR | Both JARs |
-
-### After SPI Release
-
-Restart Keycloak to load the new SPI:
+**CLI-Based (Manual with Auto-Increment):**
 ```bash
-docker compose restart keycloak
+# Keycloak SPI release
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
+
+# Combined release
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=release-all
 ```
 
-Verify the SPI is loaded:
-```bash
-# Check Keycloak logs
-docker compose logs keycloak | grep "kos-auth-storage"
+### Caching
 
-# Or check in Keycloak Admin Console
-# Go to: Realm Settings → User Federation → Add provider
-# You should see "kos-auth-storage" in the list
-```
+| Cache Type | Location | Purpose |
+|------------|----------|---------|
+| Gradle Dependencies | `/var/lib/woodpecker/cache/gradle` (volume) | Instant dependency restoration |
+| S3 Build Cache | Cloudflare R2 | Shared build outputs |
+| Docker Cache | `ghcr.io/.../kos-auth-backend:cache` | Layer caching for Docker builds |
 
-### Woodpecker Endpoints
+### Deployment
 
-| Endpoint | URL |
-|----------|-----|
-| Dashboard | https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend |
-| Build Status Badge | `https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg` |
+- **Auth Backend**: Docker image to GitHub Container Registry, deployed to EC2
+- **Keycloak SPI**: JAR to `/opt/keycloak-providers/`, Keycloak auto-restarted
 
-### Troubleshooting Releases
+### Troubleshooting
 
-**SPI not loading in Keycloak:**
-- Verify JAR exists: `ls -la /opt/keycloak-providers/`
-- Check Keycloak has read access to the volume
-- Restart Keycloak: `docker compose restart keycloak`
-- Check logs: `docker compose logs keycloak | grep -i error`
-
-**Pipeline failing on README update:**
-- This can happen if main branch is protected
-- Either allow the CI bot to push, or remove the `update-readme` step
-
-**Changelog showing "No changes":**
-- Ensure commits follow the path patterns in changelog generation
-- Check that the previous tag exists for comparison
+See [.woodpecker/README.md](.woodpecker/README.md#troubleshooting) for detailed troubleshooting guides
 
 ## Configuration
 
