@@ -9,11 +9,14 @@ WORKDIR /app
 COPY gradle/ gradle/
 COPY gradlew build.gradle.kts settings.gradle.kts ./
 
+# Copy keycloak-spi build file (needed for Gradle to configure multi-module project)
+COPY keycloak-spi/build.gradle.kts keycloak-spi/
+
 # Download dependencies for root project only (not keycloak-spi)
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew :dependencies --no-daemon
 
-# Copy source code (only root project src, not keycloak-spi)
+# Copy source code (only root project src)
 COPY src/ src/
 
 # Build only the root Spring Boot app (not keycloak-spi)
