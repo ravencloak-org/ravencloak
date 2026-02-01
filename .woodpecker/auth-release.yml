@@ -9,10 +9,21 @@ steps:
     image: eclipse-temurin:21-jdk
     environment:
       GRADLE_USER_HOME: /root/.gradle
+      CI: "true"
+      S3_BUILD_CACHE_BUCKET:
+        from_secret: s3_build_cache_bucket
+      S3_BUILD_CACHE_REGION:
+        from_secret: s3_build_cache_region
+      S3_BUILD_CACHE_ACCESS_KEY_ID:
+        from_secret: s3_build_cache_access_key_id
+      S3_BUILD_CACHE_SECRET_KEY:
+        from_secret: s3_build_cache_secret_key
+      S3_BUILD_CACHE_ENDPOINT:
+        from_secret: s3_build_cache_endpoint
     commands:
       - VERSION=${CI_COMMIT_TAG#v}
       - echo "Building Auth Backend version $VERSION"
-      - ./gradlew bootJar -Pversion=$VERSION --no-daemon --no-configuration-cache -x test
+      - ./gradlew bootJar -Pversion=$VERSION --no-daemon  -x test
       - mkdir -p release-assets
       - cp build/libs/*.jar release-assets/
     volumes:

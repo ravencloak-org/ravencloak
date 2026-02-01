@@ -55,6 +55,79 @@ The application will start on the default Spring Boot port (8080).
 - OAuth2 client support
 - WebFlux reactive web framework
 
+## Speeding Up Gradle Builds
+
+This project uses several optimizations to speed up Gradle builds for both local development and CI.
+
+### Build Cache (Enabled by Default)
+
+Gradle caches task outputs locally. Subsequent builds reuse cached results when inputs haven't changed.
+
+### Remote Build Cache (Optional)
+
+Share build cache across your team and CI using S3 or S3-compatible storage (MinIO, Cloudflare R2, Backblaze B2).
+
+**Setup:**
+
+1. Create an S3 bucket (or use existing S3-compatible storage)
+
+2. Add to your `.env`:
+   ```env
+   S3_BUILD_CACHE_BUCKET=your-gradle-cache-bucket
+   S3_BUILD_CACHE_REGION=us-east-1
+   S3_BUILD_CACHE_ACCESS_KEY_ID=your_access_key
+   S3_BUILD_CACHE_SECRET_KEY=your_secret_key
+   # For MinIO/R2/etc:
+   # S3_BUILD_CACHE_ENDPOINT=https://minio.example.com:9000
+   ```
+
+3. Source the env before building:
+   ```bash
+   export $(cat .env | xargs)
+   ./gradlew build
+   ```
+
+**How it works:**
+- First build: Compiles and pushes results to S3
+- Subsequent builds: Pulls cached results from S3 (local or CI)
+- Team members share cache, so builds are faster for everyone
+
+**S3 Bucket Policy (minimum required):**
+```json
+{
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["s3:GetObject", "s3:PutObject"],
+    "Resource": "arn:aws:s3:::your-bucket/gradle-cache/*"
+  }]
+}
+```
+
+**Recommended:** Add S3 lifecycle policy to auto-delete cache entries older than 30 days.
+
+### Other Optimizations
+
+These are already configured in `gradle.properties`:
+
+| Setting | Description |
+|---------|-------------|
+| `org.gradle.parallel=true` | Build modules in parallel |
+| `org.gradle.caching=true` | Enable local build cache |
+| `org.gradle.configuration-cache=true` | Cache task graph (local dev) |
+
+### Verifying Cache Hits
+
+Run with `--info` to see cache statistics:
+```bash
+./gradlew build --info | grep -i "cache"
+```
+
+You should see output like:
+```
+> Task :compileKotlin FROM-CACHE
+S3 cache: reads: 5, hits: 4, elapsed: 120ms
+```
+
 ## Modules
 
 ### Main Application (`auth`)
