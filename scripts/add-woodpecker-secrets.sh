@@ -45,10 +45,18 @@ echo "Server: $WOODPECKER_SERVER"
 echo "Repository: $REPO"
 echo ""
 
+# Function to trim whitespace
+trim() {
+    local var="$*"
+    var="${var#"${var%%[![:space:]]*}"}"
+    var="${var%"${var##*[![:space:]]}"}"
+    echo -n "$var"
+}
+
 # Function to add a secret
 add_secret() {
     local name=$1
-    local value=$2
+    local value=$(trim "$2")
 
     echo "Adding secret: $name"
     woodpecker-cli repo secret add \
