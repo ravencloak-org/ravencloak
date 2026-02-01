@@ -100,14 +100,17 @@ steps:
         cat release-assets/CHANGELOG.md
 
   - name: deploy-spi
-    image: alpine
+    image: docker:cli
+    volumes:
+      - /opt/keycloak-providers:/shared/providers
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
       - mkdir -p /shared/providers
       - rm -f /shared/providers/keycloak-user-storage-spi*.jar
       - cp release-assets/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
       - echo "Deployed SPI to /opt/keycloak-providers/"
-    volumes:
-      - /opt/keycloak-providers:/shared/providers
+      - echo "Restarting Keycloak to load new SPI..."
+      - 'docker restart keycloak || echo "Warning - Could not restart keycloak container"'
 
   - name: update-readme
     image: alpine/git
