@@ -57,7 +57,7 @@ steps:
       - git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
       - git fetch origin main
       - git checkout main
-      - sed -i "s|auth-v[0-9.]*-|auth-${CI_COMMIT_TAG}-|g" README.md
+      - sed -i "s|auth-v[0-9.]*-blue|auth-${CI_COMMIT_TAG}-blue|g" README.md
       - git add README.md
       - git diff --cached --quiet || git commit -m "Update auth version badge to ${CI_COMMIT_TAG}"
       - git push origin main

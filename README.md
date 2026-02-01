@@ -2,7 +2,7 @@
 
 [![status-badge](https://drone.keeplearningos.com/api/badges/1/status.svg?events=push%2Ctag%2Crelease%2Cpull_request%2Cpull_request_closed%2Cpull_request_metadata%2Cdeployment)](https://drone.keeplearningos.com/repos/1)
 ![Auth](https://img.shields.io/badge/auth-v0.0.0-blue)
-![Keycloak SPI](https://img.shields.io/badge/keycloak--spi-spi--v0.0.0-green)
+![Keycloak SPI](https://img.shields.io/badge/keycloak--spi-v0.0.0-green)
 
 A multi-tenant authentication backend with Spring Boot/Kotlin and a Keycloak User Storage SPI for federated user validation via REST API.
 
@@ -142,225 +142,39 @@ This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous int
 |----------|---------|-------------|
 | `auth.yml` | Push/PR to `src/**` | Compile, build bootJar |
 | `keycloak-spi.yml` | Push/PR to `keycloak-spi/**` | Compile, test, build JAR |
-| `release-helper.yml` | Push to `main` | Creates/updates release PR with changelog |
 | `auth-release.yml` | Tag `v*` | Build auth backend, GitHub release |
-| `keycloak-spi-release.yml` | Tag `spi-v*` or Manual | Build, test, deploy SPI, GitHub release |
-| `release-all.yml` | Tag `release-v*` or Manual | Build both modules, GitHub release |
+| `keycloak-spi-release.yml` | Tag `spi-v*` | Build, test, deploy SPI, GitHub release |
+| `release-all.yml` | Tag `release-v*` | Build both modules, GitHub release |
 
 ### Automatic Builds
 
 - **Pull Requests**: Runs compile and tests for affected modules only
-- **Push to main**: Runs build for affected modules, plus updates release PR
+- **Push to main**: Runs build for affected modules
 - **Path filtering**: Changes to `keycloak-spi/**` only trigger SPI pipeline, changes to `src/**` only trigger auth pipeline
 - **Gradle caching**: Dependencies cached at `/opt/woodpecker-cache/gradle` for faster builds
 
-### Release Workflow (Hybrid Approach)
+### Release Workflow (Tag-Based)
 
-This project uses a **hybrid release strategy** combining PR-based semantic versioning for the auth backend with manual/tag-based releases for the Keycloak SPI.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     AUTH BACKEND RELEASE FLOW                               │
-│                     (Automated via ready-release-go)                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌──────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────────┐     │
-│   │ Create   │───>│ Merge to │───>│ Release PR   │───>│ Merge        │     │
-│   │ PR +     │    │ main     │    │ auto-created │    │ Release PR   │     │
-│   │ Labels   │    │          │    │ on release/  │    │              │     │
-│   └──────────┘    └──────────┘    └──────────────┘    └──────┬───────┘     │
-│                                                              │             │
-│                                                              v             │
-│                                    ┌──────────────┐    ┌──────────────┐    │
-│                                    │ GitHub       │<───│ Tag created  │    │
-│                                    │ Release      │    │ (v1.2.0)     │    │
-│                                    └──────────────┘    └──────────────┘    │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     KEYCLOAK SPI RELEASE FLOW                               │
-│                     (Manual trigger or tag push)                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   Option A: Manual Trigger                                                  │
-│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                 │
-│   │ Woodpecker   │───>│ Auto-version │───>│ Build, Test  │                 │
-│   │ UI: Run      │    │ spi-v1.0.X   │    │ Deploy, Tag  │                 │
-│   └──────────────┘    └──────────────┘    └──────────────┘                 │
-│                                                                             │
-│   Option B: Tag Push                                                        │
-│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                 │
-│   │ git tag      │───>│ Pipeline     │───>│ Build, Test  │                 │
-│   │ spi-v1.0.0   │    │ triggered    │    │ Deploy       │                 │
-│   └──────────────┘    └──────────────┘    └──────────────┘                 │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-#### Auth Backend (PR-Based with Semantic Versioning)
-
-Uses [ready-release-go](https://woodpecker-ci.org/plugins/ready-release-go) for automated releases with semantic versioning based on PR labels.
-
-**How it works:**
-
-1. **Create PRs with labels** - Add labels to categorize changes:
-
-   | Label | Version Bump | Changelog Section |
-   |-------|--------------|-------------------|
-   | `breaking`, `breaking-change` | Major (1.0.0 → 2.0.0) | 💥 Breaking Changes |
-   | `feature`, `enhancement` | Minor (1.0.0 → 1.1.0) | ✨ Features |
-   | `bug`, `bugfix`, `fix` | Patch (1.0.0 → 1.0.1) | 🐛 Bug Fixes |
-   | `security` | Patch | 🔒 Security |
-   | `documentation`, `docs` | Patch | 📚 Documentation |
-   | `dependencies`, `deps` | Patch | 📦 Dependencies |
-   | `chore`, `maintenance`, `ci` | Patch | 🔨 Maintenance |
-   | `keycloak-spi`, `spi` | Patch | 🔧 Keycloak SPI |
-   | `refactor`, `refactoring` | Patch | 🏗️ Refactoring |
-
-2. **Merge PRs to main** - The `release-helper` pipeline automatically:
-   - Creates/updates a release PR on branch `release/next`
-   - Generates changelog from merged PRs grouped by category
-   - Determines next version based on highest-priority label (breaking > feature > patch)
-
-3. **Review the release PR** - The PR contains:
-   - Updated `CHANGELOG.md` with all changes since last release
-   - Version bump in relevant files
-   - Summary of all included PRs
-
-4. **Merge the release PR** - This triggers:
-   - Automatic tag creation (e.g., `v1.2.0`)
-   - `auth-release.yml` pipeline runs
-   - JAR built and GitHub release created with changelog
-
-**Example workflow:**
+All releases are triggered by git tags:
 
 ```bash
-# 1. Create feature branch
-git checkout -b feature/add-user-endpoint
+# Auth backend release
+git tag v1.0.0 && git push origin v1.0.0
 
-# 2. Make changes and commit
-git add .
-git commit -m "Add user profile endpoint"
+# Keycloak SPI release
+git tag spi-v1.0.0 && git push origin spi-v1.0.0
 
-# 3. Push and create PR
-git push origin feature/add-user-endpoint
-# Create PR on GitHub with label "feature"
-
-# 4. After PR review and merge to main:
-#    - release-helper creates/updates release PR
-#    - Review release PR on branch "release/next"
-#    - Merge release PR → tag v1.1.0 created → release pipeline runs
+# Combined release (both modules)
+git tag release-v1.0.0 && git push origin release-v1.0.0
 ```
 
-#### Keycloak SPI (Manual or Tag-Based)
-
-The SPI module uses a simpler release flow since it's a separate deployable artifact.
-
-**Option 1: Manual trigger from Woodpecker UI (Recommended)**
-
-1. Go to [Woodpecker Dashboard](https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend)
-2. Select `keycloak-spi-release.yml` pipeline
-3. Click **Run Pipeline** (manual trigger)
-4. Pipeline will:
-   - Find latest `spi-v*` tag
-   - Auto-increment patch version (e.g., `spi-v1.0.0` → `spi-v1.0.1`)
-   - Create and push the new tag
-   - Build, test, and deploy SPI JAR
-   - Create GitHub release
-
-**Option 2: Push a specific tag**
-
-```bash
-# For a specific version
-git tag spi-v1.0.0
-git push origin spi-v1.0.0
-
-# For minor version bump
-git tag spi-v1.1.0
-git push origin spi-v1.1.0
-```
-
-#### Combined Release (Both Modules)
-
-Use this when you want to release both modules together with the same version.
-
-**Option 1: Manual trigger from Woodpecker UI**
-- Run `release-all.yml` manually
-- Auto-increments to next `release-v*` patch version
-
-**Option 2: Push a tag**
-```bash
-git tag release-v1.0.0
-git push origin release-v1.0.0
-```
-
-### Setting Up GitHub Labels
-
-Create these labels in your GitHub repository for the release workflow:
-
-```bash
-# Using GitHub CLI (gh)
-gh label create "breaking" --color "d73a4a" --description "Breaking change (major version bump)"
-gh label create "breaking-change" --color "d73a4a" --description "Breaking change (major version bump)"
-gh label create "feature" --color "0e8a16" --description "New feature (minor version bump)"
-gh label create "enhancement" --color "0e8a16" --description "Enhancement (minor version bump)"
-gh label create "bug" --color "d93f0b" --description "Bug fix (patch version bump)"
-gh label create "bugfix" --color "d93f0b" --description "Bug fix (patch version bump)"
-gh label create "fix" --color "d93f0b" --description "Bug fix (patch version bump)"
-gh label create "security" --color "ee0701" --description "Security fix (patch version bump)"
-gh label create "documentation" --color "0075ca" --description "Documentation (patch version bump)"
-gh label create "docs" --color "0075ca" --description "Documentation (patch version bump)"
-gh label create "dependencies" --color "0366d6" --description "Dependency update (patch version bump)"
-gh label create "deps" --color "0366d6" --description "Dependency update (patch version bump)"
-gh label create "chore" --color "fef2c0" --description "Maintenance (patch version bump)"
-gh label create "maintenance" --color "fef2c0" --description "Maintenance (patch version bump)"
-gh label create "ci" --color "fef2c0" --description "CI/CD changes (patch version bump)"
-gh label create "refactor" --color "c5def5" --description "Refactoring (patch version bump)"
-gh label create "keycloak-spi" --color "7057ff" --description "Keycloak SPI changes (patch version bump)"
-gh label create "spi" --color "7057ff" --description "Keycloak SPI changes (patch version bump)"
-gh label create "skip-changelog" --color "ededed" --description "Exclude from release notes"
-gh label create "no-release" --color "ededed" --description "Exclude from release notes"
-```
-
-### Release Configuration
-
-The release behavior is configured in `release-config.ts` at the project root:
-
-```typescript
-// release-config.ts
-export default {
-  tagPrefix: 'v',                           // Tag format: v1.0.0
-  changeTypes: [
-    { title: '💥 Breaking Changes', labels: ['breaking'], bump: 'major', weight: 100 },
-    { title: '✨ Features', labels: ['feature'], bump: 'minor', weight: 80 },
-    { title: '🐛 Bug Fixes', labels: ['bug'], bump: 'patch', weight: 70 },
-    // ... more categories
-  ],
-  skipLabels: ['skip-changelog', 'no-release'],  // PRs to exclude
-  skipCommitsWithoutPullRequest: true,            // Only include PR-based changes
-  commentOnReleasedPullRequests: true,            // Comment on PRs when released
-};
-```
-
-### PR Labels Quick Reference
-
-| Label | Emoji | Version | Use When |
-|-------|-------|---------|----------|
-| `breaking` | 💥 | Major | API changes, removed features, incompatible changes |
-| `feature` | ✨ | Minor | New endpoints, new functionality |
-| `bug` | 🐛 | Patch | Bug fixes, error corrections |
-| `security` | 🔒 | Patch | Security vulnerabilities, CVE fixes |
-| `keycloak-spi` | 🔧 | Patch | Changes to the Keycloak SPI module |
-| `docs` | 📚 | Patch | README, documentation updates |
-| `refactor` | 🏗️ | Patch | Code refactoring, no behavior change |
-| `dependencies` | 📦 | Patch | Dependency updates |
-| `chore` | 🔨 | Patch | Build scripts, CI, tooling |
-| `skip-changelog` | - | - | Exclude from release notes |
+Each release pipeline will:
+1. Build and test the module(s)
+2. Generate changelog from commits
+3. Update version badge in README
+4. Create GitHub release with artifacts
 
 ### Release Pipeline Actions
-
-On release, the pipeline will:
 
 | Step | Auth Backend | Keycloak SPI | Combined |
 |------|--------------|--------------|----------|
@@ -369,7 +183,7 @@ On release, the pipeline will:
 | Deploy JAR | - | Copy to `/opt/keycloak-providers/` | SPI only |
 | Changelog | Generate from commits | Generate from commits | Generate from commits |
 | Update README | Update version badge | Update version badge | Both badges |
-| GitHub Release | Create with JAR | Create with JAR + test report | Both JARs |
+| GitHub Release | Create with JAR | Create with JAR | Both JARs |
 
 ### After SPI Release
 
@@ -396,15 +210,6 @@ docker compose logs keycloak | grep "kos-auth-storage"
 | Build Status Badge | `https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg` |
 
 ### Troubleshooting Releases
-
-**Release PR not being created:**
-- Ensure PRs have at least one recognized label
-- Check `release-helper.yml` pipeline logs in Woodpecker
-- Verify `github_token` secret is configured in Woodpecker
-
-**Manual SPI release not incrementing version:**
-- Check if there are existing `spi-v*` tags: `git tag -l 'spi-v*'`
-- Ensure the pipeline has permission to push tags (check `github_token`)
 
 **SPI not loading in Keycloak:**
 - Verify JAR exists: `ls -la /opt/keycloak-providers/`
