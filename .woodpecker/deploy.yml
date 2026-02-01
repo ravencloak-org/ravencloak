@@ -1,0 +1,42 @@
+# Deploy Auth Backend (Manual trigger only)
+# Trigger: woodpecker-cli pipeline create --repository dsjkeeplearning/kos-auth-backend --branch main
+when:
+  - event: manual
+
+steps:
+  - name: deploy
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      KEYCLOAK_ISSUER_PREFIX:
+        from_secret: keycloak_issuer_prefix
+      KEYCLOAK_SAAS_ISSUER_URI:
+        from_secret: keycloak_saas_issuer_uri
+      SAAS_ADMIN_CLIENT_SECRET:
+        from_secret: saas_admin_client_secret
+      DB_HOST:
+        from_secret: db_host
+      DB_PORT:
+        from_secret: db_port
+      DB_NAME:
+        from_secret: db_name
+      DB_USERNAME:
+        from_secret: db_username
+      DB_PASSWORD:
+        from_secret: db_password
+      SPRING_PROFILES_ACTIVE:
+        from_secret: spring_profiles_active
+    commands:
+      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+      - echo "Pulling latest image..."
+      - docker pull ghcr.io/dsjkeeplearning/kos-auth-backend:latest
+      - docker stop auth-backend || true
+      - docker rm auth-backend || true
+      - echo "Starting auth-backend..."
+      - docker run -d --name auth-backend --restart unless-stopped -p 8080:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" ghcr.io/dsjkeeplearning/kos-auth-backend:latest
+      - docker image prune -f
+      - echo "Deployment complete!"
+      - docker ps | grep auth-backend
