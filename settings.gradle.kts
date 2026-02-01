@@ -1,5 +1,5 @@
 plugins {
-    id("com.github.burrunan.s3-build-cache") version "1.9.0"
+    id("com.github.burrunan.s3-build-cache") version "1.9.5"
 }
 
 rootProject.name = "auth"
@@ -28,8 +28,10 @@ buildCache {
             prefix = "gradle-cache/"
             isPush = true  // Both local and CI can push/pull
             isEnabled = true
+            isReducedRedundancy = false  // R2 doesn't support REDUCED_REDUNDANCY
             if (!s3Endpoint.isNullOrBlank()) {
                 endpoint = s3Endpoint
+                forcePathStyle = true  // Required for R2 and most S3-compatible storage
             }
         }
     }
