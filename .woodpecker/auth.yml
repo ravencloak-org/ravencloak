@@ -13,9 +13,11 @@ when:
 steps:
   - name: build
     image: eclipse-temurin:21-jdk
+    environment:
+      GRADLE_USER_HOME: /root/.gradle
     commands:
       - echo "Building Auth Backend..."
-      - ./gradlew compileKotlin bootJar --no-daemon --build-cache -x :keycloak-spi:compileKotlin -x test
+      - ./gradlew compileKotlin bootJar --no-daemon -x :keycloak-spi:compileKotlin -x test
       - echo "Build successful!"
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle
