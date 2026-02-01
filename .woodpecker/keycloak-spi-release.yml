@@ -103,12 +103,13 @@ steps:
         from_secret: github_token
     commands:
       - VERSION=$(cat .version)
+      - SEMVER=$(echo ${VERSION} | sed 's/^spi-//')
       - git config --global user.email "ci@keeplearningos.com"
       - git config --global user.name "Woodpecker CI"
       - git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
       - git fetch origin main
       - git checkout main
-      - sed -i "s|keycloak--spi-spi--v[0-9.]*-|keycloak--spi-${VERSION}-|g" README.md
+      - sed -i "s|keycloak--spi-v[0-9.]*-green|keycloak--spi-${SEMVER}-green|g" README.md
       - git add README.md
       - git diff --cached --quiet || git commit -m "Update keycloak-spi version badge to ${VERSION}"
       - git push origin main
