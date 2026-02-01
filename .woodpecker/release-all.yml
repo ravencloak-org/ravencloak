@@ -45,21 +45,14 @@ steps:
 
   - name: restore-cache
     image: meltwater/drone-cache
+    volumes:
+      - /var/lib/woodpecker/cache:/cache
     settings:
-      backend: s3
+      backend: filesystem
       restore: true
-      bucket:
-        from_secret: s3_build_cache_bucket
-      region:
-        from_secret: s3_build_cache_region
-      endpoint:
-        from_secret: s3_build_cache_endpoint
-      access_key:
-        from_secret: s3_build_cache_access_key_id
-      secret_key:
-        from_secret: s3_build_cache_secret_key
-      path_style: true
-      cache_key: "gradle-{{ arch }}-{{ os }}"
+      archive_format: gzip
+      filesystem_cache_root: /cache
+      cache_key: "gradle-wrapper"
       mount:
         - .gradle
 
@@ -89,21 +82,14 @@ steps:
 
   - name: save-cache
     image: meltwater/drone-cache
+    volumes:
+      - /var/lib/woodpecker/cache:/cache
     settings:
-      backend: s3
+      backend: filesystem
       rebuild: true
-      bucket:
-        from_secret: s3_build_cache_bucket
-      region:
-        from_secret: s3_build_cache_region
-      endpoint:
-        from_secret: s3_build_cache_endpoint
-      access_key:
-        from_secret: s3_build_cache_access_key_id
-      secret_key:
-        from_secret: s3_build_cache_secret_key
-      path_style: true
-      cache_key: "gradle-{{ arch }}-{{ os }}"
+      archive_format: gzip
+      filesystem_cache_root: /cache
+      cache_key: "gradle-wrapper"
       mount:
         - .gradle
 
