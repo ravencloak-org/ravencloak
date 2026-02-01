@@ -42,23 +42,11 @@ steps:
         fi
         echo "Version: $(cat .version)"
 
-  - name: restore-cache
-    image: meltwater/drone-cache
-    volumes:
-      - /var/lib/woodpecker/cache:/cache
-    settings:
-      backend: filesystem
-      restore: true
-      archive_format: gzip
-      filesystem_cache_root: /cache
-      cache_key: "gradle-wrapper"
-      mount:
-        - .gradle
-
   - name: build-and-test
     image: eclipse-temurin:21-jdk
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
-      GRADLE_USER_HOME: .gradle
       CI: "true"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
@@ -79,19 +67,6 @@ steps:
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar release-assets/
       - cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
       - echo "Build successful!"
-
-  - name: save-cache
-    image: meltwater/drone-cache
-    volumes:
-      - /var/lib/woodpecker/cache:/cache
-    settings:
-      backend: filesystem
-      rebuild: true
-      archive_format: gzip
-      filesystem_cache_root: /cache
-      cache_key: "gradle-wrapper"
-      mount:
-        - .gradle
 
   - name: generate-changelog
     image: alpine/git

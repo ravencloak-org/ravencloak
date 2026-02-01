@@ -9,23 +9,11 @@ when:
         - "settings.gradle.kts"
 
 steps:
-  - name: restore-cache
-    image: meltwater/drone-cache
-    volumes:
-      - /var/lib/woodpecker/cache:/cache
-    settings:
-      backend: filesystem
-      restore: true
-      archive_format: gzip
-      filesystem_cache_root: /cache
-      cache_key: "gradle-wrapper"
-      mount:
-        - .gradle
-
   - name: build-and-test
     image: eclipse-temurin:21-jdk
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
-      GRADLE_USER_HOME: .gradle
       CI: "true"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
@@ -48,16 +36,3 @@ steps:
       - echo "Building and testing Keycloak SPI module..."
       - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
       - echo "Build successful!"
-
-  - name: save-cache
-    image: meltwater/drone-cache
-    volumes:
-      - /var/lib/woodpecker/cache:/cache
-    settings:
-      backend: filesystem
-      rebuild: true
-      archive_format: gzip
-      filesystem_cache_root: /cache
-      cache_key: "gradle-wrapper"
-      mount:
-        - .gradle
