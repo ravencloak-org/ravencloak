@@ -66,8 +66,6 @@ steps:
       - mkdir -p release-assets
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar release-assets/
       - cp build/libs/*.jar release-assets/
-    volumes:
-      - /opt/woodpecker-cache/gradle:/root/.gradle
 
   - name: generate-changelog
     image: alpine/git

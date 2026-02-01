@@ -30,5 +30,3 @@ steps:
       - echo "Building Auth Backend..."
       - ./gradlew compileKotlin bootJar --no-daemon -x :keycloak-spi:compileKotlin -x test
       - echo "Build successful!"
-    volumes:
-      - /opt/woodpecker-cache/gradle:/root/.gradle
