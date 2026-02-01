@@ -124,8 +124,13 @@ steps:
       - apk add --no-cache github-cli
       - VERSION=$(cat .version)
       - |
-        gh release create $VERSION \
-          --repo $CI_REPO \
-          --title "Release $VERSION" \
-          --notes-file release-assets/CHANGELOG.md \
-          release-assets/*.jar
+        if gh release view $VERSION --repo $CI_REPO > /dev/null 2>&1; then
+          echo "Release $VERSION already exists, uploading assets..."
+          gh release upload $VERSION --repo $CI_REPO --clobber release-assets/*.jar
+        else
+          gh release create $VERSION \
+            --repo $CI_REPO \
+            --title "Release $VERSION" \
+            --notes-file release-assets/CHANGELOG.md \
+            release-assets/*.jar
+        fi
