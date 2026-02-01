@@ -1,0 +1,56 @@
+kind: pipeline
+type: docker
+name: keycloak-spi
+
+trigger:
+  branch:
+    - master
+    - main
+  paths:
+    include:
+      - keycloak-spi/**
+      - .drone.yml
+
+steps:
+  - name: build
+    image: eclipse-temurin:21-jdk
+    commands:
+      - ./gradlew :keycloak-spi:shadowJar --no-daemon
+      - mkdir -p /shared/providers
+      - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
+    volumes:
+      - name: providers
+        path: /shared/providers
+
+volumes:
+  - name: providers
+    host:
+      path: /opt/keycloak-providers
+
+---
+kind: pipeline
+type: docker
+name: keycloak-spi-release
+
+trigger:
+  event:
+    - tag
+  ref:
+    - refs/tags/v*
+
+steps:
+  - name: build
+    image: eclipse-temurin:21-jdk
+    commands:
+      - export VERSION=${DRONE_TAG#v}
+      - ./gradlew :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon
+      - mkdir -p /shared/providers
+      - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
+    volumes:
+      - name: providers
+        path: /shared/providers
+
+volumes:
+  - name: providers
+    host:
+      path: /opt/keycloak-providers
