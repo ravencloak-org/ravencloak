@@ -1,8 +1,8 @@
 # KOS Auth Backend
 
 [![status-badge](https://drone.keeplearningos.com/api/badges/1/status.svg?events=push%2Ctag%2Crelease%2Cpull_request%2Cpull_request_closed%2Cpull_request_metadata%2Cdeployment)](https://drone.keeplearningos.com/repos/1)
-![Auth](https://img.shields.io/badge/auth-v0.0.0-blue)
-![Keycloak SPI](https://img.shields.io/badge/keycloak--spi-v0.0.0-green)
+![Auth](https://img.shields.io/badge/auth--blue)
+![Keycloak SPI](https://img.shields.io/badge/keycloak--spi--green)
 
 A multi-tenant authentication backend with Spring Boot/Kotlin and a Keycloak User Storage SPI for federated user validation via REST API.
 
