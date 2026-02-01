@@ -1,7 +1,8 @@
-# Deploy Auth Backend (Manual trigger only)
-# Trigger: woodpecker-cli pipeline create --repository dsjkeeplearning/kos-auth-backend --branch main
+# Deploy Auth Backend
+# Trigger manually: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main
+# Trigger deploy:   woodpecker-cli pipeline deploy dsjkeeplearning/kos-auth-backend <pipeline-id> production
 when:
-  - event: manual
+  - event: [manual, deployment]
 
 steps:
   - name: deploy
