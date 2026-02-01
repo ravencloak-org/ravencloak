@@ -1,8 +1,10 @@
 # Keycloak SPI - Release (Tag: spi-v* or Manual)
+# Trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
 when:
   - event: tag
     ref: refs/tags/spi-v*
   - event: manual
+    evaluate: 'CI_PIPELINE_DEPLOY_TO == "keycloak-spi"'
 
 steps:
   - name: determine-version

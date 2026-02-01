@@ -1,9 +1,10 @@
 # Combined Release (Tag: release-v* or Manual)
-# Use this to release both modules together
+# Trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=release-all
 when:
   - event: tag
     ref: refs/tags/release-v*
   - event: manual
+    evaluate: 'CI_PIPELINE_DEPLOY_TO == "release-all"'
 
 steps:
   - name: determine-version

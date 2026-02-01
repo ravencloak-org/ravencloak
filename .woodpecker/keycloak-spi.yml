@@ -1,6 +1,9 @@
 # Keycloak SPI - Build & Test (Push/PR/Manual)
+# Manual trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi-build
 when:
-  - event: [push, pull_request, manual]
+  - event: [push, pull_request]
+  - event: manual
+    evaluate: 'CI_PIPELINE_DEPLOY_TO == "keycloak-spi-build"'
     path:
       include:
         - "keycloak-spi/**"
