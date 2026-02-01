@@ -147,3 +147,29 @@ steps:
             --notes-file release-assets/CHANGELOG.md \
             release-assets/*.jar
         fi
+
+  - name: build-and-push-docker
+    image: plugins/docker
+    settings:
+      repo: ghcr.io/dsjkeeplearning/kos-auth-backend
+      tags:
+        - ${CI_COMMIT_TAG:-latest}
+        - latest
+      registry: ghcr.io
+      username: dsjkeeplearning
+      password:
+        from_secret: github_token
+      dockerfile: Dockerfile
+
+  - name: deploy
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+      - docker compose -f /opt/kos/docker-compose.yml pull auth-backend
+      - docker compose -f /opt/kos/docker-compose.yml up -d auth-backend
+      - docker image prune -f
