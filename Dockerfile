@@ -9,16 +9,17 @@ WORKDIR /app
 COPY gradle/ gradle/
 COPY gradlew build.gradle.kts settings.gradle.kts ./
 
-# Download dependencies (cached unless build files change)
+# Download dependencies for root project only (not keycloak-spi)
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew dependencies --no-daemon
+    ./gradlew :dependencies --no-daemon
 
-# Copy source code
+# Copy source code (only root project src, not keycloak-spi)
 COPY src/ src/
 
-# Build the application with Gradle cache
+# Build only the root Spring Boot app (not keycloak-spi)
+ARG VERSION=latest
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew bootJar -x test --no-daemon && \
+    ./gradlew :bootJar -Pversion=${VERSION} -x test --no-daemon && \
     cp build/libs/*.jar /app.jar
 
 # Runtime stage
