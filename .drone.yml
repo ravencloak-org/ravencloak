@@ -2,21 +2,32 @@ kind: pipeline
 type: docker
 name: keycloak-spi
 
+# Broaden triggers for debugging
 trigger:
+  event:
+    - push
+    - custom
   branch:
-    - master
     - main
-  paths:
-    include:
-      - keycloak-spi/**
-      - .drone.yml
+    - master
 
 steps:
-  - name: build
+  - name: debug-info
+    image: alpine
+    commands:
+      - echo "Pipeline triggered by ${DRONE_COMMIT_AUTHOR} on ${DRONE_COMMIT_BRANCH}"
+      - ls -R
+
+  - name: build-spi
     image: eclipse-temurin:21-jdk
+    # Path filter at step level is safer for debugging
+    when:
+      path:
+        include:
+          - "keycloak-spi/**"
+          - ".drone.yml"
     commands:
       - ./gradlew :keycloak-spi:shadowJar --no-daemon
-      - mkdir -p /shared/providers
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
     volumes:
       - name: providers
@@ -35,22 +46,9 @@ name: keycloak-spi-release
 trigger:
   event:
     - tag
-  ref:
-    - refs/tags/v*
 
 steps:
-  - name: build
+  - name: release-build
     image: eclipse-temurin:21-jdk
     commands:
-      - export VERSION=${DRONE_TAG#v}
-      - ./gradlew :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon
-      - mkdir -p /shared/providers
-      - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
-    volumes:
-      - name: providers
-        path: /shared/providers
-
-volumes:
-  - name: providers
-    host:
-      path: /opt/keycloak-providers
+      - ./gradlew :keycloak-spi:shadowJar --no-daemon
