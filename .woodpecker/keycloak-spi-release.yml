@@ -108,8 +108,9 @@ steps:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
       - mkdir -p /shared/providers
-      - rm -f /shared/providers/keycloak-user-storage-spi*.jar
-      - cp release-assets/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
+      - rm -f /shared/providers/*.jar
+      - echo "Files in release-assets:" && ls -la release-assets/
+      - SPI_JAR=$(ls release-assets/keycloak-user-storage-spi*.jar 2>/dev/null | head -1) && cp "$SPI_JAR" /shared/providers/keycloak-user-storage-spi.jar
       - echo "Deployed JAR to /opt/keycloak-providers/"
       - echo "Restarting Keycloak to load new SPI..."
       - 'docker restart keycloak || echo "Warning - Could not restart keycloak container"'
