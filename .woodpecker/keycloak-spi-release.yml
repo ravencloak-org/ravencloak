@@ -42,10 +42,30 @@ steps:
         fi
         echo "Version: $(cat .version)"
 
+  - name: restore-cache
+    image: meltwater/drone-cache
+    settings:
+      backend: s3
+      restore: true
+      bucket:
+        from_secret: s3_build_cache_bucket
+      region:
+        from_secret: s3_build_cache_region
+      endpoint:
+        from_secret: s3_build_cache_endpoint
+      access_key:
+        from_secret: s3_build_cache_access_key_id
+      secret_key:
+        from_secret: s3_build_cache_secret_key
+      path_style: true
+      cache_key: "gradle-{{ arch }}-{{ os }}"
+      mount:
+        - .gradle
+
   - name: build-and-test
     image: eclipse-temurin:21-jdk
     environment:
-      GRADLE_USER_HOME: /root/.gradle
+      GRADLE_USER_HOME: .gradle
       CI: "true"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
@@ -66,6 +86,26 @@ steps:
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar release-assets/
       - cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
       - echo "Build successful!"
+
+  - name: save-cache
+    image: meltwater/drone-cache
+    settings:
+      backend: s3
+      rebuild: true
+      bucket:
+        from_secret: s3_build_cache_bucket
+      region:
+        from_secret: s3_build_cache_region
+      endpoint:
+        from_secret: s3_build_cache_endpoint
+      access_key:
+        from_secret: s3_build_cache_access_key_id
+      secret_key:
+        from_secret: s3_build_cache_secret_key
+      path_style: true
+      cache_key: "gradle-{{ arch }}-{{ os }}"
+      mount:
+        - .gradle
 
   - name: generate-changelog
     image: alpine/git
