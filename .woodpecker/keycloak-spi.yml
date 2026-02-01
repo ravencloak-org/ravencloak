@@ -11,9 +11,11 @@ when:
 steps:
   - name: build-and-test
     image: eclipse-temurin:21-jdk
+    environment:
+      GRADLE_USER_HOME: /root/.gradle
     commands:
       - echo "Building and testing Keycloak SPI module..."
-      - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon --build-cache
+      - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
       - echo "Build successful!"
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle
