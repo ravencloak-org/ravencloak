@@ -12,6 +12,7 @@ steps:
     commands:
       - ./gradlew :keycloak-spi:shadowJar --no-daemon
       - mkdir -p /shared/providers
+      - rm -f /shared/providers/keycloak-user-storage-spi*.jar
       - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
     volumes:
       - /opt/keycloak-providers:/shared/providers
