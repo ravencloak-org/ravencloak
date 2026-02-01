@@ -91,8 +91,14 @@ add_secret() {
     local name=$1
     local value=$(trim "$2")
 
+    # Skip empty values
+    if [ -z "$value" ]; then
+        echo "Skipping secret: $name (empty value)"
+        return 0
+    fi
+
     echo "Adding secret: $name"
-    woodpecker-cli repo secret add \
+    if ! woodpecker-cli repo secret add \
         --repository "$REPO" \
         --name "$name" \
         --value "$value" \
@@ -102,16 +108,18 @@ add_secret() {
         --event manual \
         --event deployment \
         --event release \
-        2>/dev/null || woodpecker-cli repo secret update \
-        --repository "$REPO" \
-        --name "$name" \
-        --value "$value" \
-        --event push \
-        --event pull_request \
-        --event tag \
-        --event manual \
-        --event deployment \
-        --event release
+        2>/dev/null; then
+        woodpecker-cli repo secret update \
+            --repository "$REPO" \
+            --name "$name" \
+            --value "$value" \
+            --event push \
+            --event pull_request \
+            --event tag \
+            --event manual \
+            --event deployment \
+            --event release
+    fi
 }
 
 # Add all S3 build cache secrets
