@@ -27,16 +27,41 @@ echo "Using Woodpecker context:"
 woodpecker-cli context ls
 echo ""
 
-# Load values from env file
+# Load values from env file using a more robust method
 echo "Loading values from $ENV_FILE..."
-export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
+while IFS='=' read -r key value; do
+    # Skip comments and empty lines
+    [[ "$key" =~ ^#.*$ ]] && continue
+    [[ -z "$key" ]] && continue
+    # Remove leading/trailing whitespace from key
+    key=$(echo "$key" | xargs)
+    # Remove surrounding quotes from value if present
+    value="${value%\"}"
+    value="${value#\"}"
+    value="${value%\'}"
+    value="${value#\'}"
+    # Export only S3 cache variables
+    if [[ "$key" == S3_BUILD_CACHE_* ]]; then
+        export "$key=$value"
+        echo "  Loaded: $key"
+    fi
+done < "$ENV_FILE"
 
 # Verify required S3 cache variables
+echo ""
+echo "Verifying loaded values..."
 required_vars=("S3_BUILD_CACHE_BUCKET" "S3_BUILD_CACHE_REGION" "S3_BUILD_CACHE_ACCESS_KEY_ID" "S3_BUILD_CACHE_SECRET_KEY" "S3_BUILD_CACHE_ENDPOINT")
 for var in "${required_vars[@]}"; do
-    if [ -z "${!var}" ]; then
+    val="${!var}"
+    if [ -z "$val" ]; then
         echo "Error: $var is not set. Please set it in .env or as environment variable."
         exit 1
+    fi
+    # Show first few chars for verification (hide secrets)
+    if [[ "$var" == *"SECRET"* ]] || [[ "$var" == *"ACCESS_KEY"* ]]; then
+        echo "  $var: ${val:0:4}****** (length: ${#val})"
+    else
+        echo "  $var: $val"
     fi
 done
 
