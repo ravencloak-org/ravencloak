@@ -1,8 +1,8 @@
 # KOS Auth Backend
 
 [![Build Status](https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg)](https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend)
-[![Auth Release](https://img.shields.io/github/v/tag/dsjkeeplearning/kos-auth-backend?filter=v*&label=auth)](https://github.com/dsjkeeplearning/kos-auth-backend/releases)
-[![SPI Release](https://img.shields.io/github/v/tag/dsjkeeplearning/kos-auth-backend?filter=spi-v*&label=keycloak-spi)](https://github.com/dsjkeeplearning/kos-auth-backend/releases)
+![Auth](https://img.shields.io/badge/auth-v0.0.0-blue)
+![Keycloak SPI](https://img.shields.io/badge/keycloak--spi-spi--v0.0.0-green)
 
 A multi-tenant authentication backend with Spring Boot/Kotlin and a Keycloak User Storage SPI for federated user validation via REST API.
 
@@ -134,6 +134,8 @@ docker compose up -d
 
 This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous integration and deployment.
 
+**Woodpecker Dashboard:** https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend
+
 ### Pipelines
 
 | Pipeline | Trigger | Description |
@@ -142,6 +144,13 @@ This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous int
 | `keycloak-spi-release.yml` | Tag `spi-v*` | Build, deploy to Keycloak, GitHub release |
 | `auth.yml` | Push/PR to `src/**` | Compile, test, build bootJar |
 | `auth-release.yml` | Tag `v*` | Build, GitHub release |
+
+### Woodpecker Endpoints
+
+| Endpoint | URL |
+|----------|-----|
+| Dashboard | https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend |
+| Build Status Badge | `https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg` |
 
 ### Automatic Builds
 

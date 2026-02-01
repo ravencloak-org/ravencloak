@@ -13,6 +13,20 @@ steps:
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle
 
+  - name: update-readme
+    image: alpine/git
+    commands:
+      - git config --global user.email "ci@keeplearningos.com"
+      - git config --global user.name "Woodpecker CI"
+      - git fetch origin main
+      - git checkout main
+      - sed -i "s|auth-v[0-9.]*-|auth-${CI_COMMIT_TAG}-|g" README.md
+      - git add README.md
+      - git diff --cached --quiet || git commit -m "Update auth version badge to ${CI_COMMIT_TAG}"
+      - git push origin main
+    environment:
+      - GIT_TERMINAL_PROMPT=0
+
   - name: github-release
     image: woodpeckerci/plugin-release
     settings:
