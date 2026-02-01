@@ -1,8 +1,12 @@
 #!/bin/bash
 set -e
 
-# Woodpecker CI - Add Build Cache Secrets
+# Woodpecker CI - Add All Secrets (S3 Cache + App Config)
 # Usage: ./scripts/add-woodpecker-secrets.sh <path-to-env-file>
+#
+# Secrets added:
+#   S3 Build Cache: s3_build_cache_bucket, s3_build_cache_region, etc.
+#   App Config: keycloak_issuer_prefix, db_host, db_password, etc.
 
 ENV_FILE="${1:-.env}"
 
@@ -40,25 +44,29 @@ while IFS='=' read -r key value; do
     value="${value#\"}"
     value="${value%\'}"
     value="${value#\'}"
-    # Export only S3 cache variables
-    if [[ "$key" == S3_BUILD_CACHE_* ]]; then
+    # Export S3 cache and app variables
+    if [[ "$key" == S3_BUILD_CACHE_* ]] || [[ "$key" == KEYCLOAK_* ]] || [[ "$key" == SAAS_* ]] || [[ "$key" == DB_* ]] || [[ "$key" == SPRING_* ]]; then
         export "$key=$value"
         echo "  Loaded: $key"
     fi
 done < "$ENV_FILE"
 
-# Verify required S3 cache variables
+# Verify required variables
 echo ""
 echo "Verifying loaded values..."
-required_vars=("S3_BUILD_CACHE_BUCKET" "S3_BUILD_CACHE_REGION" "S3_BUILD_CACHE_ACCESS_KEY_ID" "S3_BUILD_CACHE_SECRET_KEY" "S3_BUILD_CACHE_ENDPOINT")
-for var in "${required_vars[@]}"; do
+
+# S3 cache variables
+s3_vars=("S3_BUILD_CACHE_BUCKET" "S3_BUILD_CACHE_REGION" "S3_BUILD_CACHE_ACCESS_KEY_ID" "S3_BUILD_CACHE_SECRET_KEY" "S3_BUILD_CACHE_ENDPOINT")
+# App variables
+app_vars=("KEYCLOAK_ISSUER_PREFIX" "KEYCLOAK_SAAS_ISSUER_URI" "SAAS_ADMIN_CLIENT_SECRET" "DB_HOST" "DB_PORT" "DB_NAME" "DB_USERNAME" "SPRING_PROFILES_ACTIVE")
+# DB_PASSWORD can be empty
+
+all_vars=("${s3_vars[@]}" "${app_vars[@]}")
+for var in "${all_vars[@]}"; do
     val="${!var}"
     if [ -z "$val" ]; then
-        echo "Error: $var is not set. Please set it in .env or as environment variable."
-        exit 1
-    fi
-    # Show first few chars for verification (hide secrets)
-    if [[ "$var" == *"SECRET"* ]] || [[ "$var" == *"ACCESS_KEY"* ]]; then
+        echo "Warning: $var is not set (may be optional)"
+    elif [[ "$var" == *"SECRET"* ]] || [[ "$var" == *"PASSWORD"* ]] || [[ "$var" == *"ACCESS_KEY"* ]]; then
         echo "  $var: ${val:0:4}****** (length: ${#val})"
     else
         echo "  $var: $val"
@@ -107,11 +115,25 @@ add_secret() {
 }
 
 # Add all S3 build cache secrets
+echo "Adding S3 build cache secrets..."
 add_secret "s3_build_cache_bucket" "$S3_BUILD_CACHE_BUCKET"
 add_secret "s3_build_cache_region" "$S3_BUILD_CACHE_REGION"
 add_secret "s3_build_cache_access_key_id" "$S3_BUILD_CACHE_ACCESS_KEY_ID"
 add_secret "s3_build_cache_secret_key" "$S3_BUILD_CACHE_SECRET_KEY"
 add_secret "s3_build_cache_endpoint" "$S3_BUILD_CACHE_ENDPOINT"
+
+# Add app configuration secrets
+echo ""
+echo "Adding app configuration secrets..."
+add_secret "keycloak_issuer_prefix" "$KEYCLOAK_ISSUER_PREFIX"
+add_secret "keycloak_saas_issuer_uri" "$KEYCLOAK_SAAS_ISSUER_URI"
+add_secret "saas_admin_client_secret" "$SAAS_ADMIN_CLIENT_SECRET"
+add_secret "db_host" "$DB_HOST"
+add_secret "db_port" "$DB_PORT"
+add_secret "db_name" "$DB_NAME"
+add_secret "db_username" "$DB_USERNAME"
+add_secret "db_password" "${DB_PASSWORD:-}"
+add_secret "spring_profiles_active" "${SPRING_PROFILES_ACTIVE:-prod}"
 
 echo ""
 echo "Done! Verifying secrets..."
