@@ -13,8 +13,9 @@ when:
 steps:
   - name: build
     image: eclipse-temurin:21-jdk
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
-      GRADLE_USER_HOME: /root/.gradle
       CI: "true"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
