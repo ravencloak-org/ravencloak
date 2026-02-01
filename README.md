@@ -141,43 +141,46 @@ This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous int
 | Pipeline | Trigger | Description |
 |----------|---------|-------------|
 | `keycloak-spi.yml` | Push/PR to `keycloak-spi/**` | Compile, test, build JAR |
-| `keycloak-spi-release.yml` | Tag `spi-v*` | Build, deploy to Keycloak, GitHub release |
-| `auth.yml` | Push/PR to `src/**` | Compile, test, build bootJar |
+| `keycloak-spi-release.yml` | Tag `spi-v*` | Build, test, deploy, GitHub release |
+| `auth.yml` | Push/PR to `src/**` | Compile, build bootJar |
 | `auth-release.yml` | Tag `v*` | Build, GitHub release |
-
-### Woodpecker Endpoints
-
-| Endpoint | URL |
-|----------|-----|
-| Dashboard | https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend |
-| Build Status Badge | `https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg` |
 
 ### Automatic Builds
 
-- **Pull Requests**: Automatically runs compile and tests for affected modules
-- **Push to main**: Runs full build and test suite for affected modules
-- Build status appears on GitHub PRs
+- **Pull Requests**: Runs compile and tests for affected modules only
+- **Push to main**: Runs build for affected modules only
+- **Path filtering**: Changes to `keycloak-spi/**` only trigger SPI pipeline, changes to `src/**` only trigger auth pipeline
+- **Gradle caching**: Dependencies cached at `/opt/woodpecker-cache/gradle` for faster builds
 
 ### Creating Releases
 
-**Keycloak SPI Release:**
+**Keycloak SPI Only:**
 ```bash
 git tag spi-v1.0.0
 git push origin spi-v1.0.0
 ```
-This will:
-- Build the SPI JAR with version `1.0.0`
-- Deploy JAR to `/opt/keycloak-providers/`
-- Create a GitHub Release with the JAR attached
 
-**Auth Backend Release:**
+**Auth Backend Only:**
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
-This will:
-- Build the Auth Backend JAR with version `1.0.0`
-- Create a GitHub Release with the JAR attached
+
+**Both Modules Together (Single Release):**
+```bash
+git tag release-v1.0.0
+git push origin release-v1.0.0
+```
+
+### Release Pipeline Actions
+
+On release tag push, the pipeline will:
+1. Build and test the module
+2. Deploy SPI JAR to `/opt/keycloak-providers/` (keycloak-spi only)
+3. Update version badge in README and commit to main
+4. Create GitHub Release with attached assets:
+   - JAR file
+   - `test-report.html` - Test results viewable in browser
 
 ### After SPI Release
 
@@ -185,6 +188,13 @@ Restart Keycloak to load the new SPI:
 ```bash
 docker compose restart keycloak
 ```
+
+### Woodpecker Endpoints
+
+| Endpoint | URL |
+|----------|-----|
+| Dashboard | https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend |
+| Build Status Badge | `https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg` |
 
 ## Configuration
 

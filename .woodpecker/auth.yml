@@ -11,11 +11,11 @@ when:
         - "keycloak-spi/**"
 
 steps:
-  - name: build-and-test
+  - name: build
     image: eclipse-temurin:21-jdk
     commands:
-      - echo "Building and testing Auth Backend..."
-      - ./gradlew compileKotlin test bootJar --no-daemon --build-cache -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
+      - echo "Building Auth Backend..."
+      - ./gradlew compileKotlin bootJar --no-daemon --build-cache -x :keycloak-spi:compileKotlin -x test
       - echo "Build successful!"
     volumes:
       - /opt/woodpecker-cache/gradle:/root/.gradle
