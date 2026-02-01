@@ -137,7 +137,8 @@ steps:
       - VERSION=$(cat .version)
       - |
         if gh release view $VERSION --repo $CI_REPO > /dev/null 2>&1; then
-          echo "Release $VERSION already exists, uploading assets..."
+          echo "Release $VERSION already exists, updating notes and uploading assets..."
+          gh release edit $VERSION --repo $CI_REPO --notes-file release-assets/CHANGELOG.md
           gh release upload $VERSION --repo $CI_REPO --clobber release-assets/*.jar
         else
           gh release create $VERSION \
