@@ -149,20 +149,25 @@ steps:
         fi
 
   - name: build-and-push-docker
-    image: woodpeckerci/plugin-docker-buildx
-    settings:
-      repo: ghcr.io/dsjkeeplearning/kos-auth-backend
-      tags:
-        - ${CI_COMMIT_TAG:-latest}
-        - latest
-      registry: ghcr.io
-      username: dsjkeeplearning
-      password:
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
         from_secret: github_token
-      dockerfile: Dockerfile
-      # Registry-based layer caching
-      cache_from: ghcr.io/dsjkeeplearning/kos-auth-backend:cache
-      cache_to: ghcr.io/dsjkeeplearning/kos-auth-backend:cache
+    commands:
+      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+      - VERSION=$(cat .version)
+      - echo "Building Docker image with version $VERSION"
+      - |
+        docker buildx build \
+          --build-arg VERSION=${VERSION} \
+          --cache-from type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache \
+          --cache-to type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache,mode=max \
+          --tag ghcr.io/dsjkeeplearning/kos-auth-backend:${VERSION} \
+          --tag ghcr.io/dsjkeeplearning/kos-auth-backend:latest \
+          --push \
+          .
 
   - name: deploy
     image: docker:cli
@@ -172,7 +177,12 @@ steps:
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
+      - VERSION=$(cat .version)
       - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
-      - docker compose -f /opt/kos/docker-compose.yml pull auth-backend
-      - docker compose -f /opt/kos/docker-compose.yml up -d auth-backend
+      - docker pull ghcr.io/dsjkeeplearning/kos-auth-backend:${VERSION}
+      - docker stop auth-backend || true
+      - docker rm auth-backend || true
+      - echo "Starting auth-backend with version ${VERSION}"
+      # Update the docker run command below with your actual config (ports, env vars, networks)
+      - docker run -d --name auth-backend --restart unless-stopped ghcr.io/dsjkeeplearning/kos-auth-backend:${VERSION}
       - docker image prune -f
