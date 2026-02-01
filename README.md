@@ -1,6 +1,10 @@
 # KOS Auth Backend
 
-Authentication backend service built with Spring Boot and Kotlin.
+[![Build Status](https://drone.keeplearningos.com/api/badges/dsjkeeplearning/kos-auth-backend/status.svg)](https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend)
+[![Auth Release](https://img.shields.io/github/v/tag/dsjkeeplearning/kos-auth-backend?filter=v*&label=auth)](https://github.com/dsjkeeplearning/kos-auth-backend/releases)
+[![SPI Release](https://img.shields.io/github/v/tag/dsjkeeplearning/kos-auth-backend?filter=spi-v*&label=keycloak-spi)](https://github.com/dsjkeeplearning/kos-auth-backend/releases)
+
+A multi-tenant authentication backend with Spring Boot/Kotlin and a Keycloak User Storage SPI for federated user validation via REST API.
 
 ## Setup
 
@@ -83,11 +87,11 @@ The fat JAR will be created at `keycloak-spi/build/libs/keycloak-user-storage-sp
    $KEYCLOAK_HOME/bin/kc.sh build
    ```
 
-3. In Keycloak Admin Console, go to **User Federation** and add `external-user-storage` provider.
+3. In Keycloak Admin Console, go to **User Federation** and add `kos-auth-storage` provider.
 
 **Option 2: Docker Compose with Woodpecker CI**
 
-Woodpecker CI builds the SPI and places the JAR in a shared volume accessible to Keycloak.
+Woodpecker CI builds the SPI on release tags and places the JAR in a shared volume accessible to Keycloak.
 
 1. Create the shared providers directory on the host:
    ```bash
@@ -95,12 +99,13 @@ Woodpecker CI builds the SPI and places the JAR in a shared volume accessible to
    sudo chmod 755 /opt/keycloak-providers
    ```
 
-2. Push changes to trigger Woodpecker CI build, then start Keycloak:
-   ```bash
-   docker compose up -d
+2. Add volume mount to your Keycloak service in docker-compose:
+   ```yaml
+   volumes:
+     - /opt/keycloak-providers:/opt/keycloak/providers:ro
    ```
 
-The `docker-compose.yml` mounts the shared `/opt/keycloak-providers` folder into Keycloak's providers directory.
+3. Create a release tag to deploy (see CI/CD section below).
 
 **Option 3: Docker Compose (Local Development)**
 
@@ -125,30 +130,49 @@ docker compose up -d
 - Uses Java 11+ HttpClient for REST calls
 - Uses Keycloak's JsonSerialization for JSON parsing
 
-#### CI/CD
+## CI/CD
 
-The Keycloak SPI is built automatically via Woodpecker CI (`.woodpecker/`).
+This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous integration and deployment.
 
-**Automatic Builds:**
-- Triggers on push to `master`/`main` when `keycloak-spi/**` files change
-- Builds the JAR and copies it to `/opt/keycloak-providers/keycloak-user-storage-spi.jar`
-- Keycloak container mounts this shared folder, picking up the JAR on restart
+### Pipelines
 
-**Creating a Release:**
+| Pipeline | Trigger | Description |
+|----------|---------|-------------|
+| `keycloak-spi.yml` | Push/PR to `keycloak-spi/**` | Compile, test, build JAR |
+| `keycloak-spi-release.yml` | Tag `spi-v*` | Build, deploy to Keycloak, GitHub release |
+| `auth.yml` | Push/PR to `src/**` | Compile, test, build bootJar |
+| `auth-release.yml` | Tag `v*` | Build, GitHub release |
 
-1. Tag the commit with a version:
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
+### Automatic Builds
 
-2. Woodpecker CI will automatically:
-   - Build the SPI JAR with the tagged version
-   - Deploy to the shared providers folder
+- **Pull Requests**: Automatically runs compile and tests for affected modules
+- **Push to main**: Runs full build and test suite for affected modules
+- Build status appears on GitHub PRs
 
-**Restarting Keycloak after Build:**
+### Creating Releases
 
-After Woodpecker CI completes, restart Keycloak to load the new SPI:
+**Keycloak SPI Release:**
+```bash
+git tag spi-v1.0.0
+git push origin spi-v1.0.0
+```
+This will:
+- Build the SPI JAR with version `1.0.0`
+- Deploy JAR to `/opt/keycloak-providers/`
+- Create a GitHub Release with the JAR attached
+
+**Auth Backend Release:**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+This will:
+- Build the Auth Backend JAR with version `1.0.0`
+- Create a GitHub Release with the JAR attached
+
+### After SPI Release
+
+Restart Keycloak to load the new SPI:
 ```bash
 docker compose restart keycloak
 ```

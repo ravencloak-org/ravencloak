@@ -1,0 +1,35 @@
+# Keycloak SPI - Release (Tag: spi-v*)
+when:
+  - event: tag
+    ref: refs/tags/spi-v*
+
+steps:
+  - name: build
+    image: eclipse-temurin:21-jdk
+    commands:
+      - export VERSION=${CI_COMMIT_TAG#spi-v}
+      - echo "Building Keycloak SPI version $VERSION"
+      - ./gradlew :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon --build-cache
+    volumes:
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: deploy
+    image: eclipse-temurin:21-jdk
+    commands:
+      - mkdir -p /shared/providers
+      - rm -f /shared/providers/keycloak-user-storage-spi*.jar
+      - cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /shared/providers/keycloak-user-storage-spi.jar
+      - echo "Deployed to /opt/keycloak-providers/"
+    volumes:
+      - /opt/keycloak-providers:/shared/providers
+      - /opt/woodpecker-cache/gradle:/root/.gradle
+
+  - name: github-release
+    image: woodpeckerci/plugin-release
+    settings:
+      files:
+        - keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar
+      title: "Keycloak SPI ${CI_COMMIT_TAG}"
+      note: "Keycloak User Storage SPI Release ${CI_COMMIT_TAG}"
+      api_key:
+        from_secret: github_token
