@@ -54,9 +54,9 @@ steps:
         from_secret: s3_build_cache_bucket
       S3_BUILD_CACHE_REGION:
         from_secret: s3_build_cache_region
-      S3_BUILD_CACHE_ACCESS_KEY_ID:
+      AWS_ACCESS_KEY_ID:
         from_secret: s3_build_cache_access_key_id
-      S3_BUILD_CACHE_SECRET_KEY:
+      AWS_SECRET_ACCESS_KEY:
         from_secret: s3_build_cache_secret_key
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
