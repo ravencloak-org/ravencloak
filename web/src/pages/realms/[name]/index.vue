@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useRealmStore } from '@/stores/realm'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -15,24 +15,29 @@ import ClientList from '@/components/ClientList.vue'
 import RoleList from '@/components/RoleList.vue'
 import GroupList from '@/components/GroupList.vue'
 
-const props = defineProps<{
-  name: string
-}>()
+defineOptions({
+  name: 'RealmDashboardPage'
+})
 
+const route = useRoute()
 const router = useRouter()
 const realmStore = useRealmStore()
 const toast = useToast()
 const confirm = useConfirm()
 
+const realmName = computed(() => route.params.name as string)
+
 const loading = ref(true)
 const syncing = ref(false)
 const error = ref<string | null>(null)
+
+import { computed } from 'vue'
 
 onMounted(async () => {
   await loadRealm()
 })
 
-watch(() => props.name, async () => {
+watch(() => route.params.name, async () => {
   await loadRealm()
 })
 
@@ -41,7 +46,7 @@ async function loadRealm(): Promise<void> {
   error.value = null
 
   try {
-    await realmStore.fetchRealm(props.name)
+    await realmStore.fetchRealm(realmName.value)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load realm'
     toast.add({
@@ -59,7 +64,7 @@ async function handleSync(): Promise<void> {
   syncing.value = true
 
   try {
-    await realmStore.syncRealm(props.name)
+    await realmStore.syncRealm(realmName.value)
     toast.add({
       severity: 'success',
       summary: 'Success',
@@ -80,7 +85,7 @@ async function handleSync(): Promise<void> {
 
 async function handleEnableSpi(): Promise<void> {
   try {
-    await realmStore.enableSpi(props.name)
+    await realmStore.enableSpi(realmName.value)
     toast.add({
       severity: 'success',
       summary: 'Success',
@@ -99,7 +104,7 @@ async function handleEnableSpi(): Promise<void> {
 
 function handleDelete(): void {
   confirm.require({
-    message: `Are you sure you want to delete the realm "${props.name}"? This action cannot be undone.`,
+    message: `Are you sure you want to delete the realm "${realmName.value}"? This action cannot be undone.`,
     header: 'Delete Realm',
     icon: 'pi pi-exclamation-triangle',
     rejectLabel: 'Cancel',
@@ -107,14 +112,14 @@ function handleDelete(): void {
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
-        await realmStore.deleteRealm(props.name)
+        await realmStore.deleteRealm(realmName.value)
         toast.add({
           severity: 'success',
           summary: 'Success',
           detail: 'Realm deleted successfully',
           life: 3000
         })
-        router.push({ name: 'realms' })
+        router.push('/realms')
       } catch (err) {
         toast.add({
           severity: 'error',
@@ -128,7 +133,7 @@ function handleDelete(): void {
 }
 
 function navigateBack(): void {
-  router.push({ name: 'realms' })
+  router.push('/realms')
 }
 
 function formatDate(dateString: string): string {
@@ -257,7 +262,7 @@ function formatDate(dateString: string): string {
                 />
               </span>
             </template>
-            <ClientList :clients="realmStore.currentRealm.clients || []" :realm-name="props.name" />
+            <ClientList :clients="realmStore.currentRealm.clients || []" :realm-name="realmName" />
           </TabPanel>
 
           <TabPanel value="roles">
@@ -272,7 +277,7 @@ function formatDate(dateString: string): string {
                 />
               </span>
             </template>
-            <RoleList :roles="realmStore.currentRealm.roles || []" :realm-name="props.name" />
+            <RoleList :roles="realmStore.currentRealm.roles || []" :realm-name="realmName" />
           </TabPanel>
 
           <TabPanel value="groups">
@@ -287,7 +292,7 @@ function formatDate(dateString: string): string {
                 />
               </span>
             </template>
-            <GroupList :groups="realmStore.currentRealm.groups || []" :realm-name="props.name" />
+            <GroupList :groups="realmStore.currentRealm.groups || []" :realm-name="realmName" />
           </TabPanel>
         </TabView>
       </div>

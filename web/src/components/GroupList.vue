@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import Tree from 'primevue/tree'
+import Button from 'primevue/button'
 import type { TreeNode } from 'primevue/treenode'
 import type { Group } from '@/types'
 
 const props = defineProps<{
   groups: Group[]
+  realmName: string
 }>()
+
+const router = useRouter()
 
 interface TreeGroup extends TreeNode {
   key: string
@@ -64,10 +69,23 @@ function buildTree(groups: Group[]): TreeGroup[] {
 
   return roots
 }
+
+function navigateToCreateGroup(): void {
+  router.push(`/realms/${props.realmName}/groups/create`)
+}
 </script>
 
 <template>
   <div class="group-list">
+    <div class="list-header">
+      <Button
+        label="Add Group"
+        icon="pi pi-plus"
+        size="small"
+        @click="navigateToCreateGroup"
+      />
+    </div>
+
     <div v-if="groups.length === 0" class="empty-state">
       <i class="pi pi-users empty-icon" />
       <p>No groups configured</p>
@@ -91,6 +109,12 @@ function buildTree(groups: Group[]): TreeGroup[] {
 <style scoped>
 .group-list {
   padding: 1rem 0;
+}
+
+.list-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
 }
 
 .empty-state {

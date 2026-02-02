@@ -41,9 +41,49 @@ export interface Client {
   description?: string
   enabled: boolean
   publicClient: boolean
-  standardFlowEnabled: boolean
-  directAccessGrantsEnabled: boolean
-  serviceAccountsEnabled: boolean
+  standardFlowEnabled?: boolean
+  directAccessGrantsEnabled?: boolean
+  serviceAccountsEnabled?: boolean
+}
+
+export interface ClientDetailResponse extends Client {
+  rootUrl?: string
+  baseUrl?: string
+  redirectUris: string[]
+  webOrigins: string[]
+  createdAt: string
+}
+
+export interface CreateClientRequest {
+  clientId: string
+  name?: string
+  description?: string
+  publicClient?: boolean
+  standardFlowEnabled?: boolean
+  directAccessGrantsEnabled?: boolean
+  serviceAccountsEnabled?: boolean
+  rootUrl?: string
+  baseUrl?: string
+  redirectUris?: string[]
+  webOrigins?: string[]
+}
+
+export interface UpdateClientRequest {
+  name?: string
+  description?: string
+  enabled?: boolean
+  publicClient?: boolean
+  standardFlowEnabled?: boolean
+  directAccessGrantsEnabled?: boolean
+  serviceAccountsEnabled?: boolean
+  rootUrl?: string
+  baseUrl?: string
+  redirectUris?: string[]
+  webOrigins?: string[]
+}
+
+export interface ClientSecretResponse {
+  secret: string
 }
 
 export interface Role {
@@ -51,8 +91,17 @@ export interface Role {
   name: string
   description?: string
   composite: boolean
-  clientRole: boolean
-  containerId: string
+  clientRole?: boolean
+  containerId?: string
+}
+
+export interface CreateRoleRequest {
+  name: string
+  description?: string
+}
+
+export interface UpdateRoleRequest {
+  description?: string
 }
 
 export interface Group {
@@ -61,6 +110,42 @@ export interface Group {
   path: string
   parentId?: string
   subGroups?: Group[]
+  attributes?: Record<string, string[]>
+}
+
+export interface CreateGroupRequest {
+  name: string
+  attributes?: Record<string, string[]>
+}
+
+export interface UpdateGroupRequest {
+  name?: string
+  attributes?: Record<string, string[]>
+}
+
+export interface IdentityProvider {
+  alias: string
+  displayName?: string
+  providerId: string
+  enabled: boolean
+  trustEmail: boolean
+  config: Record<string, string>
+}
+
+export interface CreateIdpRequest {
+  alias: string
+  displayName?: string
+  providerId: string
+  enabled?: boolean
+  trustEmail?: boolean
+  config?: Record<string, string>
+}
+
+export interface UpdateIdpRequest {
+  displayName?: string
+  enabled?: boolean
+  trustEmail?: boolean
+  config?: Record<string, string>
 }
 
 export interface CreateRealmRequest {

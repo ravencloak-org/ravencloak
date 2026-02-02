@@ -1,47 +1,30 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
+import { routes } from 'vue-router/auto-routes'
 import { useAuthStore } from '@/stores/auth'
+
+// Wrap routes in MainLayout
+const wrappedRoutes = [
+  {
+    path: '/',
+    component: () => import('@/layouts/MainLayout.vue'),
+    meta: { requiresAuth: true },
+    children: routes.filter(r => r.path !== '/login')
+  },
+  routes.find(r => r.path === '/login') ?? {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/pages/login.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/login'
+  }
+]
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/views/LoginView.vue'),
-      meta: { requiresAuth: false }
-    },
-    {
-      path: '/',
-      component: () => import('@/layouts/MainLayout.vue'),
-      meta: { requiresAuth: true },
-      children: [
-        {
-          path: '',
-          redirect: '/realms'
-        },
-        {
-          path: 'realms',
-          name: 'realms',
-          component: () => import('@/views/RealmListView.vue')
-        },
-        {
-          path: 'realms/create',
-          name: 'create-realm',
-          component: () => import('@/views/CreateRealmView.vue')
-        },
-        {
-          path: 'realms/:name',
-          name: 'realm-dashboard',
-          component: () => import('@/views/RealmDashboardView.vue'),
-          props: true
-        }
-      ]
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      redirect: '/login'
-    }
-  ]
+  routes: wrappedRoutes
 })
 
 router.beforeEach(async (to: RouteLocationNormalized) => {
@@ -55,19 +38,18 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
 
   // Not authenticated - redirect to login
   if (requiresAuth && !authStore.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    return { path: '/login', query: { redirect: to.fullPath } }
   }
 
   // Already authenticated and going to login - redirect to realms
-  if (to.name === 'login' && authStore.isAuthenticated) {
-    return { name: 'realms' }
+  if (to.path === '/login' && authStore.isAuthenticated) {
+    return { path: '/realms' }
   }
 
   // Authenticated but missing SUPER_ADMIN role - logout and stop
-  // Don't return a redirect here since logout() handles the redirect
   if (requiresAuth && authStore.isAuthenticated && !authStore.isSuperAdmin) {
-    authStore.logout() // Don't await - let it redirect
-    return false // Stop navigation
+    authStore.logout()
+    return false
   }
 
   return true
