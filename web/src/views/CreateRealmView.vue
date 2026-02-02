@@ -35,9 +35,9 @@ async function handleSubmit(): Promise<void> {
   error.value = null
 
   const request: CreateRealmRequest = {
-    name: realmName.value,
+    realmName: realmName.value,
     displayName: displayName.value || undefined,
-    enableSpi: enableSpi.value
+    enableUserStorageSpi: enableSpi.value
   }
 
   try {

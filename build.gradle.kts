@@ -47,7 +47,7 @@ dependencies {
 	implementation("io.github.cdimascio:dotenv-kotlin:6.4.1")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.postgresql:postgresql")
-	runtimeOnly("org.postgresql:r2dbc-postgresql")
+	implementation("org.postgresql:r2dbc-postgresql")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-r2dbc-test")
@@ -70,4 +70,13 @@ kotlin {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+// Disable AOT processing for development (causes issues with R2DBC Json type)
+tasks.named("processAot") {
+	enabled = false
+}
+
+tasks.named("processTestAot") {
+	enabled = false
 }

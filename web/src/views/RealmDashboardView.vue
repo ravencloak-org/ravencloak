@@ -170,13 +170,13 @@ function formatDate(dateString: string): string {
         />
         <div class="header-content">
           <div class="header-title">
-            <h1>{{ realmStore.currentRealm.displayName || realmStore.currentRealm.name }}</h1>
+            <h1>{{ realmStore.currentRealm.displayName || realmStore.currentRealm.realmName }}</h1>
             <Tag
               :value="realmStore.currentRealm.enabled ? 'Enabled' : 'Disabled'"
               :severity="realmStore.currentRealm.enabled ? 'success' : 'danger'"
             />
           </div>
-          <p>{{ realmStore.currentRealm.name }}</p>
+          <p>{{ realmStore.currentRealm.realmName }}</p>
         </div>
         <div class="header-actions">
           <Button
@@ -203,7 +203,7 @@ function formatDate(dateString: string): string {
             <div class="info-grid">
               <div class="info-item">
                 <span class="info-label">Name</span>
-                <span class="info-value">{{ realmStore.currentRealm.name }}</span>
+                <span class="info-value">{{ realmStore.currentRealm.realmName }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Display Name</span>
@@ -237,8 +237,8 @@ function formatDate(dateString: string): string {
                 <span class="info-value">{{ formatDate(realmStore.currentRealm.createdAt) }}</span>
               </div>
               <div class="info-item">
-                <span class="info-label">Last Updated</span>
-                <span class="info-value">{{ formatDate(realmStore.currentRealm.updatedAt) }}</span>
+                <span class="info-label">Last Synced</span>
+                <span class="info-value">{{ formatDate(realmStore.currentRealm.syncedAt) }}</span>
               </div>
             </div>
           </template>

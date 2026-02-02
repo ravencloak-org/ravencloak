@@ -61,11 +61,11 @@ export const useRealmStore = defineStore('realm', () => {
 
     try {
       const updated = await realmApi.update(name, request)
-      const index = realms.value.findIndex(r => r.name === name)
+      const index = realms.value.findIndex(r => r.realmName === name)
       if (index >= 0) {
         realms.value[index] = updated
       }
-      if (currentRealm.value?.name === name) {
+      if (currentRealm.value?.realmName === name) {
         currentRealm.value = { ...currentRealm.value, ...updated }
       }
     } catch (err) {
@@ -82,8 +82,8 @@ export const useRealmStore = defineStore('realm', () => {
 
     try {
       await realmApi.delete(name)
-      realms.value = realms.value.filter(r => r.name !== name)
-      if (currentRealm.value?.name === name) {
+      realms.value = realms.value.filter(r => r.realmName !== name)
+      if (currentRealm.value?.realmName === name) {
         currentRealm.value = null
       }
     } catch (err) {

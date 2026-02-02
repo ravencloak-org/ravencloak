@@ -32,7 +32,7 @@ function formatDate(dateString: string): string {
 
     <template #title>
       <div class="card-title">
-        <span class="realm-name">{{ realm.displayName || realm.name }}</span>
+        <span class="realm-name">{{ realm.displayName || realm.realmName }}</span>
         <Tag
           :value="realm.enabled ? 'Active' : 'Inactive'"
           :severity="realm.enabled ? 'success' : 'danger'"
@@ -42,7 +42,7 @@ function formatDate(dateString: string): string {
     </template>
 
     <template #subtitle>
-      <span class="realm-id">{{ realm.name }}</span>
+      <span class="realm-id">{{ realm.realmName }}</span>
     </template>
 
     <template #content>

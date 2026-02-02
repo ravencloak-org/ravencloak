@@ -53,17 +53,21 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
 
   const requiresAuth = to.meta.requiresAuth !== false
 
+  // Not authenticated - redirect to login
   if (requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
+  // Already authenticated and going to login - redirect to realms
   if (to.name === 'login' && authStore.isAuthenticated) {
     return { name: 'realms' }
   }
 
+  // Authenticated but missing SUPER_ADMIN role - logout and stop
+  // Don't return a redirect here since logout() handles the redirect
   if (requiresAuth && authStore.isAuthenticated && !authStore.isSuperAdmin) {
-    await authStore.logout()
-    return { name: 'login', query: { error: 'insufficient_permissions' } }
+    authStore.logout() // Don't await - let it redirect
+    return false // Stop navigation
   }
 
   return true

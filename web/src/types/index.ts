@@ -9,18 +9,29 @@ export interface User {
 
 export interface Realm {
   id: string
-  name: string
+  realmName: string
   displayName?: string
   enabled: boolean
   spiEnabled: boolean
+  accountId?: string
   createdAt: string
-  updatedAt: string
 }
 
 export interface RealmDetails extends Realm {
+  spiApiUrl?: string
+  attributes?: Record<string, unknown>
   clients: Client[]
   roles: Role[]
   groups: Group[]
+  userStorageProviders?: UserStorageProvider[]
+  syncedAt: string
+}
+
+export interface UserStorageProvider {
+  id: string
+  name: string
+  providerId: string
+  priority: number
 }
 
 export interface Client {
@@ -53,9 +64,9 @@ export interface Group {
 }
 
 export interface CreateRealmRequest {
-  name: string
+  realmName: string
   displayName?: string
-  enableSpi: boolean
+  enableUserStorageSpi: boolean
 }
 
 export interface ApiError {

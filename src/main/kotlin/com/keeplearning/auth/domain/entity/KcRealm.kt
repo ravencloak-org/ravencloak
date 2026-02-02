@@ -1,5 +1,6 @@
 package com.keeplearning.auth.domain.entity
 
+import io.r2dbc.postgresql.codec.Json
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
@@ -21,7 +22,7 @@ data class KcRealm(
     val spiEnabled: Boolean = false,
     @Column("spi_api_url")
     val spiApiUrl: String? = null,
-    val attributes: String = "{}",  // JSONB stored as String
+    val attributes: Json? = null,
     @Column("keycloak_id")
     val keycloakId: String,
     @Column("synced_at")

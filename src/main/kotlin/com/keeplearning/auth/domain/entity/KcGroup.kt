@@ -1,5 +1,6 @@
 package com.keeplearning.auth.domain.entity
 
+import io.r2dbc.postgresql.codec.Json
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
@@ -16,7 +17,7 @@ data class KcGroup(
     val parentId: UUID? = null,
     val name: String,
     val path: String,
-    val attributes: String = "{}",  // JSONB stored as String
+    val attributes: Json? = null,
     @Column("keycloak_id")
     val keycloakId: String,
     @Column("synced_at")

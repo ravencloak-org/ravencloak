@@ -93,7 +93,7 @@ function navigateToRealmDashboard(realmName: string): void {
         v-for="realm in realmStore.realms"
         :key="realm.id"
         :realm="realm"
-        @click="navigateToRealmDashboard(realm.name)"
+        @click="navigateToRealmDashboard(realm.realmName)"
       />
     </div>
   </div>

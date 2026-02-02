@@ -6,6 +6,8 @@ const keycloakConfig = {
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID
 }
 
+console.log('Keycloak config:', keycloakConfig)
+
 const keycloak = new Keycloak(keycloakConfig)
 
 export interface KeycloakTokenParsed {
@@ -28,13 +30,13 @@ export function getKeycloak(): Keycloak {
 export async function initKeycloak(): Promise<boolean> {
   try {
     const authenticated = await keycloak.init({
-      onLoad: 'check-sso',
-      silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
       pkceMethod: 'S256',
       checkLoginIframe: false
     })
 
     if (authenticated) {
+      console.log('Token parsed:', keycloak.tokenParsed)
+      console.log('Realm roles:', keycloak.tokenParsed?.realm_access?.roles)
       setupTokenRefresh()
     }
 
