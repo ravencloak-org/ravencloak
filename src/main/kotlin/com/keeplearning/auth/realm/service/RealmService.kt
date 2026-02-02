@@ -4,6 +4,7 @@ import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import com.keeplearning.auth.config.KeycloakSpiProperties
 import com.keeplearning.auth.domain.entity.KcRealm
+import io.r2dbc.postgresql.codec.Json
 import com.keeplearning.auth.domain.repository.*
 import com.keeplearning.auth.keycloak.client.KeycloakAdminClient
 import com.keeplearning.auth.keycloak.client.dto.ClientRepresentation
@@ -97,7 +98,7 @@ class RealmService(
                 enabled = true,
                 spiEnabled = request.enableUserStorageSpi,
                 spiApiUrl = spiApiUrl,
-                attributes = objectMapper.writeValueAsString(request.attributes ?: emptyMap<String, String>()),
+                attributes = Json.of(objectMapper.writeValueAsString(request.attributes ?: emptyMap<String, String>())),
                 keycloakId = createdRealm.id!!,
                 syncedAt = Instant.now()
             )
@@ -130,8 +131,9 @@ class RealmService(
         val providers = userStorageProviderRepository.findByRealmId(realm.id)
             .collectList().awaitSingle()
 
-        val attributes: Map<String, Any>? = if (realm.attributes != "{}") {
-            objectMapper.readValue(realm.attributes, object : TypeReference<Map<String, Any>>() {})
+        val attributesStr = realm.attributes?.asString()
+        val attributes: Map<String, Any>? = if (attributesStr != null && attributesStr != "{}") {
+            objectMapper.readValue(attributesStr, object : TypeReference<Map<String, Any>>() {})
         } else null
 
         return RealmDetailResponse(
@@ -210,8 +212,8 @@ class RealmService(
         }
 
         // Update local database
-        val attributes = if (request.attributes != null) {
-            objectMapper.writeValueAsString(request.attributes)
+        val updatedAttributes = if (request.attributes != null) {
+            Json.of(objectMapper.writeValueAsString(request.attributes))
         } else realm.attributes
 
         val updatedRealm = realmRepository.save(
@@ -220,7 +222,7 @@ class RealmService(
                 enabled = request.enabled ?: realm.enabled,
                 spiEnabled = request.spiEnabled ?: realm.spiEnabled,
                 spiApiUrl = spiApiUrl,
-                attributes = attributes,
+                attributes = updatedAttributes,
                 updatedAt = Instant.now(),
                 syncedAt = Instant.now()
             )
@@ -271,13 +273,17 @@ class RealmService(
     }
 
     suspend fun triggerSync(realmName: String): SyncResponse {
-        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+        // Verify realm exists before syncing
+        realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
         val result = syncService.syncRealm(realmName)
 
-        // Update sync timestamp
-        realmRepository.save(realm.copy(syncedAt = Instant.now())).awaitSingle()
+        // Fetch the updated realm after sync and update sync timestamp
+        val updatedRealm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+        if (updatedRealm != null) {
+            realmRepository.save(updatedRealm.copy(syncedAt = Instant.now())).awaitSingle()
+        }
 
         return SyncResponse(
             realmName = realmName,

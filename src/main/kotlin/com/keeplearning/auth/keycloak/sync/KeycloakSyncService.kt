@@ -2,6 +2,7 @@ package com.keeplearning.auth.keycloak.sync
 
 import tools.jackson.databind.ObjectMapper
 import com.keeplearning.auth.domain.entity.*
+import io.r2dbc.postgresql.codec.Json
 import com.keeplearning.auth.domain.repository.*
 import com.keeplearning.auth.keycloak.client.KeycloakAdminClient
 import com.keeplearning.auth.keycloak.client.dto.GroupRepresentation
@@ -98,6 +99,12 @@ class KeycloakSyncService(
         val groups = groupsDeferred.await()
         val providers = providersDeferred.await()
 
+        // Log individual sync results for debugging
+        if (!clients.success) logger.error("Clients sync failed for realm ${realm.realmName}: ${clients.error}")
+        if (!roles.success) logger.error("Roles sync failed for realm ${realm.realmName}: ${roles.error}")
+        if (!groups.success) logger.error("Groups sync failed for realm ${realm.realmName}: ${groups.error}")
+        if (!providers.success) logger.error("User storage providers sync failed for realm ${realm.realmName}: ${providers.error}")
+
         RealmSyncResult(
             realmName = realm.realmName,
             clients = clients,
@@ -126,8 +133,8 @@ class KeycloakSyncService(
                             protocol = clientRep.protocol,
                             rootUrl = clientRep.rootUrl,
                             baseUrl = clientRep.baseUrl,
-                            redirectUris = objectMapper.writeValueAsString(clientRep.redirectUris ?: emptyList<String>()),
-                            webOrigins = objectMapper.writeValueAsString(clientRep.webOrigins ?: emptyList<String>()),
+                            redirectUris = Json.of(objectMapper.writeValueAsString(clientRep.redirectUris ?: emptyList<String>())),
+                            webOrigins = Json.of(objectMapper.writeValueAsString(clientRep.webOrigins ?: emptyList<String>())),
                             syncedAt = Instant.now(),
                             updatedAt = Instant.now()
                         )
@@ -144,8 +151,8 @@ class KeycloakSyncService(
                             protocol = clientRep.protocol,
                             rootUrl = clientRep.rootUrl,
                             baseUrl = clientRep.baseUrl,
-                            redirectUris = objectMapper.writeValueAsString(clientRep.redirectUris ?: emptyList<String>()),
-                            webOrigins = objectMapper.writeValueAsString(clientRep.webOrigins ?: emptyList<String>()),
+                            redirectUris = Json.of(objectMapper.writeValueAsString(clientRep.redirectUris ?: emptyList<String>())),
+                            webOrigins = Json.of(objectMapper.writeValueAsString(clientRep.webOrigins ?: emptyList<String>())),
                             keycloakId = clientRep.id,
                             syncedAt = Instant.now()
                         )
@@ -213,7 +220,7 @@ class KeycloakSyncService(
         groupRep: GroupRepresentation,
         parentId: UUID?
     ): Int {
-        val attributesJson = objectMapper.writeValueAsString(groupRep.attributes ?: emptyMap<String, List<String>>())
+        val attributesJson = Json.of(objectMapper.writeValueAsString(groupRep.attributes ?: emptyMap<String, List<String>>()))
 
         val existing = groupRepository.findByKeycloakId(groupRep.id!!).awaitSingleOrNull()
         val savedGroup = if (existing != null) {
@@ -252,6 +259,16 @@ class KeycloakSyncService(
     suspend fun syncUserStorageProviders(realm: KcRealm): EntitySyncResult {
         return logSync(realm.id, SyncEntityType.USER) {
             val providers = keycloakClient.getUserStorageProviders(realm.realmName)
+            val keycloakProviderIds = providers.mapNotNull { it.id }.toSet()
+
+            // Delete providers that no longer exist in Keycloak
+            val existingProviders = userStorageProviderRepository.findByRealmId(realm.id!!).collectList().awaitSingle()
+            for (existing in existingProviders) {
+                if (existing.keycloakId !in keycloakProviderIds) {
+                    userStorageProviderRepository.delete(existing).awaitSingleOrNull()
+                    logger.info("Deleted user storage provider '${existing.name}' from realm ${realm.realmName} (removed from Keycloak)")
+                }
+            }
 
             var count = 0
             for (componentRep in providers) {
@@ -270,7 +287,7 @@ class KeycloakSyncService(
                 } else {
                     userStorageProviderRepository.save(
                         KcUserStorageProvider(
-                            realmId = realm.id!!,
+                            realmId = realm.id,
                             name = componentRep.name,
                             providerId = componentRep.providerId,
                             priority = componentRep.config?.get("priority")?.firstOrNull()?.toIntOrNull() ?: 0,
@@ -281,6 +298,18 @@ class KeycloakSyncService(
                     ).awaitSingle()
                 }
                 count++
+            }
+
+            // Update realm's spiEnabled status based on whether any providers exist
+            val spiEnabled = providers.isNotEmpty()
+            if (realm.spiEnabled != spiEnabled) {
+                realmRepository.save(
+                    realm.copy(
+                        spiEnabled = spiEnabled,
+                        updatedAt = Instant.now()
+                    )
+                ).awaitSingle()
+                logger.info("Updated realm ${realm.realmName} spiEnabled=$spiEnabled")
             }
 
             EntitySyncResult(SyncEntityType.USER, count, true)

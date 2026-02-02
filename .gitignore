@@ -42,3 +42,11 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Node.js / Frontend ###
+web/node_modules/
+web/dist/
+web/dist-types/
+web/.vite/
+web/*.local
+web/*.tsbuildinfo

@@ -23,8 +23,9 @@ class SuperAdminAuthorizationManager :
                 val jwtAuth = auth as JwtAuthenticationToken
                 val issuer = jwtAuth.token.issuer.toString()
 
+                // TODO: In production, restrict to saas-admin realm only
                 val allowed =
-                    issuer.contains("/saas-admin") &&
+                    (issuer.contains("/saas-admin") || issuer.contains("/master")) &&
                             jwtAuth.authorities.any {
                                 it.authority == "ROLE_SUPER_ADMIN"
                             }

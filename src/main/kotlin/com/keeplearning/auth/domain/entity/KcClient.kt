@@ -1,5 +1,6 @@
 package com.keeplearning.auth.domain.entity
 
+import io.r2dbc.postgresql.codec.Json
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
@@ -25,9 +26,9 @@ data class KcClient(
     @Column("base_url")
     val baseUrl: String? = null,
     @Column("redirect_uris")
-    val redirectUris: String = "[]",  // JSONB stored as String
+    val redirectUris: Json = Json.of("[]"),
     @Column("web_origins")
-    val webOrigins: String = "[]",  // JSONB stored as String
+    val webOrigins: Json = Json.of("[]"),
     @Column("keycloak_id")
     val keycloakId: String,
     @Column("synced_at")
