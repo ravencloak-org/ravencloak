@@ -11,10 +11,10 @@ data class CreateRealmRequest(
     val spiApiUrl: String? = null,
     val attributes: Map<String, String>? = null,
     val defaultRoles: List<String>? = null,
-    val defaultClients: List<CreateClientRequest>? = null
+    val defaultClients: List<DefaultClientRequest>? = null
 )
 
-data class CreateClientRequest(
+data class DefaultClientRequest(
     val clientId: String,
     val name: String? = null,
     val publicClient: Boolean = true,

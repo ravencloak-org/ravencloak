@@ -1,0 +1,236 @@
+package com.keeplearning.auth.realm.service
+
+import com.keeplearning.auth.domain.entity.KcClient
+import com.keeplearning.auth.domain.repository.KcClientRepository
+import com.keeplearning.auth.domain.repository.KcRealmRepository
+import com.keeplearning.auth.keycloak.client.KeycloakAdminClient
+import com.keeplearning.auth.keycloak.client.dto.ClientRepresentation
+import com.keeplearning.auth.realm.dto.*
+import io.r2dbc.postgresql.codec.Json
+import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
+import org.springframework.stereotype.Service
+import org.springframework.web.server.ResponseStatusException
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.core.type.TypeReference
+import java.time.Instant
+
+@Service
+class ClientService(
+    private val keycloakClient: KeycloakAdminClient,
+    private val clientRepository: KcClientRepository,
+    private val realmRepository: KcRealmRepository,
+    private val objectMapper: ObjectMapper
+) {
+    private val logger = LoggerFactory.getLogger(ClientService::class.java)
+
+    suspend fun createClient(realmName: String, request: CreateClientRequest): ClientDetailResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        // Check if client already exists
+        val existingClient = clientRepository.findByRealmIdAndClientId(realm.id!!, request.clientId).awaitSingleOrNull()
+        if (existingClient != null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Client '${request.clientId}' already exists")
+        }
+
+        // Create in Keycloak
+        val clientRep = ClientRepresentation(
+            clientId = request.clientId,
+            name = request.name,
+            description = request.description,
+            publicClient = request.publicClient,
+            standardFlowEnabled = request.standardFlowEnabled,
+            directAccessGrantsEnabled = request.directAccessGrantsEnabled,
+            serviceAccountsEnabled = if (request.publicClient) false else request.serviceAccountsEnabled,
+            rootUrl = request.rootUrl,
+            baseUrl = request.baseUrl,
+            redirectUris = request.redirectUris.ifEmpty { null },
+            webOrigins = request.webOrigins.ifEmpty { null }
+        )
+
+        val keycloakId = keycloakClient.createClient(realmName, clientRep)
+
+        // Save to local database
+        val client = clientRepository.save(
+            KcClient(
+                realmId = realm.id,
+                clientId = request.clientId,
+                name = request.name,
+                description = request.description,
+                enabled = true,
+                publicClient = request.publicClient,
+                rootUrl = request.rootUrl,
+                baseUrl = request.baseUrl,
+                redirectUris = Json.of(objectMapper.writeValueAsString(request.redirectUris)),
+                webOrigins = Json.of(objectMapper.writeValueAsString(request.webOrigins)),
+                standardFlowEnabled = request.standardFlowEnabled,
+                directAccessGrantsEnabled = request.directAccessGrantsEnabled,
+                serviceAccountsEnabled = if (request.publicClient) false else request.serviceAccountsEnabled,
+                keycloakId = keycloakId
+            )
+        ).awaitSingle()
+
+        logger.info("Created client: ${request.clientId} in realm: $realmName")
+        return client.toDetailResponse()
+    }
+
+    suspend fun getClient(realmName: String, clientId: String): ClientDetailResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        return client.toDetailResponse()
+    }
+
+    suspend fun listClients(realmName: String): List<ClientResponse> {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        return clientRepository.findByRealmId(realm.id!!)
+            .collectList()
+            .awaitSingle()
+            .map { it.toResponse() }
+    }
+
+    suspend fun updateClient(realmName: String, clientId: String, request: UpdateClientRequest): ClientDetailResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        // Get current client from Keycloak
+        val currentClient = keycloakClient.getClient(realmName, client.keycloakId)
+
+        // Update in Keycloak
+        val updatedClientRep = currentClient.copy(
+            name = request.name ?: currentClient.name,
+            description = request.description ?: currentClient.description,
+            enabled = request.enabled ?: currentClient.enabled,
+            publicClient = request.publicClient ?: currentClient.publicClient,
+            standardFlowEnabled = request.standardFlowEnabled ?: currentClient.standardFlowEnabled,
+            directAccessGrantsEnabled = request.directAccessGrantsEnabled ?: currentClient.directAccessGrantsEnabled,
+            serviceAccountsEnabled = request.serviceAccountsEnabled ?: currentClient.serviceAccountsEnabled,
+            rootUrl = request.rootUrl ?: currentClient.rootUrl,
+            baseUrl = request.baseUrl ?: currentClient.baseUrl,
+            redirectUris = request.redirectUris ?: currentClient.redirectUris,
+            webOrigins = request.webOrigins ?: currentClient.webOrigins
+        )
+
+        keycloakClient.updateClient(realmName, client.keycloakId, updatedClientRep)
+
+        // Update local database
+        val updatedClient = clientRepository.save(
+            client.copy(
+                name = request.name ?: client.name,
+                description = request.description ?: client.description,
+                enabled = request.enabled ?: client.enabled,
+                publicClient = request.publicClient ?: client.publicClient,
+                standardFlowEnabled = request.standardFlowEnabled ?: client.standardFlowEnabled,
+                directAccessGrantsEnabled = request.directAccessGrantsEnabled ?: client.directAccessGrantsEnabled,
+                serviceAccountsEnabled = request.serviceAccountsEnabled ?: client.serviceAccountsEnabled,
+                rootUrl = request.rootUrl ?: client.rootUrl,
+                baseUrl = request.baseUrl ?: client.baseUrl,
+                redirectUris = request.redirectUris?.let { Json.of(objectMapper.writeValueAsString(it)) } ?: client.redirectUris,
+                webOrigins = request.webOrigins?.let { Json.of(objectMapper.writeValueAsString(it)) } ?: client.webOrigins,
+                updatedAt = Instant.now()
+            )
+        ).awaitSingle()
+
+        logger.info("Updated client: $clientId in realm: $realmName")
+        return updatedClient.toDetailResponse()
+    }
+
+    suspend fun deleteClient(realmName: String, clientId: String) {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        // Delete from Keycloak
+        keycloakClient.deleteClient(realmName, client.keycloakId)
+
+        // Delete from local database
+        clientRepository.delete(client).awaitSingleOrNull()
+
+        logger.info("Deleted client: $clientId from realm: $realmName")
+    }
+
+    suspend fun getClientSecret(realmName: String, clientId: String): ClientSecretResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        if (client.publicClient) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Public clients do not have a secret")
+        }
+
+        val secret = keycloakClient.getClientSecret(realmName, client.keycloakId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client secret not found")
+
+        return ClientSecretResponse(secret)
+    }
+
+    suspend fun regenerateClientSecret(realmName: String, clientId: String): ClientSecretResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        if (client.publicClient) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Public clients do not have a secret")
+        }
+
+        val secret = keycloakClient.regenerateClientSecret(realmName, client.keycloakId)
+        logger.info("Regenerated client secret for: $clientId in realm: $realmName")
+
+        return ClientSecretResponse(secret)
+    }
+
+    private fun KcClient.toResponse() = ClientResponse(
+        id = id!!,
+        clientId = clientId,
+        name = name,
+        enabled = enabled,
+        publicClient = publicClient
+    )
+
+    private fun KcClient.toDetailResponse(): ClientDetailResponse {
+        val redirectUrisList = try {
+            objectMapper.readValue(redirectUris.asString(), object : TypeReference<List<String>>() {})
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val webOriginsList = try {
+            objectMapper.readValue(webOrigins.asString(), object : TypeReference<List<String>>() {})
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        return ClientDetailResponse(
+            id = id!!,
+            clientId = clientId,
+            name = name,
+            description = description,
+            enabled = enabled,
+            publicClient = publicClient,
+            standardFlowEnabled = standardFlowEnabled,
+            directAccessGrantsEnabled = directAccessGrantsEnabled,
+            serviceAccountsEnabled = serviceAccountsEnabled,
+            rootUrl = rootUrl,
+            baseUrl = baseUrl,
+            redirectUris = redirectUrisList,
+            webOrigins = webOriginsList,
+            createdAt = createdAt
+        )
+    }
+}
