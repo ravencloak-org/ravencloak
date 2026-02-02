@@ -30,13 +30,6 @@ steps:
         from_secret: s3_build_cache_endpoint
     commands:
       - rm -f /root/.gradle/caches/journal-1/*.lock 2>/dev/null || true
-      - |
-        echo "Verifying S3 cache config..."
-        echo "Bucket: $S3_BUILD_CACHE_BUCKET"
-        echo "Region: $S3_BUILD_CACHE_REGION"
-        echo "Endpoint: $S3_BUILD_CACHE_ENDPOINT"
-        echo "Access Key length: ${#AWS_ACCESS_KEY_ID}"
-        echo "Secret Key length: ${#AWS_SECRET_ACCESS_KEY}"
       - echo "Building and testing Keycloak SPI module..."
       - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
       - echo "Build successful!"
