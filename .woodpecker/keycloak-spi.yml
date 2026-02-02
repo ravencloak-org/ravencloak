@@ -22,9 +22,9 @@ steps:
         from_secret: s3_build_cache_bucket
       S3_BUILD_CACHE_REGION:
         from_secret: s3_build_cache_region
-      S3_BUILD_CACHE_ACCESS_KEY_ID:
+      AWS_ACCESS_KEY_ID:
         from_secret: s3_build_cache_access_key_id
-      S3_BUILD_CACHE_SECRET_KEY:
+      AWS_SECRET_ACCESS_KEY:
         from_secret: s3_build_cache_secret_key
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
@@ -34,8 +34,8 @@ steps:
         echo "Bucket: $S3_BUILD_CACHE_BUCKET"
         echo "Region: $S3_BUILD_CACHE_REGION"
         echo "Endpoint: $S3_BUILD_CACHE_ENDPOINT"
-        echo "Access Key length: ${#S3_BUILD_CACHE_ACCESS_KEY_ID}"
-        echo "Secret Key length: ${#S3_BUILD_CACHE_SECRET_KEY}"
+        echo "Access Key length: ${#AWS_ACCESS_KEY_ID}"
+        echo "Secret Key length: ${#AWS_SECRET_ACCESS_KEY}"
       - echo "Building and testing Keycloak SPI module..."
       - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
       - echo "Build successful!"

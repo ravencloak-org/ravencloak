@@ -4,6 +4,14 @@ plugins {
 	id("org.springframework.boot") version "4.0.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.graalvm.buildtools.native") version "0.11.3"
+	id("build-cache-metrics")
+}
+
+// Configure build cache metrics reporting
+buildCacheMetrics {
+	enableLogging.set(false)          // Set to true to log individual cache hits/misses
+	enableDetailedLogging.set(false)  // Set to true for debugging internal operations
+	useInternalApi.set(true)          // Use internal API for local cache metrics
 }
 
 group = "com.keeplearning"
