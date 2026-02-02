@@ -14,7 +14,7 @@ dependencies {
 
 gradlePlugin {
     plugins {
-        create("buildCacheMetrics") {
+        register("buildCacheMetrics") {
             id = "build-cache-metrics"
             implementationClass = "com.keeplearning.gradle.BuildCacheMetricsPlugin"
         }
