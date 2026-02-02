@@ -57,8 +57,8 @@ export const realmApi = {
     await api.delete(`/api/super/realms/${name}`)
   },
 
-  enableSpi: async (name: string): Promise<void> => {
-    await api.post(`/api/super/realms/${name}/spi`)
+  enableSpi: async (name: string, apiUrl?: string): Promise<void> => {
+    await api.post(`/api/super/realms/${name}/spi`, { apiUrl })
   },
 
   sync: async (name: string): Promise<void> => {
