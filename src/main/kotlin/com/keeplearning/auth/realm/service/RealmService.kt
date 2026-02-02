@@ -1,7 +1,7 @@
 package com.keeplearning.auth.realm.service
 
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
 import com.keeplearning.auth.config.KeycloakSpiProperties
 import com.keeplearning.auth.domain.entity.KcRealm
 import com.keeplearning.auth.domain.repository.*

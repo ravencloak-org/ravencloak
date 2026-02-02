@@ -1,6 +1,6 @@
 package com.keeplearning.auth.keycloak.sync
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.keeplearning.auth.domain.entity.*
 import com.keeplearning.auth.domain.repository.*
 import com.keeplearning.auth.keycloak.client.KeycloakAdminClient
