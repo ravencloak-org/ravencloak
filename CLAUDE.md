@@ -137,7 +137,9 @@ The system supports multiple Keycloak realms via dynamic JWT issuer validation:
 | `/api/account/**` | `ACCOUNT_ADMIN` or `INSTITUTE_ADMIN` role |
 | All other routes | Authenticated |
 
-### Domain Model (see `V1__admin_schema.sql`)
+### Domain Model
+
+#### Core Entities (V1__admin_schema.sql)
 
 Multi-tenant SaaS structure:
 - **Account** → top-level tenant with dedicated Keycloak realm
@@ -145,3 +147,50 @@ Multi-tenant SaaS structure:
 - **App** → feature module that can be enabled per institute
 - **User** → shadow record linked to Keycloak user, scoped to account
 - **Role/RoleAssignment** → RBAC with account, institute, or app scope
+
+#### User Search (V3 - ParadeDB BM25)
+
+Enhanced user table with full-text search:
+- BM25 index on: email, display_name, first_name, last_name, bio, job_title, department
+- Search operators: `|||` (any term), `&&&` (all terms)
+- Relevance scoring: `pdb.score(id)`
+
+```sql
+-- Example: Search users by name or role
+SELECT id, email, display_name, pdb.score(id) as relevance
+FROM users
+WHERE (email, display_name, first_name, last_name) ||| 'john developer'
+  AND account_id = :account_id
+ORDER BY relevance DESC;
+```
+
+#### Keycloak Entity Mapping (V3)
+
+Shadow tables for Keycloak entities (enables custom admin frontend):
+
+| Table | Description |
+|-------|-------------|
+| `kc_realms` | Keycloak realms linked to accounts |
+| `kc_clients` | OAuth2 clients per realm |
+| `kc_client_scopes` | OAuth2 scopes |
+| `kc_client_scope_mappings` | Client-to-scope assignments (DEFAULT/OPTIONAL) |
+| `kc_groups` | Hierarchical groups (self-referencing via parent_id) |
+| `kc_roles` | Realm and client roles |
+| `kc_role_composites` | Composite role mappings |
+| `kc_user_groups` | User-to-group assignments |
+| `kc_user_roles` | Direct user-to-role assignments |
+| `kc_group_roles` | Group-to-role assignments |
+| `kc_identity_providers` | SSO federation providers (Google, SAML, OIDC) |
+| `kc_sync_log` | Sync status tracking between DB and Keycloak |
+
+### ParadeDB Setup (Required for V2+ migrations)
+
+PostgreSQL must have ParadeDB extensions installed:
+
+1. Install ParadeDB binaries: https://docs.paradedb.com/deploy/self-hosted/extension
+2. **Postgres 17+**: No config changes needed, extensions load dynamically
+3. **Postgres 16 and earlier**: Add to `postgresql.conf` and restart:
+   ```ini
+   shared_preload_libraries = 'pg_search'
+   ```
+4. Extensions created by migration: `pg_search` (BM25), `vector` (pgvector)

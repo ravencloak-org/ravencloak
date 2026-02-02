@@ -1,4 +1,22 @@
 services:
+  # Database with ParadeDB (pg_search for BM25 full-text search)
+  paradedb:
+    image: paradedb/paradedb:latest
+    container_name: paradedb
+    ports:
+      - "5234:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - paradedb-data:/var/lib/postgresql
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.0
     container_name: keycloak
@@ -8,18 +26,16 @@ services:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
       - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://host.docker.internal:5433/keycloak
+      - KC_DB_URL=jdbc:postgresql://paradedb:5432/keycloak
       - KC_DB_USERNAME=postgres
       - KC_DB_PASSWORD=postgres
     volumes:
-      # Shared providers folder - populated by Drone CI build
       - keycloak-providers:/opt/keycloak/providers:ro
     command: start-dev
+    depends_on:
+      paradedb:
+        condition: service_healthy
 
 volumes:
+  paradedb-data:
   keycloak-providers:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/keycloak-providers
