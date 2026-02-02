@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoders
 import org.springframework.security.oauth2.server.resource.authentication.JwtIssuerReactiveAuthenticationManagerResolver
 import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager
+import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter
 import org.springframework.security.web.server.SecurityWebFilterChain
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository
@@ -25,7 +26,8 @@ import reactor.core.publisher.Mono
 @EnableReactiveMethodSecurity
 @EnableWebFluxSecurity
 class SecurityConfig(
-    private val superAdminAuthorizationManager: SuperAdminAuthorizationManager, // Ensure this is a @Component in a scanned package
+    private val superAdminAuthorizationManager: SuperAdminAuthorizationManager,
+    private val jwtAuthorityConverter: JwtAuthorityConverter,
     @Value("\${KEYCLOAK_ISSUER_PREFIX}") private val keycloakIssuerPrefix: String
 ) {
 
@@ -72,7 +74,16 @@ class SecurityConfig(
         return JwtIssuerReactiveAuthenticationManagerResolver { issuer ->
             require(issuer.startsWith(keycloakIssuerPrefix)) { "Invalid issuer" }
             val decoder: ReactiveJwtDecoder = ReactiveJwtDecoders.fromIssuerLocation(issuer)
-            Mono.just(JwtReactiveAuthenticationManager(decoder))
+            val authManager = JwtReactiveAuthenticationManager(decoder)
+
+            // Use the JwtAuthorityConverter to extract realm roles
+            val jwtAuthConverter = ReactiveJwtAuthenticationConverter()
+            jwtAuthConverter.setJwtGrantedAuthoritiesConverter { jwt ->
+                reactor.core.publisher.Flux.fromIterable(jwtAuthorityConverter.convert(jwt) ?: emptyList())
+            }
+            authManager.setJwtAuthenticationConverter(jwtAuthConverter)
+
+            Mono.just(authManager)
         }
     }
 

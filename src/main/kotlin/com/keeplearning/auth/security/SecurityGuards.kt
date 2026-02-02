@@ -12,7 +12,7 @@ class SecurityGuards {
     fun requireSuperAdmin(auth: JwtAuthenticationToken) {
         val issuer = auth.token.issuer.toString()
 
-        if (!issuer.contains("/saas-admin") ||
+        if (!issuer.contains("/master") ||
             auth.authorities.none { it.authority == "ROLE_SUPER_ADMIN" }) {
             throw IllegalAccessException("Super admin access required")
         }
