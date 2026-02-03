@@ -182,6 +182,119 @@ Shadow tables for Keycloak entities (enables custom admin frontend):
 | `kc_group_roles` | Group-to-role assignments |
 | `kc_identity_providers` | SSO federation providers (Google, SAML, OIDC) |
 | `kc_sync_log` | Sync status tracking between DB and Keycloak |
+| `entity_action_logs` | Audit trail for entity changes (V6) |
+
+#### Paired Clients (V7)
+
+Full-stack applications can create paired frontend/backend clients:
+- `kc_clients.paired_client_id` links frontend → backend client
+- Frontend client: public, `-web` suffix, configured redirect URIs
+- Backend client: confidential, `-backend` suffix, service accounts enabled
+- Query paired client: `KcClientRepository.findByPairedClientId()`
+
+#### Audit Trail (V6)
+
+Entity action logging with before/after state JSONB:
+
+| Column | Description |
+|--------|-------------|
+| `entity_type` | CLIENT, ROLE, GROUP, IDP |
+| `action` | CREATE, UPDATE, DELETE |
+| `before_state` | JSONB snapshot before change |
+| `after_state` | JSONB snapshot after change |
+| `actor_id` | Keycloak user ID from JWT `sub` claim |
+| `actor_email` | Email from JWT `email` claim |
+
+**Key Services:**
+- `AuditService` - Logs entity actions with JWT actor info
+- `AuditQueryService` - Query logs by realm, entity, actor
+- `RevertService` - Restore entities to previous state (Keycloak + DB)
+
+**REST Endpoints:**
+- `GET /api/super/realms/{realm}/audit` - List audit logs with filters
+- `GET /api/super/realms/{realm}/audit/{id}` - Get single log entry
+- `POST /api/super/realms/{realm}/audit/{id}/revert` - Revert to before state
+- `GET /api/super/my-actions` - Current user's actions across realms
+
+## Vue 3 Admin Portal (`web/`)
+
+### Tech Stack
+- Vue 3.5 + TypeScript + Vite
+- PrimeVue 4 component library (Aura theme)
+- Vue Router with file-based routing (`unplugin-vue-router`)
+- Pinia for state management
+- Axios for HTTP client
+
+### Build Commands
+
+```bash
+cd web
+npm install      # Install dependencies
+npm run dev      # Start dev server (http://localhost:5173)
+npm run build    # Production build with type checking
+npm run lint     # ESLint + Prettier
+```
+
+### Project Structure
+
+```
+web/
+├── src/
+│   ├── api/           # API clients (axios-based)
+│   │   ├── client.ts  # Base axios instance with auth interceptors
+│   │   ├── clients.ts # Client CRUD + applications
+│   │   ├── audit.ts   # Audit trail queries
+│   │   └── ...
+│   ├── components/    # Reusable Vue components
+│   │   ├── ClientCard.vue      # Client display card
+│   │   ├── ClientList.vue      # Card grid for clients
+│   │   ├── AuditTimeline.vue   # Timeline view for audit logs
+│   │   └── AuditDiffViewer.vue # Before/after diff display
+│   ├── pages/         # File-based routing
+│   │   └── realms/[name]/      # Dynamic realm routes
+│   ├── stores/        # Pinia stores (auth, etc.)
+│   ├── types/         # TypeScript interfaces
+│   └── utils/         # Utility functions
+│       └── urlTransform.ts  # URL auto-formatting
+```
+
+### URL Auto-Conversion Utilities
+
+`web/src/utils/urlTransform.ts` provides automatic URL formatting for Keycloak:
+
+```typescript
+// Redirect URIs: adds scheme and wildcard
+transformToRedirectUri('localhost:5173')  // → 'http://localhost:5173/*'
+transformToRedirectUri('example.com')     // → 'https://example.com/*'
+transformToRedirectUri('example.com/app') // → 'https://example.com/app/*'
+
+// Web Origins: adds scheme, no path
+transformToWebOrigin('localhost:5173')    // → 'http://localhost:5173'
+transformToWebOrigin('example.com')       // → 'https://example.com'
+```
+
+### API Types
+
+Key TypeScript interfaces in `web/src/types/index.ts`:
+
+```typescript
+// Application creation (paired clients)
+type ApplicationType = 'FRONTEND_ONLY' | 'BACKEND_ONLY' | 'FULL_STACK'
+
+interface CreateApplicationRequest {
+  applicationName: string
+  applicationType: ApplicationType
+  // URLs applied to frontend client
+  rootUrl?: string
+  redirectUris?: string[]
+  webOrigins?: string[]
+}
+
+interface ApplicationResponse {
+  frontendClient?: ClientDetailResponse
+  backendClient?: ClientDetailResponse
+}
+```
 
 ### ParadeDB Setup (Required for V2+ migrations)
 
