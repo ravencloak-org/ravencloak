@@ -18,6 +18,11 @@ import java.util.logging.Logger
 /**
  * User Storage Provider that validates users against an external REST API.
  * Implements read-only user lookup by email and username.
+ *
+ * Configuration options:
+ * - api-url: Base URL of the auth backend (default: http://auth-backend:8080)
+ * - client-aware-auth: Enable per-client user authorization (default: false)
+ * - timeout: Request timeout in seconds (default: 30)
  */
 class ExternalUserStorageProvider(
     private val session: KeycloakSession,
@@ -26,11 +31,22 @@ class ExternalUserStorageProvider(
 
     companion object {
         private val logger: Logger = Logger.getLogger(ExternalUserStorageProvider::class.java.name)
-        private const val BASE_URL = "http://auth-backend:8080/api/public/users"
         private val httpClient: HttpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build()
     }
+
+    // Configuration values
+    private val apiUrl: String
+        get() = model.get(ExternalUserStorageProviderFactory.CONFIG_API_URL)
+            ?: ExternalUserStorageProviderFactory.DEFAULT_API_URL
+
+    private val clientAwareAuth: Boolean
+        get() = model.get(ExternalUserStorageProviderFactory.CONFIG_CLIENT_AWARE_AUTH)?.toBoolean() ?: false
+
+    private val timeoutSeconds: Long
+        get() = model.get(ExternalUserStorageProviderFactory.CONFIG_TIMEOUT)?.toLongOrNull()
+            ?: ExternalUserStorageProviderFactory.DEFAULT_TIMEOUT.toLong()
 
     override fun close() {
         // No resources to clean up
@@ -56,8 +72,29 @@ class ExternalUserStorageProvider(
     override fun getUserByEmail(realm: RealmModel, email: String): UserModel? {
         logger.fine { "getUserByEmail called with email: $email in realm: ${realm.name}" }
 
-        val externalUser = fetchUserFromApi(email, realm.name) ?: return null
+        // Get client ID from authentication context if client-aware auth is enabled
+        val clientId = if (clientAwareAuth) {
+            getClientIdFromContext()
+        } else {
+            null
+        }
+
+        val externalUser = fetchUserFromApi(email, realm.name, clientId) ?: return null
         return ExternalUserAdapter(session, realm, model, externalUser)
+    }
+
+    /**
+     * Extracts the client ID from the current authentication context.
+     * Returns null if not available or not in an authentication flow.
+     */
+    private fun getClientIdFromContext(): String? {
+        return try {
+            // Try to get from authentication session (during login flow)
+            session.context?.authenticationSession?.client?.clientId
+        } catch (e: Exception) {
+            logger.fine { "Could not get client ID from auth session: ${e.message}" }
+            null
+        }
     }
 
     /**
@@ -65,18 +102,25 @@ class ExternalUserStorageProvider(
      *
      * @param email The email address to look up
      * @param realmName The Keycloak realm name
+     * @param clientId Optional client ID for client-specific authorization
      * @return ExternalUser if found (HTTP 200), null if not found (HTTP 404) or on error
      */
-    private fun fetchUserFromApi(email: String, realmName: String): ExternalUser? {
+    private fun fetchUserFromApi(email: String, realmName: String, clientId: String?): ExternalUser? {
         return try {
             val encodedEmail = java.net.URLEncoder.encode(email, Charsets.UTF_8)
-            val request = HttpRequest.newBuilder()
-                .uri(URI.create("$BASE_URL/$encodedEmail"))
-                .timeout(Duration.ofSeconds(30))
+            val requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create("$apiUrl/api/public/users/$encodedEmail"))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
                 .header("Accept", "application/json")
                 .header("X-Realm-Name", realmName)
-                .GET()
-                .build()
+
+            // Add client ID header if available
+            if (!clientId.isNullOrBlank()) {
+                requestBuilder.header("X-Client-Id", clientId)
+                logger.fine { "Client-aware auth enabled, passing client: $clientId" }
+            }
+
+            val request = requestBuilder.GET().build()
 
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
 
