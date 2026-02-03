@@ -186,9 +186,18 @@ export interface IntegrationSnippets {
   vue: string
 }
 
+export interface BackendIntegrationSnippets {
+  applicationYml: string
+  securityConfig: string
+  authClient: string
+  buildGradle: string
+}
+
 export interface IntegrationSnippetsResponse {
   keycloakUrl: string
   realmName: string
   clientId: string
-  snippets: IntegrationSnippets
+  isPublicClient: boolean
+  snippets?: IntegrationSnippets
+  backendSnippets?: BackendIntegrationSnippets
 }

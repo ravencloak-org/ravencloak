@@ -22,6 +22,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const snippetsData = ref<IntegrationSnippetsResponse | null>(null)
 
+// Frontend framework selection
 type Framework = 'vanillaJs' | 'react' | 'vue'
 const selectedFramework = ref<Framework>('vanillaJs')
 
@@ -31,14 +32,29 @@ const frameworkOptions = [
   { label: 'Vue', value: 'vue', icon: 'pi pi-palette' }
 ]
 
+// Backend file selection
+type BackendFile = 'applicationYml' | 'securityConfig' | 'authClient' | 'buildGradle'
+const selectedBackendFile = ref<BackendFile>('applicationYml')
+
+const backendFileOptions = [
+  { label: 'application.yml', value: 'applicationYml' },
+  { label: 'SecurityConfig.kt', value: 'securityConfig' },
+  { label: 'AuthClient.kt', value: 'authClient' },
+  { label: 'build.gradle.kts', value: 'buildGradle' }
+]
+
 const currentSnippet = computed(() => {
   if (!snippetsData.value) return ''
-  return snippetsData.value.snippets[selectedFramework.value]
+  if (snippetsData.value.isPublicClient && snippetsData.value.snippets) {
+    return snippetsData.value.snippets[selectedFramework.value]
+  }
+  if (!snippetsData.value.isPublicClient && snippetsData.value.backendSnippets) {
+    return snippetsData.value.backendSnippets[selectedBackendFile.value]
+  }
+  return ''
 })
 
 async function loadSnippets() {
-  if (!props.isPublicClient) return
-
   loading.value = true
   error.value = null
 
@@ -79,33 +95,25 @@ onMounted(() => {
 
 <template>
   <div class="integration-snippets">
-    <Card v-if="!isPublicClient" class="info-card">
+    <Card v-if="loading">
       <template #content>
-        <Message severity="info" :closable="false">
-          <p>Integration code snippets are only available for public (frontend) clients.</p>
-          <p>Backend clients authenticate using client credentials, which should be configured server-side.</p>
+        <Skeleton height="2rem" class="mb-3" />
+        <Skeleton height="20rem" />
+      </template>
+    </Card>
+
+    <Card v-else-if="error" class="error-card">
+      <template #content>
+        <Message severity="error" :closable="false">
+          {{ error }}
         </Message>
       </template>
     </Card>
 
-    <template v-else>
-      <Card v-if="loading">
-        <template #content>
-          <Skeleton height="2rem" class="mb-3" />
-          <Skeleton height="20rem" />
-        </template>
-      </Card>
-
-      <Card v-else-if="error" class="error-card">
-        <template #content>
-          <Message severity="error" :closable="false">
-            {{ error }}
-          </Message>
-        </template>
-      </Card>
-
-      <Card v-else-if="snippetsData" class="snippet-card">
-        <template #content>
+    <Card v-else-if="snippetsData" class="snippet-card">
+      <template #content>
+        <!-- Frontend client snippets -->
+        <template v-if="snippetsData.isPublicClient">
           <div class="snippet-header">
             <SelectButton
               v-model="selectedFramework"
@@ -148,8 +156,56 @@ onMounted(() => {
             </Message>
           </div>
         </template>
-      </Card>
-    </template>
+
+        <!-- Backend client snippets -->
+        <template v-else>
+          <Message severity="warn" :closable="false" class="security-warning">
+            <strong>Security Warning:</strong> Never commit client secrets to version control. Use environment variables or a secrets manager.
+          </Message>
+
+          <div class="snippet-header">
+            <SelectButton
+              v-model="selectedBackendFile"
+              :options="backendFileOptions"
+              optionLabel="label"
+              optionValue="value"
+              class="framework-selector"
+            />
+            <Button
+              icon="pi pi-copy"
+              label="Copy"
+              text
+              @click="copyToClipboard"
+            />
+          </div>
+
+          <div class="config-summary">
+            <div class="config-item">
+              <span class="config-label">Keycloak URL:</span>
+              <code>{{ snippetsData.keycloakUrl }}</code>
+            </div>
+            <div class="config-item">
+              <span class="config-label">Realm:</span>
+              <code>{{ snippetsData.realmName }}</code>
+            </div>
+            <div class="config-item">
+              <span class="config-label">Client ID:</span>
+              <code>{{ snippetsData.clientId }}</code>
+            </div>
+          </div>
+
+          <div class="code-container">
+            <pre><code>{{ currentSnippet }}</code></pre>
+          </div>
+
+          <div class="snippet-footer">
+            <Message severity="info" :closable="false" class="install-hint">
+              <strong>Required:</strong> Set <code>CLIENT_SECRET</code> environment variable with your client secret
+            </Message>
+          </div>
+        </template>
+      </template>
+    </Card>
   </div>
 </template>
 
@@ -244,5 +300,13 @@ onMounted(() => {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   margin-left: 0.5rem;
+}
+
+.security-warning {
+  margin-bottom: 1rem;
+}
+
+.security-warning strong {
+  margin-right: 0.5rem;
 }
 </style>

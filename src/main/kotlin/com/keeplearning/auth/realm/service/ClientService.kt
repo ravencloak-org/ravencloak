@@ -428,7 +428,7 @@ class ClientService(
     }
 
     /**
-     * Generate integration code snippets for a frontend client
+     * Generate integration code snippets for a client (frontend or backend)
      */
     suspend fun getIntegrationSnippets(realmName: String, clientId: String): IntegrationSnippetsResponse {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
@@ -437,21 +437,31 @@ class ClientService(
         val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
 
-        if (!client.publicClient) {
-            throw ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "Integration snippets are only available for public (frontend) clients"
+        return if (client.publicClient) {
+            // Frontend client - generate JS/React/Vue snippets
+            val snippets = IntegrationSnippetGenerator.generateFrontend(keycloakBaseUrl, realmName, clientId)
+            IntegrationSnippetsResponse(
+                keycloakUrl = keycloakBaseUrl,
+                realmName = realmName,
+                clientId = clientId,
+                isPublicClient = true,
+                snippets = snippets
+            )
+        } else {
+            // Backend client - generate Spring Boot snippets
+            // Assume auth backend URL is same origin or configured
+            val authBackendUrl = "\${AUTH_BACKEND_URL:http://localhost:8080}"
+            val backendSnippets = IntegrationSnippetGenerator.generateBackend(
+                keycloakBaseUrl, realmName, clientId, authBackendUrl
+            )
+            IntegrationSnippetsResponse(
+                keycloakUrl = keycloakBaseUrl,
+                realmName = realmName,
+                clientId = clientId,
+                isPublicClient = false,
+                backendSnippets = backendSnippets
             )
         }
-
-        val snippets = IntegrationSnippetGenerator.generate(keycloakBaseUrl, realmName, clientId)
-
-        return IntegrationSnippetsResponse(
-            keycloakUrl = keycloakBaseUrl,
-            realmName = realmName,
-            clientId = clientId,
-            snippets = snippets
-        )
     }
 
     private fun KcClient.toResponse() = ClientResponse(

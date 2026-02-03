@@ -4,7 +4,9 @@ data class IntegrationSnippetsResponse(
     val keycloakUrl: String,
     val realmName: String,
     val clientId: String,
-    val snippets: IntegrationSnippets
+    val isPublicClient: Boolean,
+    val snippets: IntegrationSnippets? = null,
+    val backendSnippets: BackendIntegrationSnippets? = null
 )
 
 data class IntegrationSnippets(
@@ -13,13 +15,29 @@ data class IntegrationSnippets(
     val vue: String
 )
 
+data class BackendIntegrationSnippets(
+    val applicationYml: String,
+    val securityConfig: String,
+    val authClient: String,
+    val buildGradle: String
+)
+
 object IntegrationSnippetGenerator {
 
-    fun generate(keycloakUrl: String, realmName: String, clientId: String): IntegrationSnippets {
+    fun generateFrontend(keycloakUrl: String, realmName: String, clientId: String): IntegrationSnippets {
         return IntegrationSnippets(
             vanillaJs = generateVanillaJs(keycloakUrl, realmName, clientId),
             react = generateReact(keycloakUrl, realmName, clientId),
             vue = generateVue(keycloakUrl, realmName, clientId)
+        )
+    }
+
+    fun generateBackend(keycloakUrl: String, realmName: String, clientId: String, authBackendUrl: String): BackendIntegrationSnippets {
+        return BackendIntegrationSnippets(
+            applicationYml = generateApplicationYml(keycloakUrl, realmName, clientId),
+            securityConfig = generateSecurityConfig(keycloakUrl, realmName),
+            authClient = generateAuthClient(authBackendUrl, clientId),
+            buildGradle = generateBuildGradle()
         )
     }
 
@@ -211,6 +229,198 @@ export const keycloakPlugin = {
 //
 // In component:
 // const { authenticated, user, fetchWithAuth } = inject("keycloak");
+        """.trimIndent()
+    }
+
+    private fun generateApplicationYml(keycloakUrl: String, realmName: String, clientId: String): String {
+        return """
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: $keycloakUrl/realms/$realmName
+          jwk-set-uri: $keycloakUrl/realms/$realmName/protocol/openid-connect/certs
+      client:
+        registration:
+          keycloak:
+            client-id: $clientId
+            client-secret: ${'$'}{CLIENT_SECRET}  # Set via environment variable
+            authorization-grant-type: client_credentials
+            scope: openid
+        provider:
+          keycloak:
+            issuer-uri: $keycloakUrl/realms/$realmName
+
+# Auth backend configuration
+auth:
+  backend:
+    url: ${'$'}{AUTH_BACKEND_URL:http://localhost:8080}
+    client-id: $clientId
+        """.trimIndent()
+    }
+
+    private fun generateSecurityConfig(keycloakUrl: String, realmName: String): String {
+        return """
+package com.example.config
+
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.security.config.annotation.web.builders.HttpSecurity
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter
+import org.springframework.security.web.SecurityFilterChain
+
+@Configuration
+@EnableWebSecurity
+class SecurityConfig {
+
+    @Bean
+    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+        return http
+            .csrf { it.disable() }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .authorizeHttpRequests { auth ->
+                auth
+                    .requestMatchers("/api/public/**").permitAll()
+                    .requestMatchers("/actuator/health").permitAll()
+                    .anyRequest().authenticated()
+            }
+            .oauth2ResourceServer { oauth2 ->
+                oauth2.jwt { jwt ->
+                    jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())
+                }
+            }
+            .build()
+    }
+
+    @Bean
+    fun jwtAuthenticationConverter(): JwtAuthenticationConverter {
+        val grantedAuthoritiesConverter = JwtGrantedAuthoritiesConverter()
+        // Extract roles from Keycloak's realm_access.roles claim
+        grantedAuthoritiesConverter.setAuthoritiesClaimName("realm_access")
+        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_")
+
+        val converter = JwtAuthenticationConverter()
+        converter.setJwtGrantedAuthoritiesConverter { jwt ->
+            // Custom role extraction from Keycloak token
+            @Suppress("UNCHECKED_CAST")
+            val realmAccess = jwt.getClaim<Map<String, Any>>("realm_access")
+            val roles = (realmAccess?.get("roles") as? List<String>) ?: emptyList()
+            roles.map { org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_${'$'}it") }
+        }
+        return converter
+    }
+}
+        """.trimIndent()
+    }
+
+    private fun generateAuthClient(authBackendUrl: String, clientId: String): String {
+        return """
+package com.example.client
+
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.MediaType
+import org.springframework.stereotype.Component
+import org.springframework.web.reactive.function.client.WebClient
+import java.util.UUID
+
+/**
+ * Client for communicating with the auth backend to manage authorized users.
+ * Uses client credentials flow for authentication.
+ */
+@Component
+class AuthBackendClient(
+    @Value("${'$'}{auth.backend.url}") private val authBackendUrl: String,
+    private val webClientBuilder: WebClient.Builder
+) {
+    private val webClient = webClientBuilder
+        .baseUrl(authBackendUrl)
+        .build()
+
+    /**
+     * Add users to the authorized list for this client.
+     * These users will be able to log in via Keycloak.
+     */
+    suspend fun addAuthorizedUsers(clientUuid: UUID, users: List<UserRef>, token: String): AddUsersResponse {
+        return webClient.post()
+            .uri("/api/clients/{clientId}/users", clientUuid)
+            .header("Authorization", "Bearer ${'$'}token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(AddUsersRequest(users))
+            .retrieve()
+            .bodyToMono(AddUsersResponse::class.java)
+            .block()!!
+    }
+
+    /**
+     * Remove users from the authorized list.
+     */
+    suspend fun removeAuthorizedUsers(clientUuid: UUID, emails: List<String>, token: String): RemoveUsersResponse {
+        return webClient.method(org.springframework.http.HttpMethod.DELETE)
+            .uri("/api/clients/{clientId}/users", clientUuid)
+            .header("Authorization", "Bearer ${'$'}token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(RemoveUsersRequest(emails))
+            .retrieve()
+            .bodyToMono(RemoveUsersResponse::class.java)
+            .block()!!
+    }
+
+    /**
+     * Check if a user is authorized for this client.
+     */
+    suspend fun isUserAuthorized(clientUuid: UUID, email: String, token: String): Boolean {
+        return webClient.get()
+            .uri("/api/clients/{clientId}/users/{email}/authorized", clientUuid, email)
+            .header("Authorization", "Bearer ${'$'}token")
+            .retrieve()
+            .bodyToMono(AuthorizationCheckResponse::class.java)
+            .map { it.authorized }
+            .block() ?: false
+    }
+}
+
+data class UserRef(val email: String, val keycloakId: String? = null)
+data class AddUsersRequest(val users: List<UserRef>)
+data class RemoveUsersRequest(val emails: List<String>)
+data class AddUsersResponse(val added: List<String>, val alreadyExists: List<String>, val failed: List<String>)
+data class RemoveUsersResponse(val removed: List<String>, val notFound: List<String>)
+data class AuthorizationCheckResponse(val authorized: Boolean, val email: String, val clientId: String)
+        """.trimIndent()
+    }
+
+    private fun generateBuildGradle(): String {
+        return """
+// build.gradle.kts
+
+plugins {
+    kotlin("jvm") version "2.0.0"
+    kotlin("plugin.spring") version "2.0.0"
+    id("org.springframework.boot") version "3.3.0"
+    id("io.spring.dependency-management") version "1.1.5"
+}
+
+dependencies {
+    // Spring Boot
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")  // For WebClient
+
+    // Security with OAuth2/JWT
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")  // For client credentials
+
+    // Kotlin
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Coroutines (if using suspend functions)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+}
         """.trimIndent()
     }
 }
