@@ -3,6 +3,12 @@ package com.keeplearning.auth.realm.dto
 import java.time.Instant
 import java.util.UUID
 
+enum class ApplicationType {
+    FRONTEND_ONLY,
+    BACKEND_ONLY,
+    FULL_STACK
+}
+
 data class CreateClientRequest(
     val clientId: String,
     val name: String? = null,
@@ -11,6 +17,17 @@ data class CreateClientRequest(
     val standardFlowEnabled: Boolean = true,
     val directAccessGrantsEnabled: Boolean = false,
     val serviceAccountsEnabled: Boolean = false,
+    val rootUrl: String? = null,
+    val baseUrl: String? = null,
+    val redirectUris: List<String> = emptyList(),
+    val webOrigins: List<String> = emptyList()
+)
+
+data class CreateApplicationRequest(
+    val applicationName: String,
+    val displayName: String? = null,
+    val description: String? = null,
+    val applicationType: ApplicationType = ApplicationType.FULL_STACK,
     val rootUrl: String? = null,
     val baseUrl: String? = null,
     val redirectUris: List<String> = emptyList(),
@@ -45,7 +62,14 @@ data class ClientDetailResponse(
     val baseUrl: String?,
     val redirectUris: List<String>,
     val webOrigins: List<String>,
+    val pairedClientId: UUID?,
+    val pairedClientClientId: String?,
     val createdAt: Instant
+)
+
+data class ApplicationResponse(
+    val frontendClient: ClientDetailResponse?,
+    val backendClient: ClientDetailResponse?
 )
 
 data class ClientSecretResponse(

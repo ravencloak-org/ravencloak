@@ -266,6 +266,161 @@ class ClientService(
         return ClientSecretResponse(secret)
     }
 
+    /**
+     * Creates a full-stack application with paired frontend and backend clients
+     */
+    suspend fun createApplication(
+        realmName: String,
+        request: CreateApplicationRequest,
+        actor: JwtAuthenticationToken? = null
+    ): ApplicationResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val webClientId = "${request.applicationName}-web"
+        val backendClientId = "${request.applicationName}-backend"
+
+        // Check if clients already exist
+        if (request.applicationType != ApplicationType.BACKEND_ONLY) {
+            val existingWeb = clientRepository.findByRealmIdAndClientId(realm.id!!, webClientId).awaitSingleOrNull()
+            if (existingWeb != null) {
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Client '$webClientId' already exists")
+            }
+        }
+        if (request.applicationType != ApplicationType.FRONTEND_ONLY) {
+            val existingBackend = clientRepository.findByRealmIdAndClientId(realm.id!!, backendClientId).awaitSingleOrNull()
+            if (existingBackend != null) {
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Client '$backendClientId' already exists")
+            }
+        }
+
+        var frontendClient: KcClient? = null
+        var backendClient: KcClient? = null
+
+        // Create frontend client (public)
+        if (request.applicationType != ApplicationType.BACKEND_ONLY) {
+            val webClientRep = ClientRepresentation(
+                clientId = webClientId,
+                name = request.displayName?.let { "$it (Web)" },
+                description = request.description,
+                publicClient = true,
+                standardFlowEnabled = true,
+                directAccessGrantsEnabled = false,
+                serviceAccountsEnabled = false,
+                rootUrl = request.rootUrl,
+                baseUrl = request.baseUrl,
+                redirectUris = request.redirectUris.ifEmpty { null },
+                webOrigins = request.webOrigins.ifEmpty { null }
+            )
+
+            val webKeycloakId = keycloakClient.createClient(realmName, webClientRep)
+
+            frontendClient = clientRepository.save(
+                KcClient(
+                    realmId = realm.id!!,
+                    clientId = webClientId,
+                    name = webClientRep.name,
+                    description = request.description,
+                    enabled = true,
+                    publicClient = true,
+                    rootUrl = request.rootUrl,
+                    baseUrl = request.baseUrl,
+                    redirectUris = Json.of(objectMapper.writeValueAsString(request.redirectUris)),
+                    webOrigins = Json.of(objectMapper.writeValueAsString(request.webOrigins)),
+                    standardFlowEnabled = true,
+                    directAccessGrantsEnabled = false,
+                    serviceAccountsEnabled = false,
+                    keycloakId = webKeycloakId
+                )
+            ).awaitSingle()
+
+            logger.info("Created frontend client: $webClientId in realm: $realmName")
+        }
+
+        // Create backend client (confidential)
+        if (request.applicationType != ApplicationType.FRONTEND_ONLY) {
+            val backendClientRep = ClientRepresentation(
+                clientId = backendClientId,
+                name = request.displayName?.let { "$it (Backend)" },
+                description = request.description,
+                publicClient = false,
+                standardFlowEnabled = false,
+                directAccessGrantsEnabled = false,
+                serviceAccountsEnabled = true,
+                rootUrl = null,
+                baseUrl = null,
+                redirectUris = null,
+                webOrigins = null
+            )
+
+            val backendKeycloakId = keycloakClient.createClient(realmName, backendClientRep)
+
+            backendClient = clientRepository.save(
+                KcClient(
+                    realmId = realm.id!!,
+                    clientId = backendClientId,
+                    name = backendClientRep.name,
+                    description = request.description,
+                    enabled = true,
+                    publicClient = false,
+                    rootUrl = null,
+                    baseUrl = null,
+                    redirectUris = Json.of("[]"),
+                    webOrigins = Json.of("[]"),
+                    standardFlowEnabled = false,
+                    directAccessGrantsEnabled = false,
+                    serviceAccountsEnabled = true,
+                    keycloakId = backendKeycloakId,
+                    pairedClientId = frontendClient?.id
+                )
+            ).awaitSingle()
+
+            logger.info("Created backend client: $backendClientId in realm: $realmName")
+        }
+
+        // Link frontend to backend
+        if (frontendClient != null && backendClient != null) {
+            frontendClient = clientRepository.save(
+                frontendClient.copy(pairedClientId = backendClient.id)
+            ).awaitSingle()
+        }
+
+        // Log audit trails
+        if (actor != null) {
+            if (frontendClient != null) {
+                auditService.logAction(
+                    actor = actor,
+                    actionType = ActionType.CREATE,
+                    entityType = EntityType.CLIENT,
+                    entityId = frontendClient.id!!,
+                    entityName = frontendClient.clientId,
+                    realmName = realmName,
+                    realmId = realm.id,
+                    entityKeycloakId = frontendClient.keycloakId,
+                    afterState = frontendClient.toAuditState()
+                )
+            }
+            if (backendClient != null) {
+                auditService.logAction(
+                    actor = actor,
+                    actionType = ActionType.CREATE,
+                    entityType = EntityType.CLIENT,
+                    entityId = backendClient.id!!,
+                    entityName = backendClient.clientId,
+                    realmName = realmName,
+                    realmId = realm.id,
+                    entityKeycloakId = backendClient.keycloakId,
+                    afterState = backendClient.toAuditState()
+                )
+            }
+        }
+
+        return ApplicationResponse(
+            frontendClient = frontendClient?.toDetailResponse(),
+            backendClient = backendClient?.toDetailResponse()
+        )
+    }
+
     private fun KcClient.toResponse() = ClientResponse(
         id = id!!,
         clientId = clientId,
@@ -274,7 +429,7 @@ class ClientService(
         publicClient = publicClient
     )
 
-    private fun KcClient.toDetailResponse(): ClientDetailResponse {
+    private suspend fun KcClient.toDetailResponse(): ClientDetailResponse {
         val redirectUrisList = try {
             objectMapper.readValue(redirectUris.asString(), object : TypeReference<List<String>>() {})
         } catch (e: Exception) {
@@ -284,6 +439,11 @@ class ClientService(
             objectMapper.readValue(webOrigins.asString(), object : TypeReference<List<String>>() {})
         } catch (e: Exception) {
             emptyList()
+        }
+
+        // Get paired client info if exists
+        val pairedClientClientId = pairedClientId?.let { id ->
+            clientRepository.findById(id).awaitSingleOrNull()?.clientId
         }
 
         return ClientDetailResponse(
@@ -300,6 +460,8 @@ class ClientService(
             baseUrl = baseUrl,
             redirectUris = redirectUrisList,
             webOrigins = webOriginsList,
+            pairedClientId = pairedClientId,
+            pairedClientClientId = pairedClientClientId,
             createdAt = createdAt
         )
     }

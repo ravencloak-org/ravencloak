@@ -51,7 +51,27 @@ export interface ClientDetailResponse extends Client {
   baseUrl?: string
   redirectUris: string[]
   webOrigins: string[]
+  pairedClientId?: string
+  pairedClientClientId?: string
   createdAt: string
+}
+
+export type ApplicationType = 'FRONTEND_ONLY' | 'BACKEND_ONLY' | 'FULL_STACK'
+
+export interface CreateApplicationRequest {
+  applicationName: string
+  displayName?: string
+  description?: string
+  applicationType: ApplicationType
+  rootUrl?: string
+  baseUrl?: string
+  redirectUris?: string[]
+  webOrigins?: string[]
+}
+
+export interface ApplicationResponse {
+  frontendClient?: ClientDetailResponse
+  backendClient?: ClientDetailResponse
 }
 
 export interface CreateClientRequest {

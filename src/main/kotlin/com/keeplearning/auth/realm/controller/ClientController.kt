@@ -71,4 +71,14 @@ class ClientController(
     ): ClientSecretResponse {
         return clientService.regenerateClientSecret(realmName, clientId)
     }
+
+    @PostMapping("/applications")
+    @ResponseStatus(HttpStatus.CREATED)
+    suspend fun createApplication(
+        @PathVariable realmName: String,
+        @RequestBody request: CreateApplicationRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
+    ): ApplicationResponse {
+        return clientService.createApplication(realmName, request, actor)
+    }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { clientsApi } from '@/api'
@@ -10,8 +10,9 @@ import Checkbox from 'primevue/checkbox'
 import Button from 'primevue/button'
 import Chips from 'primevue/chips'
 import Message from 'primevue/message'
+import SelectButton from 'primevue/selectbutton'
 import { transformToRedirectUri, transformToWebOrigin } from '@/utils/urlTransform'
-import type { CreateClientRequest } from '@/types'
+import type { CreateClientRequest, CreateApplicationRequest, ApplicationType } from '@/types'
 
 defineOptions({
   name: 'CreateClientPage'
@@ -23,6 +24,28 @@ const toast = useToast()
 
 const realmName = computed(() => route.params.name as string)
 
+// Creation mode: 'application' for paired clients, 'custom' for manual configuration
+type CreationMode = 'application' | 'custom'
+const creationMode = ref<CreationMode>('application')
+
+const creationModeOptions = [
+  { label: 'Application', value: 'application', icon: 'pi pi-box' },
+  { label: 'Custom Client', value: 'custom', icon: 'pi pi-cog' }
+]
+
+// Application type selection (only visible in application mode)
+const applicationType = ref<ApplicationType>('FULL_STACK')
+
+const applicationTypeOptions: Array<{ label: string; value: ApplicationType; description: string }> = [
+  { label: 'Full-Stack', value: 'FULL_STACK', description: 'Creates both frontend and backend clients' },
+  { label: 'Frontend Only', value: 'FRONTEND_ONLY', description: 'Public client for browser apps' },
+  { label: 'Backend Only', value: 'BACKEND_ONLY', description: 'Confidential client for APIs' }
+]
+
+// Application name (used in application mode)
+const applicationName = ref('')
+
+// Custom client fields
 const clientId = ref('')
 const name = ref('')
 const description = ref('')
@@ -37,6 +60,13 @@ const webOrigins = ref<string[]>([])
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+// Sync application name to display name
+watch(applicationName, (newName) => {
+  if (creationMode.value === 'application') {
+    name.value = newName
+  }
+})
 
 // Transform redirect URIs when they're added
 function handleRedirectUriAdd(event: { value: string[] }): void {
@@ -80,8 +110,32 @@ const isValidClientId = computed(() => {
   return /^[a-z][a-z0-9_-]*$/.test(clientId.value) && clientId.value.length >= 2
 })
 
+const isValidApplicationName = computed(() => {
+  return /^[a-z][a-z0-9_-]*$/.test(applicationName.value) && applicationName.value.length >= 2
+})
+
 const canSubmit = computed(() => {
-  return isValidClientId.value && !loading.value
+  if (loading.value) return false
+  if (creationMode.value === 'application') {
+    return isValidApplicationName.value
+  }
+  return isValidClientId.value
+})
+
+// Computed preview of client names that will be created
+const clientNamePreview = computed(() => {
+  if (creationMode.value !== 'application' || !applicationName.value) return null
+  const baseName = applicationName.value
+  switch (applicationType.value) {
+    case 'FRONTEND_ONLY':
+      return [`${baseName}-web`]
+    case 'BACKEND_ONLY':
+      return [`${baseName}-backend`]
+    case 'FULL_STACK':
+      return [`${baseName}-web`, `${baseName}-backend`]
+    default:
+      return null
+  }
 })
 
 async function handleSubmit(): Promise<void> {
@@ -90,28 +144,55 @@ async function handleSubmit(): Promise<void> {
   loading.value = true
   error.value = null
 
-  const request: CreateClientRequest = {
-    clientId: clientId.value,
-    name: name.value || undefined,
-    description: description.value || undefined,
-    publicClient: publicClient.value,
-    standardFlowEnabled: standardFlowEnabled.value,
-    directAccessGrantsEnabled: directAccessGrantsEnabled.value,
-    serviceAccountsEnabled: serviceAccountsEnabled.value,
-    rootUrl: rootUrl.value || undefined,
-    baseUrl: baseUrl.value || undefined,
-    redirectUris: redirectUris.value.length > 0 ? redirectUris.value : undefined,
-    webOrigins: webOrigins.value.length > 0 ? webOrigins.value : undefined
-  }
-
   try {
-    await clientsApi.create(realmName.value, request)
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: `Client "${clientId.value}" created successfully`,
-      life: 3000
-    })
+    if (creationMode.value === 'application') {
+      // Create application (paired clients)
+      const request: CreateApplicationRequest = {
+        applicationName: applicationName.value,
+        displayName: name.value || undefined,
+        description: description.value || undefined,
+        applicationType: applicationType.value,
+        rootUrl: rootUrl.value || undefined,
+        baseUrl: baseUrl.value || undefined,
+        redirectUris: redirectUris.value.length > 0 ? redirectUris.value : undefined,
+        webOrigins: webOrigins.value.length > 0 ? webOrigins.value : undefined
+      }
+
+      const response = await clientsApi.createApplication(realmName.value, request)
+      const createdClients: string[] = []
+      if (response.frontendClient) createdClients.push(response.frontendClient.clientId)
+      if (response.backendClient) createdClients.push(response.backendClient.clientId)
+
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: `Created: ${createdClients.join(', ')}`,
+        life: 4000
+      })
+    } else {
+      // Create single custom client
+      const request: CreateClientRequest = {
+        clientId: clientId.value,
+        name: name.value || undefined,
+        description: description.value || undefined,
+        publicClient: publicClient.value,
+        standardFlowEnabled: standardFlowEnabled.value,
+        directAccessGrantsEnabled: directAccessGrantsEnabled.value,
+        serviceAccountsEnabled: serviceAccountsEnabled.value,
+        rootUrl: rootUrl.value || undefined,
+        baseUrl: baseUrl.value || undefined,
+        redirectUris: redirectUris.value.length > 0 ? redirectUris.value : undefined,
+        webOrigins: webOrigins.value.length > 0 ? webOrigins.value : undefined
+      }
+
+      await clientsApi.create(realmName.value, request)
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: `Client "${clientId.value}" created successfully`,
+        life: 3000
+      })
+    }
     router.push(`/realms/${realmName.value}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create client'
@@ -159,10 +240,72 @@ function handleCancel(): void {
         </Message>
 
         <form @submit.prevent="handleSubmit" class="form">
+          <!-- Creation Mode Selection -->
+          <div class="form-section">
+            <h3>Creation Mode</h3>
+            <div class="form-field">
+              <SelectButton
+                v-model="creationMode"
+                :options="creationModeOptions"
+                optionLabel="label"
+                optionValue="value"
+                class="creation-mode-select"
+              />
+              <small class="field-help">
+                {{ creationMode === 'application'
+                  ? 'Application mode automatically configures paired frontend/backend clients.'
+                  : 'Custom mode gives you full control over client configuration.' }}
+              </small>
+            </div>
+          </div>
+
+          <!-- Application Type Selection (only in application mode) -->
+          <div v-if="creationMode === 'application'" class="form-section">
+            <h3>Application Type</h3>
+            <div class="app-type-cards">
+              <div
+                v-for="option in applicationTypeOptions"
+                :key="option.value"
+                :class="['app-type-card', { selected: applicationType === option.value }]"
+                @click="applicationType = option.value"
+              >
+                <div class="app-type-icon">
+                  <i :class="option.value === 'FULL_STACK' ? 'pi pi-sitemap' : option.value === 'FRONTEND_ONLY' ? 'pi pi-desktop' : 'pi pi-server'" />
+                </div>
+                <div class="app-type-content">
+                  <span class="app-type-label">{{ option.label }}</span>
+                  <small class="app-type-desc">{{ option.description }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="form-section">
             <h3>Basic Information</h3>
 
-            <div class="form-field">
+            <!-- Application Name (application mode) -->
+            <div v-if="creationMode === 'application'" class="form-field">
+              <label for="applicationName">Application Name *</label>
+              <InputText
+                id="applicationName"
+                v-model="applicationName"
+                placeholder="my-app"
+                :invalid="applicationName.length > 0 && !isValidApplicationName"
+                class="w-full"
+              />
+              <small class="field-help">
+                Must start with a letter and contain only lowercase letters, numbers, underscores, and hyphens.
+              </small>
+              <div v-if="clientNamePreview" class="client-preview">
+                <span class="preview-label">Will create:</span>
+                <span v-for="clientName in clientNamePreview" :key="clientName" class="preview-chip">
+                  {{ clientName }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Client ID (custom mode) -->
+            <div v-else class="form-field">
               <label for="clientId">Client ID *</label>
               <InputText
                 id="clientId"
@@ -181,7 +324,7 @@ function handleCancel(): void {
               <InputText
                 id="name"
                 v-model="name"
-                placeholder="My Client"
+                placeholder="My Application"
                 class="w-full"
               />
             </div>
@@ -197,7 +340,8 @@ function handleCancel(): void {
             </div>
           </div>
 
-          <div class="form-section">
+          <!-- Client Type (only in custom mode) -->
+          <div v-if="creationMode === 'custom'" class="form-section">
             <h3>Client Type</h3>
 
             <div class="form-field checkbox-field">
@@ -213,7 +357,8 @@ function handleCancel(): void {
             </div>
           </div>
 
-          <div class="form-section">
+          <!-- Authentication Flows (only in custom mode) -->
+          <div v-if="creationMode === 'custom'" class="form-section">
             <h3>Authentication Flows</h3>
 
             <div class="form-field checkbox-field">
@@ -254,8 +399,12 @@ function handleCancel(): void {
             </div>
           </div>
 
-          <div class="form-section">
+          <!-- URLs section (shown for frontend apps or custom clients) -->
+          <div v-if="creationMode === 'custom' || applicationType !== 'BACKEND_ONLY'" class="form-section">
             <h3>URLs</h3>
+            <small v-if="creationMode === 'application'" class="section-hint">
+              These URLs will be applied to the frontend client.
+            </small>
 
             <div class="form-field">
               <label for="rootUrl">Root URL</label>
@@ -319,7 +468,7 @@ function handleCancel(): void {
             />
             <Button
               type="submit"
-              label="Create Client"
+              :label="creationMode === 'application' ? 'Create Application' : 'Create Client'"
               icon="pi pi-check"
               :loading="loading"
               :disabled="!canSubmit"
@@ -433,5 +582,114 @@ function handleCancel(): void {
 
 .w-full {
   width: 100%;
+}
+
+.creation-mode-select {
+  width: 100%;
+}
+
+.creation-mode-select :deep(.p-selectbutton) {
+  display: flex;
+}
+
+.creation-mode-select :deep(.p-selectbutton .p-button) {
+  flex: 1;
+  justify-content: center;
+}
+
+.app-type-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.app-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid var(--p-surface-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: var(--p-surface-ground);
+}
+
+.app-type-card:hover {
+  border-color: var(--p-primary-color);
+  background-color: var(--p-surface-hover);
+}
+
+.app-type-card.selected {
+  border-color: var(--p-primary-color);
+  background-color: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
+}
+
+.app-type-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: var(--p-surface-200);
+  margin-bottom: 0.75rem;
+}
+
+.app-type-card.selected .app-type-icon {
+  background-color: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
+}
+
+.app-type-icon i {
+  font-size: 1.25rem;
+}
+
+.app-type-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.25rem;
+}
+
+.app-type-label {
+  font-weight: 600;
+  color: var(--p-text-color);
+}
+
+.app-type-desc {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+}
+
+.client-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.preview-label {
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
+.preview-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  background-color: var(--p-primary-100);
+  color: var(--p-primary-700);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-family: monospace;
+}
+
+.section-hint {
+  display: block;
+  color: var(--p-text-muted-color);
+  margin-bottom: 1rem;
 }
 </style>
