@@ -1,5 +1,8 @@
 package com.keeplearning.auth.realm.service
 
+import com.keeplearning.auth.audit.domain.ActionType
+import com.keeplearning.auth.audit.domain.EntityType
+import com.keeplearning.auth.audit.service.AuditService
 import com.keeplearning.auth.domain.entity.KcRole
 import com.keeplearning.auth.domain.repository.KcRealmRepository
 import com.keeplearning.auth.domain.repository.KcRoleRepository
@@ -11,6 +14,7 @@ import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
@@ -20,11 +24,16 @@ class RoleService(
     private val keycloakClient: KeycloakAdminClient,
     private val roleRepository: KcRoleRepository,
     private val realmRepository: KcRealmRepository,
-    private val clientRepository: KcClientRepository
+    private val clientRepository: KcClientRepository,
+    private val auditService: AuditService
 ) {
     private val logger = LoggerFactory.getLogger(RoleService::class.java)
 
-    suspend fun createRealmRole(realmName: String, request: CreateRoleRequest): RoleResponse {
+    suspend fun createRealmRole(
+        realmName: String,
+        request: CreateRoleRequest,
+        actor: JwtAuthenticationToken? = null
+    ): RoleResponse {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
@@ -50,11 +59,31 @@ class RoleService(
             )
         ).awaitSingle()
 
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.CREATE,
+                entityType = EntityType.ROLE,
+                entityId = role.id!!,
+                entityName = role.name,
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = role.keycloakId,
+                afterState = role.toAuditState()
+            )
+        }
+
         logger.info("Created realm role: ${request.name} in realm: $realmName")
         return role.toResponse()
     }
 
-    suspend fun createClientRole(realmName: String, clientId: String, request: CreateRoleRequest): RoleResponse {
+    suspend fun createClientRole(
+        realmName: String,
+        clientId: String,
+        request: CreateRoleRequest,
+        actor: JwtAuthenticationToken? = null
+    ): RoleResponse {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
@@ -80,6 +109,21 @@ class RoleService(
                 keycloakId = "${client.keycloakId}/${request.name}"
             )
         ).awaitSingle()
+
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.CREATE,
+                entityType = EntityType.ROLE,
+                entityId = role.id!!,
+                entityName = "${clientId}/${role.name}",
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = role.keycloakId,
+                afterState = role.toAuditState()
+            )
+        }
 
         logger.info("Created client role: ${request.name} for client: $clientId in realm: $realmName")
         return role.toResponse()
@@ -118,12 +162,20 @@ class RoleService(
         return role.toResponse()
     }
 
-    suspend fun updateRealmRole(realmName: String, roleName: String, request: UpdateRoleRequest): RoleResponse {
+    suspend fun updateRealmRole(
+        realmName: String,
+        roleName: String,
+        request: UpdateRoleRequest,
+        actor: JwtAuthenticationToken? = null
+    ): RoleResponse {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
         val role = roleRepository.findByRealmIdAndNameAndClientIdIsNull(realm.id!!, roleName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Role '$roleName' not found")
+
+        // Capture before state for audit
+        val beforeState = role.toAuditState()
 
         // Update in Keycloak
         val updatedRoleRep = RoleRepresentation(
@@ -140,16 +192,39 @@ class RoleService(
             )
         ).awaitSingle()
 
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.UPDATE,
+                entityType = EntityType.ROLE,
+                entityId = updatedRole.id!!,
+                entityName = updatedRole.name,
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = updatedRole.keycloakId,
+                beforeState = beforeState,
+                afterState = updatedRole.toAuditState()
+            )
+        }
+
         logger.info("Updated realm role: $roleName in realm: $realmName")
         return updatedRole.toResponse()
     }
 
-    suspend fun deleteRealmRole(realmName: String, roleName: String) {
+    suspend fun deleteRealmRole(
+        realmName: String,
+        roleName: String,
+        actor: JwtAuthenticationToken? = null
+    ) {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
         val role = roleRepository.findByRealmIdAndNameAndClientIdIsNull(realm.id!!, roleName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Role '$roleName' not found")
+
+        // Capture before state for audit
+        val beforeState = role.toAuditState()
 
         // Delete from Keycloak
         keycloakClient.deleteRealmRole(realmName, roleName)
@@ -157,10 +232,30 @@ class RoleService(
         // Delete from local database
         roleRepository.delete(role).awaitSingleOrNull()
 
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.DELETE,
+                entityType = EntityType.ROLE,
+                entityId = role.id!!,
+                entityName = role.name,
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = role.keycloakId,
+                beforeState = beforeState
+            )
+        }
+
         logger.info("Deleted realm role: $roleName from realm: $realmName")
     }
 
-    suspend fun deleteClientRole(realmName: String, clientId: String, roleName: String) {
+    suspend fun deleteClientRole(
+        realmName: String,
+        clientId: String,
+        roleName: String,
+        actor: JwtAuthenticationToken? = null
+    ) {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
@@ -170,11 +265,29 @@ class RoleService(
         val role = roleRepository.findByClientIdAndName(client.id!!, roleName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Role '$roleName' not found")
 
+        // Capture before state for audit
+        val beforeState = role.toAuditState()
+
         // Delete from Keycloak
         keycloakClient.deleteClientRole(realmName, client.keycloakId, roleName)
 
         // Delete from local database
         roleRepository.delete(role).awaitSingleOrNull()
+
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.DELETE,
+                entityType = EntityType.ROLE,
+                entityId = role.id!!,
+                entityName = "${clientId}/${role.name}",
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = role.keycloakId,
+                beforeState = beforeState
+            )
+        }
 
         logger.info("Deleted client role: $roleName from client: $clientId in realm: $realmName")
     }
@@ -184,5 +297,14 @@ class RoleService(
         name = name,
         description = description,
         composite = composite
+    )
+
+    private fun KcRole.toAuditState(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "name" to name,
+        "description" to description,
+        "composite" to composite,
+        "clientId" to clientId,
+        "keycloakId" to keycloakId
     )
 }

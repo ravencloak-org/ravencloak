@@ -3,6 +3,8 @@ package com.keeplearning.auth.realm.controller
 import com.keeplearning.auth.realm.dto.*
 import com.keeplearning.auth.realm.service.GroupService
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -15,9 +17,10 @@ class GroupController(
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun createGroup(
         @PathVariable realmName: String,
-        @RequestBody request: CreateGroupRequest
+        @RequestBody request: CreateGroupRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ): GroupResponse {
-        return groupService.createGroup(realmName, request)
+        return groupService.createGroup(realmName, request, actor)
     }
 
     @GetMapping
@@ -37,18 +40,20 @@ class GroupController(
     suspend fun updateGroup(
         @PathVariable realmName: String,
         @PathVariable groupId: String,
-        @RequestBody request: UpdateGroupRequest
+        @RequestBody request: UpdateGroupRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ): GroupResponse {
-        return groupService.updateGroup(realmName, groupId, request)
+        return groupService.updateGroup(realmName, groupId, request, actor)
     }
 
     @DeleteMapping("/{groupId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     suspend fun deleteGroup(
         @PathVariable realmName: String,
-        @PathVariable groupId: String
+        @PathVariable groupId: String,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ) {
-        groupService.deleteGroup(realmName, groupId)
+        groupService.deleteGroup(realmName, groupId, actor)
     }
 
     @PostMapping("/{groupId}/children")
@@ -56,8 +61,9 @@ class GroupController(
     suspend fun createSubgroup(
         @PathVariable realmName: String,
         @PathVariable groupId: String,
-        @RequestBody request: CreateGroupRequest
+        @RequestBody request: CreateGroupRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ): GroupResponse {
-        return groupService.createSubgroup(realmName, groupId, request)
+        return groupService.createSubgroup(realmName, groupId, request, actor)
     }
 }

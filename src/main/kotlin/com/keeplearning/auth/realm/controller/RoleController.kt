@@ -3,6 +3,8 @@ package com.keeplearning.auth.realm.controller
 import com.keeplearning.auth.realm.dto.*
 import com.keeplearning.auth.realm.service.RoleService
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -17,9 +19,10 @@ class RoleController(
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun createRealmRole(
         @PathVariable realmName: String,
-        @RequestBody request: CreateRoleRequest
+        @RequestBody request: CreateRoleRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ): RoleResponse {
-        return roleService.createRealmRole(realmName, request)
+        return roleService.createRealmRole(realmName, request, actor)
     }
 
     @GetMapping("/roles")
@@ -39,18 +42,20 @@ class RoleController(
     suspend fun updateRealmRole(
         @PathVariable realmName: String,
         @PathVariable roleName: String,
-        @RequestBody request: UpdateRoleRequest
+        @RequestBody request: UpdateRoleRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ): RoleResponse {
-        return roleService.updateRealmRole(realmName, roleName, request)
+        return roleService.updateRealmRole(realmName, roleName, request, actor)
     }
 
     @DeleteMapping("/roles/{roleName}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     suspend fun deleteRealmRole(
         @PathVariable realmName: String,
-        @PathVariable roleName: String
+        @PathVariable roleName: String,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ) {
-        roleService.deleteRealmRole(realmName, roleName)
+        roleService.deleteRealmRole(realmName, roleName, actor)
     }
 
     // Client Roles
@@ -60,9 +65,10 @@ class RoleController(
     suspend fun createClientRole(
         @PathVariable realmName: String,
         @PathVariable clientId: String,
-        @RequestBody request: CreateRoleRequest
+        @RequestBody request: CreateRoleRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ): RoleResponse {
-        return roleService.createClientRole(realmName, clientId, request)
+        return roleService.createClientRole(realmName, clientId, request, actor)
     }
 
     @GetMapping("/clients/{clientId}/roles")
@@ -78,8 +84,9 @@ class RoleController(
     suspend fun deleteClientRole(
         @PathVariable realmName: String,
         @PathVariable clientId: String,
-        @PathVariable roleName: String
+        @PathVariable roleName: String,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
     ) {
-        roleService.deleteClientRole(realmName, clientId, roleName)
+        roleService.deleteClientRole(realmName, clientId, roleName, actor)
     }
 }

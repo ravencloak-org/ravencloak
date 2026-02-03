@@ -1,5 +1,8 @@
 package com.keeplearning.auth.realm.service
 
+import com.keeplearning.auth.audit.domain.ActionType
+import com.keeplearning.auth.audit.domain.EntityType
+import com.keeplearning.auth.audit.service.AuditService
 import com.keeplearning.auth.domain.entity.KcClient
 import com.keeplearning.auth.domain.repository.KcClientRepository
 import com.keeplearning.auth.domain.repository.KcRealmRepository
@@ -11,6 +14,7 @@ import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import tools.jackson.databind.ObjectMapper
@@ -22,11 +26,16 @@ class ClientService(
     private val keycloakClient: KeycloakAdminClient,
     private val clientRepository: KcClientRepository,
     private val realmRepository: KcRealmRepository,
+    private val auditService: AuditService,
     private val objectMapper: ObjectMapper
 ) {
     private val logger = LoggerFactory.getLogger(ClientService::class.java)
 
-    suspend fun createClient(realmName: String, request: CreateClientRequest): ClientDetailResponse {
+    suspend fun createClient(
+        realmName: String,
+        request: CreateClientRequest,
+        actor: JwtAuthenticationToken? = null
+    ): ClientDetailResponse {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
@@ -73,6 +82,21 @@ class ClientService(
             )
         ).awaitSingle()
 
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.CREATE,
+                entityType = EntityType.CLIENT,
+                entityId = client.id!!,
+                entityName = client.clientId,
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = keycloakId,
+                afterState = client.toAuditState()
+            )
+        }
+
         logger.info("Created client: ${request.clientId} in realm: $realmName")
         return client.toDetailResponse()
     }
@@ -97,12 +121,20 @@ class ClientService(
             .map { it.toResponse() }
     }
 
-    suspend fun updateClient(realmName: String, clientId: String, request: UpdateClientRequest): ClientDetailResponse {
+    suspend fun updateClient(
+        realmName: String,
+        clientId: String,
+        request: UpdateClientRequest,
+        actor: JwtAuthenticationToken? = null
+    ): ClientDetailResponse {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
         val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        // Capture before state for audit
+        val beforeState = client.toAuditState()
 
         // Get current client from Keycloak
         val currentClient = keycloakClient.getClient(realmName, client.keycloakId)
@@ -142,22 +174,60 @@ class ClientService(
             )
         ).awaitSingle()
 
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.UPDATE,
+                entityType = EntityType.CLIENT,
+                entityId = updatedClient.id!!,
+                entityName = updatedClient.clientId,
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = updatedClient.keycloakId,
+                beforeState = beforeState,
+                afterState = updatedClient.toAuditState()
+            )
+        }
+
         logger.info("Updated client: $clientId in realm: $realmName")
         return updatedClient.toDetailResponse()
     }
 
-    suspend fun deleteClient(realmName: String, clientId: String) {
+    suspend fun deleteClient(
+        realmName: String,
+        clientId: String,
+        actor: JwtAuthenticationToken? = null
+    ) {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
 
         val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
 
+        // Capture before state for audit
+        val beforeState = client.toAuditState()
+
         // Delete from Keycloak
         keycloakClient.deleteClient(realmName, client.keycloakId)
 
         // Delete from local database
         clientRepository.delete(client).awaitSingleOrNull()
+
+        // Log audit trail
+        if (actor != null) {
+            auditService.logAction(
+                actor = actor,
+                actionType = ActionType.DELETE,
+                entityType = EntityType.CLIENT,
+                entityId = client.id!!,
+                entityName = client.clientId,
+                realmName = realmName,
+                realmId = realm.id,
+                entityKeycloakId = client.keycloakId,
+                beforeState = beforeState
+            )
+        }
 
         logger.info("Deleted client: $clientId from realm: $realmName")
     }
@@ -231,6 +301,36 @@ class ClientService(
             redirectUris = redirectUrisList,
             webOrigins = webOriginsList,
             createdAt = createdAt
+        )
+    }
+
+    private fun KcClient.toAuditState(): Map<String, Any?> {
+        val redirectUrisList = try {
+            objectMapper.readValue(redirectUris.asString(), object : TypeReference<List<String>>() {})
+        } catch (e: Exception) {
+            emptyList<String>()
+        }
+        val webOriginsList = try {
+            objectMapper.readValue(webOrigins.asString(), object : TypeReference<List<String>>() {})
+        } catch (e: Exception) {
+            emptyList<String>()
+        }
+
+        return mapOf(
+            "id" to id,
+            "clientId" to clientId,
+            "name" to name,
+            "description" to description,
+            "enabled" to enabled,
+            "publicClient" to publicClient,
+            "standardFlowEnabled" to standardFlowEnabled,
+            "directAccessGrantsEnabled" to directAccessGrantsEnabled,
+            "serviceAccountsEnabled" to serviceAccountsEnabled,
+            "rootUrl" to rootUrl,
+            "baseUrl" to baseUrl,
+            "redirectUris" to redirectUrisList,
+            "webOrigins" to webOriginsList,
+            "keycloakId" to keycloakId
         )
     }
 }
