@@ -43,6 +43,7 @@ class SecurityConfig(
                     .pathMatchers("/auth/super/login", "/oauth2/**",).permitAll()
                     .pathMatchers("/api/super/**").access(superAdminAuthorizationManager)
                     .pathMatchers("/api/account/**").hasAnyRole("ACCOUNT_ADMIN", "INSTITUTE_ADMIN")
+                    .pathMatchers("/api/clients/**").authenticated()
                     .anyExchange().authenticated()
             }
             .oauth2ResourceServer { oauth2 ->
