@@ -13,6 +13,7 @@ import io.r2dbc.postgresql.codec.Json
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.stereotype.Service
@@ -27,8 +28,13 @@ class ClientService(
     private val clientRepository: KcClientRepository,
     private val realmRepository: KcRealmRepository,
     private val auditService: AuditService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    @Value("\${KEYCLOAK_ISSUER_PREFIX}") private val keycloakIssuerPrefix: String
 ) {
+
+    // Extract base Keycloak URL from issuer prefix (remove /realms/ suffix)
+    private val keycloakBaseUrl: String
+        get() = keycloakIssuerPrefix.removeSuffix("/").removeSuffix("realms").removeSuffix("/")
     private val logger = LoggerFactory.getLogger(ClientService::class.java)
 
     suspend fun createClient(
@@ -418,6 +424,33 @@ class ClientService(
         return ApplicationResponse(
             frontendClient = frontendClient?.toDetailResponse(),
             backendClient = backendClient?.toDetailResponse()
+        )
+    }
+
+    /**
+     * Generate integration code snippets for a frontend client
+     */
+    suspend fun getIntegrationSnippets(realmName: String, clientId: String): IntegrationSnippetsResponse {
+        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+
+        val client = clientRepository.findByRealmIdAndClientId(realm.id!!, clientId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Client '$clientId' not found")
+
+        if (!client.publicClient) {
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Integration snippets are only available for public (frontend) clients"
+            )
+        }
+
+        val snippets = IntegrationSnippetGenerator.generate(keycloakBaseUrl, realmName, clientId)
+
+        return IntegrationSnippetsResponse(
+            keycloakUrl = keycloakBaseUrl,
+            realmName = realmName,
+            clientId = clientId,
+            snippets = snippets
         )
     }
 

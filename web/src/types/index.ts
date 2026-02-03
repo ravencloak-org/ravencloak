@@ -179,3 +179,16 @@ export interface ApiError {
   status: number
   timestamp: string
 }
+
+export interface IntegrationSnippets {
+  vanillaJs: string
+  react: string
+  vue: string
+}
+
+export interface IntegrationSnippetsResponse {
+  keycloakUrl: string
+  realmName: string
+  clientId: string
+  snippets: IntegrationSnippets
+}

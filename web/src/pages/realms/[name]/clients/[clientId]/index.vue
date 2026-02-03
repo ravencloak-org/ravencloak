@@ -11,6 +11,12 @@ import InputText from 'primevue/inputtext'
 import Chips from 'primevue/chips'
 import ProgressSpinner from 'primevue/progressspinner'
 import Message from 'primevue/message'
+import Tabs from 'primevue/tabs'
+import TabList from 'primevue/tablist'
+import Tab from 'primevue/tab'
+import TabPanels from 'primevue/tabpanels'
+import TabPanel from 'primevue/tabpanel'
+import IntegrationSnippets from '@/components/IntegrationSnippets.vue'
 import { transformToRedirectUri, transformToWebOrigin } from '@/utils/urlTransform'
 import type { ClientDetailResponse, UpdateClientRequest } from '@/types'
 
@@ -30,6 +36,7 @@ const client = ref<ClientDetailResponse | null>(null)
 const clientSecret = ref<string | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const activeTab = ref('0')
 
 // Edit mode state
 const editingUrls = ref(false)
@@ -329,213 +336,230 @@ function copyToClipboard(text: string): void {
         </div>
       </div>
 
-      <div class="content-grid">
-        <Card class="info-card">
-          <template #title>Client Information</template>
-          <template #content>
-            <div class="info-list">
-              <div class="info-item">
-                <span class="info-label">Client ID</span>
-                <div class="info-value-row">
-                  <code>{{ client.clientId }}</code>
-                  <Button
-                    icon="pi pi-copy"
-                    text
-                    rounded
-                    size="small"
-                    @click="copyToClipboard(client.clientId)"
-                  />
-                </div>
-              </div>
-              <div class="info-item" v-if="client.description">
-                <span class="info-label">Description</span>
-                <span class="info-value">{{ client.description }}</span>
-              </div>
+      <Tabs v-model:value="activeTab">
+        <TabList>
+          <Tab value="0">Configuration</Tab>
+          <Tab value="1">Integration</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel value="0">
+            <div class="content-grid">
+              <Card class="info-card">
+                <template #title>Client Information</template>
+                <template #content>
+                  <div class="info-list">
+                    <div class="info-item">
+                      <span class="info-label">Client ID</span>
+                      <div class="info-value-row">
+                        <code>{{ client.clientId }}</code>
+                        <Button
+                          icon="pi pi-copy"
+                          text
+                          rounded
+                          size="small"
+                          @click="copyToClipboard(client.clientId)"
+                        />
+                      </div>
+                    </div>
+                    <div class="info-item" v-if="client.description">
+                      <span class="info-label">Description</span>
+                      <span class="info-value">{{ client.description }}</span>
+                    </div>
+                  </div>
+                </template>
+              </Card>
+
+              <Card class="info-card" v-if="!client.publicClient">
+                <template #title>Client Secret</template>
+                <template #content>
+                  <div v-if="clientSecret" class="secret-display">
+                    <code>{{ clientSecret }}</code>
+                    <div class="secret-actions">
+                      <Button
+                        icon="pi pi-copy"
+                        text
+                        rounded
+                        size="small"
+                        @click="copyToClipboard(clientSecret)"
+                      />
+                      <Button
+                        label="Regenerate"
+                        icon="pi pi-refresh"
+                        size="small"
+                        severity="secondary"
+                        @click="regenerateSecret"
+                      />
+                    </div>
+                  </div>
+                  <div v-else class="secret-actions">
+                    <Button
+                      label="Show Secret"
+                      icon="pi pi-eye"
+                      size="small"
+                      @click="fetchSecret"
+                    />
+                  </div>
+                </template>
+              </Card>
+
+              <Card class="info-card">
+                <template #title>Authentication Flows</template>
+                <template #content>
+                  <div class="flow-list">
+                    <div class="flow-item">
+                      <span>Standard Flow</span>
+                      <Tag
+                        :value="client.standardFlowEnabled ? 'Enabled' : 'Disabled'"
+                        :severity="client.standardFlowEnabled ? 'success' : 'secondary'"
+                      />
+                    </div>
+                    <div class="flow-item">
+                      <span>Direct Access Grants</span>
+                      <Tag
+                        :value="client.directAccessGrantsEnabled ? 'Enabled' : 'Disabled'"
+                        :severity="client.directAccessGrantsEnabled ? 'success' : 'secondary'"
+                      />
+                    </div>
+                    <div class="flow-item">
+                      <span>Service Accounts</span>
+                      <Tag
+                        :value="client.serviceAccountsEnabled ? 'Enabled' : 'Disabled'"
+                        :severity="client.serviceAccountsEnabled ? 'success' : 'secondary'"
+                      />
+                    </div>
+                  </div>
+                </template>
+              </Card>
+
+              <Card class="info-card urls-card">
+                <template #title>
+                  <div class="card-title-row">
+                    <span>URLs & Redirect URIs</span>
+                    <Button
+                      v-if="!editingUrls"
+                      label="Edit"
+                      icon="pi pi-pencil"
+                      size="small"
+                      text
+                      @click="startEditingUrls"
+                    />
+                  </div>
+                </template>
+                <template #content>
+                  <template v-if="editingUrls">
+                    <div class="edit-form">
+                      <div class="form-field">
+                        <label for="rootUrl">Root URL</label>
+                        <InputText
+                          id="rootUrl"
+                          v-model="editRootUrl"
+                          placeholder="https://example.com"
+                          class="w-full"
+                          @blur="handleRootUrlBlur"
+                        />
+                        <small class="field-help">Enter URL - scheme will be auto-added on blur.</small>
+                      </div>
+
+                      <div class="form-field">
+                        <label for="baseUrl">Base URL</label>
+                        <InputText
+                          id="baseUrl"
+                          v-model="editBaseUrl"
+                          placeholder="/app"
+                          class="w-full"
+                        />
+                      </div>
+
+                      <div class="form-field">
+                        <label for="redirectUris">Redirect URIs</label>
+                        <Chips
+                          id="redirectUris"
+                          v-model="editRedirectUris"
+                          placeholder="Press Enter to add URI"
+                          class="w-full"
+                          separator=","
+                          @add="handleRedirectUriAdd"
+                        />
+                        <small class="field-help">Enter "localhost:5173" → auto-converts to "http://localhost:5173/*"</small>
+                      </div>
+
+                      <div class="form-field">
+                        <label for="webOrigins">Web Origins</label>
+                        <Chips
+                          id="webOrigins"
+                          v-model="editWebOrigins"
+                          placeholder="Press Enter to add origin"
+                          class="w-full"
+                          separator=","
+                          @add="handleWebOriginAdd"
+                        />
+                        <small class="field-help">Enter "example.com" → auto-converts to "https://example.com". Use + for all redirect URIs.</small>
+                      </div>
+
+                      <div class="edit-actions">
+                        <Button
+                          label="Cancel"
+                          severity="secondary"
+                          outlined
+                          size="small"
+                          @click="cancelEditingUrls"
+                          :disabled="savingUrls"
+                        />
+                        <Button
+                          label="Save"
+                          icon="pi pi-check"
+                          size="small"
+                          @click="saveUrls"
+                          :loading="savingUrls"
+                        />
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="info-list">
+                      <div class="info-item">
+                        <span class="info-label">Root URL</span>
+                        <code v-if="client.rootUrl">{{ client.rootUrl }}</code>
+                        <span v-else class="empty-value">Not set</span>
+                      </div>
+                      <div class="info-item">
+                        <span class="info-label">Base URL</span>
+                        <code v-if="client.baseUrl">{{ client.baseUrl }}</code>
+                        <span v-else class="empty-value">Not set</span>
+                      </div>
+                      <div class="info-item">
+                        <span class="info-label">Redirect URIs</span>
+                        <ul v-if="client.redirectUris?.length" class="uri-list">
+                          <li v-for="uri in client.redirectUris" :key="uri">
+                            <code>{{ uri }}</code>
+                          </li>
+                        </ul>
+                        <span v-else class="empty-value">None configured</span>
+                      </div>
+                      <div class="info-item">
+                        <span class="info-label">Web Origins</span>
+                        <ul v-if="client.webOrigins?.length" class="uri-list">
+                          <li v-for="origin in client.webOrigins" :key="origin">
+                            <code>{{ origin }}</code>
+                          </li>
+                        </ul>
+                        <span v-else class="empty-value">None configured</span>
+                      </div>
+                    </div>
+                  </template>
+                </template>
+              </Card>
             </div>
-          </template>
-        </Card>
-
-        <Card class="info-card" v-if="!client.publicClient">
-          <template #title>Client Secret</template>
-          <template #content>
-            <div v-if="clientSecret" class="secret-display">
-              <code>{{ clientSecret }}</code>
-              <div class="secret-actions">
-                <Button
-                  icon="pi pi-copy"
-                  text
-                  rounded
-                  size="small"
-                  @click="copyToClipboard(clientSecret)"
-                />
-                <Button
-                  label="Regenerate"
-                  icon="pi pi-refresh"
-                  size="small"
-                  severity="secondary"
-                  @click="regenerateSecret"
-                />
-              </div>
-            </div>
-            <div v-else class="secret-actions">
-              <Button
-                label="Show Secret"
-                icon="pi pi-eye"
-                size="small"
-                @click="fetchSecret"
-              />
-            </div>
-          </template>
-        </Card>
-
-        <Card class="info-card">
-          <template #title>Authentication Flows</template>
-          <template #content>
-            <div class="flow-list">
-              <div class="flow-item">
-                <span>Standard Flow</span>
-                <Tag
-                  :value="client.standardFlowEnabled ? 'Enabled' : 'Disabled'"
-                  :severity="client.standardFlowEnabled ? 'success' : 'secondary'"
-                />
-              </div>
-              <div class="flow-item">
-                <span>Direct Access Grants</span>
-                <Tag
-                  :value="client.directAccessGrantsEnabled ? 'Enabled' : 'Disabled'"
-                  :severity="client.directAccessGrantsEnabled ? 'success' : 'secondary'"
-                />
-              </div>
-              <div class="flow-item">
-                <span>Service Accounts</span>
-                <Tag
-                  :value="client.serviceAccountsEnabled ? 'Enabled' : 'Disabled'"
-                  :severity="client.serviceAccountsEnabled ? 'success' : 'secondary'"
-                />
-              </div>
-            </div>
-          </template>
-        </Card>
-
-        <Card class="info-card urls-card">
-          <template #title>
-            <div class="card-title-row">
-              <span>URLs & Redirect URIs</span>
-              <Button
-                v-if="!editingUrls"
-                label="Edit"
-                icon="pi pi-pencil"
-                size="small"
-                text
-                @click="startEditingUrls"
-              />
-            </div>
-          </template>
-          <template #content>
-            <template v-if="editingUrls">
-              <div class="edit-form">
-                <div class="form-field">
-                  <label for="rootUrl">Root URL</label>
-                  <InputText
-                    id="rootUrl"
-                    v-model="editRootUrl"
-                    placeholder="https://example.com"
-                    class="w-full"
-                    @blur="handleRootUrlBlur"
-                  />
-                  <small class="field-help">Enter URL - scheme will be auto-added on blur.</small>
-                </div>
-
-                <div class="form-field">
-                  <label for="baseUrl">Base URL</label>
-                  <InputText
-                    id="baseUrl"
-                    v-model="editBaseUrl"
-                    placeholder="/app"
-                    class="w-full"
-                  />
-                </div>
-
-                <div class="form-field">
-                  <label for="redirectUris">Redirect URIs</label>
-                  <Chips
-                    id="redirectUris"
-                    v-model="editRedirectUris"
-                    placeholder="Press Enter to add URI"
-                    class="w-full"
-                    separator=","
-                    @add="handleRedirectUriAdd"
-                  />
-                  <small class="field-help">Enter "localhost:5173" → auto-converts to "http://localhost:5173/*"</small>
-                </div>
-
-                <div class="form-field">
-                  <label for="webOrigins">Web Origins</label>
-                  <Chips
-                    id="webOrigins"
-                    v-model="editWebOrigins"
-                    placeholder="Press Enter to add origin"
-                    class="w-full"
-                    separator=","
-                    @add="handleWebOriginAdd"
-                  />
-                  <small class="field-help">Enter "example.com" → auto-converts to "https://example.com". Use + for all redirect URIs.</small>
-                </div>
-
-                <div class="edit-actions">
-                  <Button
-                    label="Cancel"
-                    severity="secondary"
-                    outlined
-                    size="small"
-                    @click="cancelEditingUrls"
-                    :disabled="savingUrls"
-                  />
-                  <Button
-                    label="Save"
-                    icon="pi pi-check"
-                    size="small"
-                    @click="saveUrls"
-                    :loading="savingUrls"
-                  />
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <div class="info-list">
-                <div class="info-item">
-                  <span class="info-label">Root URL</span>
-                  <code v-if="client.rootUrl">{{ client.rootUrl }}</code>
-                  <span v-else class="empty-value">Not set</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Base URL</span>
-                  <code v-if="client.baseUrl">{{ client.baseUrl }}</code>
-                  <span v-else class="empty-value">Not set</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Redirect URIs</span>
-                  <ul v-if="client.redirectUris?.length" class="uri-list">
-                    <li v-for="uri in client.redirectUris" :key="uri">
-                      <code>{{ uri }}</code>
-                    </li>
-                  </ul>
-                  <span v-else class="empty-value">None configured</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Web Origins</span>
-                  <ul v-if="client.webOrigins?.length" class="uri-list">
-                    <li v-for="origin in client.webOrigins" :key="origin">
-                      <code>{{ origin }}</code>
-                    </li>
-                  </ul>
-                  <span v-else class="empty-value">None configured</span>
-                </div>
-              </div>
-            </template>
-          </template>
-        </Card>
-      </div>
+          </TabPanel>
+          <TabPanel value="1">
+            <IntegrationSnippets
+              :realm-name="realmName"
+              :client-id="client.clientId"
+              :is-public-client="client.publicClient"
+            />
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
     </template>
   </div>
 </template>
@@ -720,5 +744,9 @@ code {
   justify-content: flex-end;
   gap: 0.5rem;
   padding-top: 0.5rem;
+}
+
+:deep(.p-tabpanels) {
+  padding: 1.5rem 0;
 }
 </style>

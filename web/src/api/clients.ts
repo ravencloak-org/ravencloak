@@ -1,5 +1,5 @@
 import api from './client'
-import type { Client, CreateClientRequest, CreateApplicationRequest, UpdateClientRequest, ClientDetailResponse, ClientSecretResponse, ApplicationResponse } from '@/types'
+import type { Client, CreateClientRequest, CreateApplicationRequest, UpdateClientRequest, ClientDetailResponse, ClientSecretResponse, ApplicationResponse, IntegrationSnippetsResponse } from '@/types'
 
 export const clientsApi = {
   list: async (realmName: string): Promise<Client[]> => {
@@ -38,6 +38,11 @@ export const clientsApi = {
 
   createApplication: async (realmName: string, request: CreateApplicationRequest): Promise<ApplicationResponse> => {
     const response = await api.post<ApplicationResponse>(`/api/super/realms/${realmName}/clients/applications`, request)
+    return response.data
+  },
+
+  getIntegrationSnippets: async (realmName: string, clientId: string): Promise<IntegrationSnippetsResponse> => {
+    const response = await api.get<IntegrationSnippetsResponse>(`/api/super/realms/${realmName}/clients/${clientId}/integration-snippets`)
     return response.data
   }
 }

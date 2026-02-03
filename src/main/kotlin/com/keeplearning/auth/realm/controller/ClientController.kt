@@ -81,4 +81,12 @@ class ClientController(
     ): ApplicationResponse {
         return clientService.createApplication(realmName, request, actor)
     }
+
+    @GetMapping("/{clientId}/integration-snippets")
+    suspend fun getIntegrationSnippets(
+        @PathVariable realmName: String,
+        @PathVariable clientId: String
+    ): IntegrationSnippetsResponse {
+        return clientService.getIntegrationSnippets(realmName, clientId)
+    }
 }
