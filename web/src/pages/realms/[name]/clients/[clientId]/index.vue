@@ -7,9 +7,11 @@ import { clientsApi } from '@/api'
 import Card from 'primevue/card'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
+import InputText from 'primevue/inputtext'
+import Chips from 'primevue/chips'
 import ProgressSpinner from 'primevue/progressspinner'
 import Message from 'primevue/message'
-import type { ClientDetailResponse } from '@/types'
+import type { ClientDetailResponse, UpdateClientRequest } from '@/types'
 
 defineOptions({
   name: 'ClientDetailPage'
@@ -27,6 +29,14 @@ const client = ref<ClientDetailResponse | null>(null)
 const clientSecret = ref<string | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// Edit mode state
+const editingUrls = ref(false)
+const savingUrls = ref(false)
+const editRootUrl = ref('')
+const editBaseUrl = ref('')
+const editRedirectUris = ref<string[]>([])
+const editWebOrigins = ref<string[]>([])
 
 onMounted(async () => {
   await loadClient()
@@ -48,6 +58,110 @@ async function loadClient(): Promise<void> {
     })
   } finally {
     loading.value = false
+  }
+}
+
+function startEditingUrls(): void {
+  if (!client.value) return
+  editRootUrl.value = client.value.rootUrl || ''
+  editBaseUrl.value = client.value.baseUrl || ''
+  editRedirectUris.value = [...(client.value.redirectUris || [])]
+  editWebOrigins.value = [...(client.value.webOrigins || [])]
+  editingUrls.value = true
+}
+
+function cancelEditingUrls(): void {
+  editingUrls.value = false
+  editRootUrl.value = ''
+  editBaseUrl.value = ''
+  editRedirectUris.value = []
+  editWebOrigins.value = []
+}
+
+function isValidUrl(url: string): boolean {
+  // Allow wildcards for Keycloak patterns
+  if (url.includes('*')) return true
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function validateUrls(): string | null {
+  if (editRootUrl.value && !isValidUrl(editRootUrl.value)) {
+    return 'Root URL is not a valid URL'
+  }
+  if (editBaseUrl.value && !isValidUrl(editBaseUrl.value)) {
+    return 'Base URL is not a valid URL'
+  }
+  for (const uri of editRedirectUris.value) {
+    if (!isValidUrl(uri)) {
+      return `Invalid redirect URI: ${uri}`
+    }
+  }
+  for (const origin of editWebOrigins.value) {
+    if (!isValidUrl(origin)) {
+      return `Invalid web origin: ${origin}`
+    }
+  }
+  return null
+}
+
+async function saveUrls(): Promise<void> {
+  const validationError = validateUrls()
+  if (validationError) {
+    toast.add({
+      severity: 'error',
+      summary: 'Validation Error',
+      detail: validationError,
+      life: 5000
+    })
+    return
+  }
+
+  savingUrls.value = true
+
+  // Store original values for rollback
+  const originalClient = { ...client.value }
+
+  // Optimistic update
+  if (client.value) {
+    client.value.rootUrl = editRootUrl.value || undefined
+    client.value.baseUrl = editBaseUrl.value || undefined
+    client.value.redirectUris = [...editRedirectUris.value]
+    client.value.webOrigins = [...editWebOrigins.value]
+  }
+
+  try {
+    const updateRequest: UpdateClientRequest = {
+      rootUrl: editRootUrl.value || undefined,
+      baseUrl: editBaseUrl.value || undefined,
+      redirectUris: editRedirectUris.value,
+      webOrigins: editWebOrigins.value
+    }
+
+    await clientsApi.update(realmName.value, clientId.value, updateRequest)
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'URLs updated successfully',
+      life: 3000
+    })
+    editingUrls.value = false
+  } catch (err) {
+    // Rollback on error
+    client.value = originalClient as ClientDetailResponse
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err instanceof Error ? err.message : 'Failed to update URLs',
+      life: 5000
+    })
+  } finally {
+    savingUrls.value = false
   }
 }
 
@@ -200,14 +314,6 @@ function copyToClipboard(text: string): void {
                 <span class="info-label">Description</span>
                 <span class="info-value">{{ client.description }}</span>
               </div>
-              <div class="info-item" v-if="client.rootUrl">
-                <span class="info-label">Root URL</span>
-                <code>{{ client.rootUrl }}</code>
-              </div>
-              <div class="info-item" v-if="client.baseUrl">
-                <span class="info-label">Base URL</span>
-                <code>{{ client.baseUrl }}</code>
-              </div>
             </div>
           </template>
         </Card>
@@ -274,25 +380,118 @@ function copyToClipboard(text: string): void {
           </template>
         </Card>
 
-        <Card class="info-card" v-if="client.redirectUris?.length">
-          <template #title>Redirect URIs</template>
-          <template #content>
-            <ul class="uri-list">
-              <li v-for="uri in client.redirectUris" :key="uri">
-                <code>{{ uri }}</code>
-              </li>
-            </ul>
+        <Card class="info-card urls-card">
+          <template #title>
+            <div class="card-title-row">
+              <span>URLs & Redirect URIs</span>
+              <Button
+                v-if="!editingUrls"
+                label="Edit"
+                icon="pi pi-pencil"
+                size="small"
+                text
+                @click="startEditingUrls"
+              />
+            </div>
           </template>
-        </Card>
-
-        <Card class="info-card" v-if="client.webOrigins?.length">
-          <template #title>Web Origins</template>
           <template #content>
-            <ul class="uri-list">
-              <li v-for="origin in client.webOrigins" :key="origin">
-                <code>{{ origin }}</code>
-              </li>
-            </ul>
+            <template v-if="editingUrls">
+              <div class="edit-form">
+                <div class="form-field">
+                  <label for="rootUrl">Root URL</label>
+                  <InputText
+                    id="rootUrl"
+                    v-model="editRootUrl"
+                    placeholder="https://example.com"
+                    class="w-full"
+                  />
+                </div>
+
+                <div class="form-field">
+                  <label for="baseUrl">Base URL</label>
+                  <InputText
+                    id="baseUrl"
+                    v-model="editBaseUrl"
+                    placeholder="/app"
+                    class="w-full"
+                  />
+                </div>
+
+                <div class="form-field">
+                  <label for="redirectUris">Redirect URIs</label>
+                  <Chips
+                    id="redirectUris"
+                    v-model="editRedirectUris"
+                    placeholder="Press Enter to add URI"
+                    class="w-full"
+                    separator=","
+                  />
+                  <small class="field-help">Enter URIs and press Enter. Wildcards (*) are allowed.</small>
+                </div>
+
+                <div class="form-field">
+                  <label for="webOrigins">Web Origins</label>
+                  <Chips
+                    id="webOrigins"
+                    v-model="editWebOrigins"
+                    placeholder="Press Enter to add origin"
+                    class="w-full"
+                    separator=","
+                  />
+                  <small class="field-help">Enter origins and press Enter. Use + to allow all redirect URI origins.</small>
+                </div>
+
+                <div class="edit-actions">
+                  <Button
+                    label="Cancel"
+                    severity="secondary"
+                    outlined
+                    size="small"
+                    @click="cancelEditingUrls"
+                    :disabled="savingUrls"
+                  />
+                  <Button
+                    label="Save"
+                    icon="pi pi-check"
+                    size="small"
+                    @click="saveUrls"
+                    :loading="savingUrls"
+                  />
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div class="info-list">
+                <div class="info-item">
+                  <span class="info-label">Root URL</span>
+                  <code v-if="client.rootUrl">{{ client.rootUrl }}</code>
+                  <span v-else class="empty-value">Not set</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Base URL</span>
+                  <code v-if="client.baseUrl">{{ client.baseUrl }}</code>
+                  <span v-else class="empty-value">Not set</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Redirect URIs</span>
+                  <ul v-if="client.redirectUris?.length" class="uri-list">
+                    <li v-for="uri in client.redirectUris" :key="uri">
+                      <code>{{ uri }}</code>
+                    </li>
+                  </ul>
+                  <span v-else class="empty-value">None configured</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Web Origins</span>
+                  <ul v-if="client.webOrigins?.length" class="uri-list">
+                    <li v-for="origin in client.webOrigins" :key="origin">
+                      <code>{{ origin }}</code>
+                    </li>
+                  </ul>
+                  <span v-else class="empty-value">None configured</span>
+                </div>
+              </div>
+            </template>
           </template>
         </Card>
       </div>
@@ -356,6 +555,17 @@ function copyToClipboard(text: string): void {
   background-color: var(--p-surface-card);
 }
 
+.urls-card {
+  grid-column: 1 / -1;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
 .info-list {
   display: flex;
   flex-direction: column;
@@ -381,6 +591,11 @@ function copyToClipboard(text: string): void {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.empty-value {
+  color: var(--p-text-muted-color);
+  font-style: italic;
 }
 
 code {
@@ -430,5 +645,39 @@ code {
 
 .uri-list code {
   display: block;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-field label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--p-text-color);
+}
+
+.field-help {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
 }
 </style>
