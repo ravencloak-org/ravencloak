@@ -11,6 +11,7 @@ import InputText from 'primevue/inputtext'
 import Chips from 'primevue/chips'
 import ProgressSpinner from 'primevue/progressspinner'
 import Message from 'primevue/message'
+import { transformToRedirectUri, transformToWebOrigin } from '@/utils/urlTransform'
 import type { ClientDetailResponse, UpdateClientRequest } from '@/types'
 
 defineOptions({
@@ -76,6 +77,42 @@ function cancelEditingUrls(): void {
   editBaseUrl.value = ''
   editRedirectUris.value = []
   editWebOrigins.value = []
+}
+
+// Transform redirect URIs when they're added
+function handleRedirectUriAdd(event: { value: string[] }): void {
+  const transformed = event.value.map(uri => transformToRedirectUri(uri))
+  if (JSON.stringify(transformed) !== JSON.stringify(editRedirectUris.value)) {
+    editRedirectUris.value = transformed
+    toast.add({
+      severity: 'info',
+      summary: 'URL Formatted',
+      detail: 'Redirect URIs have been auto-formatted for Keycloak',
+      life: 2000
+    })
+  }
+}
+
+// Transform web origins when they're added
+function handleWebOriginAdd(event: { value: string[] }): void {
+  const transformed = event.value.map(origin => transformToWebOrigin(origin))
+  if (JSON.stringify(transformed) !== JSON.stringify(editWebOrigins.value)) {
+    editWebOrigins.value = transformed
+    toast.add({
+      severity: 'info',
+      summary: 'URL Formatted',
+      detail: 'Web origins have been auto-formatted for Keycloak',
+      life: 2000
+    })
+  }
+}
+
+// Transform root URL on blur
+function handleRootUrlBlur(): void {
+  if (editRootUrl.value && !editRootUrl.value.startsWith('http')) {
+    const isLocal = editRootUrl.value.includes('localhost') || editRootUrl.value.includes('127.0.0.1')
+    editRootUrl.value = (isLocal ? 'http://' : 'https://') + editRootUrl.value
+  }
 }
 
 function isValidUrl(url: string): boolean {
@@ -404,7 +441,9 @@ function copyToClipboard(text: string): void {
                     v-model="editRootUrl"
                     placeholder="https://example.com"
                     class="w-full"
+                    @blur="handleRootUrlBlur"
                   />
+                  <small class="field-help">Enter URL - scheme will be auto-added on blur.</small>
                 </div>
 
                 <div class="form-field">
@@ -425,8 +464,9 @@ function copyToClipboard(text: string): void {
                     placeholder="Press Enter to add URI"
                     class="w-full"
                     separator=","
+                    @add="handleRedirectUriAdd"
                   />
-                  <small class="field-help">Enter URIs and press Enter. Wildcards (*) are allowed.</small>
+                  <small class="field-help">Enter "localhost:5173" → auto-converts to "http://localhost:5173/*"</small>
                 </div>
 
                 <div class="form-field">
@@ -437,8 +477,9 @@ function copyToClipboard(text: string): void {
                     placeholder="Press Enter to add origin"
                     class="w-full"
                     separator=","
+                    @add="handleWebOriginAdd"
                   />
-                  <small class="field-help">Enter origins and press Enter. Use + to allow all redirect URI origins.</small>
+                  <small class="field-help">Enter "example.com" → auto-converts to "https://example.com". Use + for all redirect URIs.</small>
                 </div>
 
                 <div class="edit-actions">

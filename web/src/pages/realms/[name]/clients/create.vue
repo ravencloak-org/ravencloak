@@ -10,6 +10,7 @@ import Checkbox from 'primevue/checkbox'
 import Button from 'primevue/button'
 import Chips from 'primevue/chips'
 import Message from 'primevue/message'
+import { transformToRedirectUri, transformToWebOrigin } from '@/utils/urlTransform'
 import type { CreateClientRequest } from '@/types'
 
 defineOptions({
@@ -36,6 +37,44 @@ const webOrigins = ref<string[]>([])
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+// Transform redirect URIs when they're added
+function handleRedirectUriAdd(event: { value: string[] }): void {
+  const transformed = event.value.map(uri => transformToRedirectUri(uri))
+  // Only update if values changed
+  if (JSON.stringify(transformed) !== JSON.stringify(redirectUris.value)) {
+    redirectUris.value = transformed
+    toast.add({
+      severity: 'info',
+      summary: 'URL Formatted',
+      detail: 'Redirect URIs have been auto-formatted for Keycloak',
+      life: 2000
+    })
+  }
+}
+
+// Transform web origins when they're added
+function handleWebOriginAdd(event: { value: string[] }): void {
+  const transformed = event.value.map(origin => transformToWebOrigin(origin))
+  // Only update if values changed
+  if (JSON.stringify(transformed) !== JSON.stringify(webOrigins.value)) {
+    webOrigins.value = transformed
+    toast.add({
+      severity: 'info',
+      summary: 'URL Formatted',
+      detail: 'Web origins have been auto-formatted for Keycloak',
+      life: 2000
+    })
+  }
+}
+
+// Transform root URL on blur
+function handleRootUrlBlur(): void {
+  if (rootUrl.value && !rootUrl.value.startsWith('http')) {
+    const isLocal = rootUrl.value.includes('localhost') || rootUrl.value.includes('127.0.0.1')
+    rootUrl.value = (isLocal ? 'http://' : 'https://') + rootUrl.value
+  }
+}
 
 const isValidClientId = computed(() => {
   return /^[a-z][a-z0-9_-]*$/.test(clientId.value) && clientId.value.length >= 2
@@ -225,7 +264,11 @@ function handleCancel(): void {
                 v-model="rootUrl"
                 placeholder="https://myapp.example.com"
                 class="w-full"
+                @blur="handleRootUrlBlur"
               />
+              <small class="field-help">
+                Enter a URL like "localhost:3000" or "example.com" - scheme will be auto-added.
+              </small>
             </div>
 
             <div class="form-field">
@@ -245,9 +288,10 @@ function handleCancel(): void {
                 v-model="redirectUris"
                 separator=","
                 class="w-full"
+                @add="handleRedirectUriAdd"
               />
               <small class="field-help">
-                Press Enter to add each URI. Wildcards (*) are allowed.
+                Enter URLs like "localhost:5173" → auto-converts to "http://localhost:5173/*"
               </small>
             </div>
 
@@ -258,9 +302,10 @@ function handleCancel(): void {
                 v-model="webOrigins"
                 separator=","
                 class="w-full"
+                @add="handleWebOriginAdd"
               />
               <small class="field-help">
-                Allowed CORS origins. Use + to include all valid redirect URIs.
+                Enter URLs like "example.com" → auto-converts to "https://example.com". Use + for all redirect URIs.
               </small>
             </div>
           </div>
