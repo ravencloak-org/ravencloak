@@ -26,7 +26,7 @@ class ExternalUserStorageProvider(
 
     companion object {
         private val logger: Logger = Logger.getLogger(ExternalUserStorageProvider::class.java.name)
-        private const val BASE_URL = "http://auth-backend:8080/api/users"
+        private const val BASE_URL = "http://auth-backend:8080/api/public/users"
         private val httpClient: HttpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build()
@@ -54,9 +54,9 @@ class ExternalUserStorageProvider(
     }
 
     override fun getUserByEmail(realm: RealmModel, email: String): UserModel? {
-        logger.fine { "getUserByEmail called with email: $email" }
+        logger.fine { "getUserByEmail called with email: $email in realm: ${realm.name}" }
 
-        val externalUser = fetchUserFromApi(email) ?: return null
+        val externalUser = fetchUserFromApi(email, realm.name) ?: return null
         return ExternalUserAdapter(session, realm, model, externalUser)
     }
 
@@ -64,15 +64,17 @@ class ExternalUserStorageProvider(
      * Fetches user data from the external REST API.
      *
      * @param email The email address to look up
+     * @param realmName The Keycloak realm name
      * @return ExternalUser if found (HTTP 200), null if not found (HTTP 404) or on error
      */
-    private fun fetchUserFromApi(email: String): ExternalUser? {
+    private fun fetchUserFromApi(email: String, realmName: String): ExternalUser? {
         return try {
             val encodedEmail = java.net.URLEncoder.encode(email, Charsets.UTF_8)
             val request = HttpRequest.newBuilder()
                 .uri(URI.create("$BASE_URL/$encodedEmail"))
                 .timeout(Duration.ofSeconds(30))
                 .header("Accept", "application/json")
+                .header("X-Realm-Name", realmName)
                 .GET()
                 .build()
 
