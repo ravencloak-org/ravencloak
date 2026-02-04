@@ -117,6 +117,18 @@ class ClientService(
         return client.toDetailResponse()
     }
 
+    companion object {
+        // Default Keycloak clients that should be hidden from the dashboard
+        private val DEFAULT_KEYCLOAK_CLIENTS = setOf(
+            "account",
+            "account-console",
+            "admin-cli",
+            "broker",
+            "realm-management",
+            "security-admin-console"
+        )
+    }
+
     suspend fun listClients(realmName: String): List<ClientResponse> {
         val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
@@ -124,6 +136,7 @@ class ClientService(
         return clientRepository.findByRealmId(realm.id!!)
             .collectList()
             .awaitSingle()
+            .filter { it.clientId !in DEFAULT_KEYCLOAK_CLIENTS }
             .map { it.toResponse() }
     }
 
