@@ -9,6 +9,9 @@ WORKDIR /app
 COPY gradle/ gradle/
 COPY gradlew build.gradle.kts settings.gradle.kts ./
 
+# Copy buildSrc for custom Gradle plugins (build-cache-metrics)
+COPY buildSrc/ buildSrc/
+
 # Copy keycloak-spi build file (needed for Gradle to configure multi-module project)
 COPY keycloak-spi/build.gradle.kts keycloak-spi/
 
