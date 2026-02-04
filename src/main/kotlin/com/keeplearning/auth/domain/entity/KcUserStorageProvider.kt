@@ -1,5 +1,6 @@
 package com.keeplearning.auth.domain.entity
 
+import io.r2dbc.postgresql.codec.Json
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
@@ -16,7 +17,7 @@ data class KcUserStorageProvider(
     @Column("provider_id")
     val providerId: String,
     val priority: Int = 0,
-    val config: String = "{}",  // JSONB stored as String
+    val config: Json = Json.of("{}"),
     @Column("keycloak_id")
     val keycloakId: String,
     @Column("synced_at")
