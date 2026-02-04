@@ -33,6 +33,17 @@ class RealmService(
     private val userStorageProviderRepository: KcUserStorageProviderRepository,
     private val objectMapper: ObjectMapper
 ) {
+    companion object {
+        // Default Keycloak clients that should be hidden from the dashboard
+        private val DEFAULT_KEYCLOAK_CLIENTS = setOf(
+            "account",
+            "account-console",
+            "admin-cli",
+            "broker",
+            "realm-management",
+            "security-admin-console"
+        )
+    }
     private val logger = LoggerFactory.getLogger(RealmService::class.java)
 
     suspend fun createRealm(request: CreateRealmRequest): RealmResponse {
@@ -124,6 +135,7 @@ class RealmService(
 
         val clients = clientRepository.findByRealmId(realm.id!!)
             .collectList().awaitSingle()
+            .filter { it.clientId !in DEFAULT_KEYCLOAK_CLIENTS }
         val roles = roleRepository.findByRealmIdAndClientIdIsNull(realm.id)
             .collectList().awaitSingle()
         val groups = groupRepository.findByRealmIdAndParentIdIsNull(realm.id)

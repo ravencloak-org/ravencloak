@@ -22,6 +22,6 @@
     },
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "typed-router.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

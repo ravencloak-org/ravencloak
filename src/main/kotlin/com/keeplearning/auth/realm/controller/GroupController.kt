@@ -1,0 +1,69 @@
+package com.keeplearning.auth.realm.controller
+
+import com.keeplearning.auth.realm.dto.*
+import com.keeplearning.auth.realm.service.GroupService
+import org.springframework.http.HttpStatus
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
+import org.springframework.web.bind.annotation.*
+
+@RestController
+@RequestMapping("/api/super/realms/{realmName}/groups")
+class GroupController(
+    private val groupService: GroupService
+) {
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    suspend fun createGroup(
+        @PathVariable realmName: String,
+        @RequestBody request: CreateGroupRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
+    ): GroupResponse {
+        return groupService.createGroup(realmName, request, actor)
+    }
+
+    @GetMapping
+    suspend fun listGroups(@PathVariable realmName: String): List<GroupResponse> {
+        return groupService.listGroups(realmName)
+    }
+
+    @GetMapping("/{groupId}")
+    suspend fun getGroup(
+        @PathVariable realmName: String,
+        @PathVariable groupId: String
+    ): GroupResponse {
+        return groupService.getGroup(realmName, groupId)
+    }
+
+    @PutMapping("/{groupId}")
+    suspend fun updateGroup(
+        @PathVariable realmName: String,
+        @PathVariable groupId: String,
+        @RequestBody request: UpdateGroupRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
+    ): GroupResponse {
+        return groupService.updateGroup(realmName, groupId, request, actor)
+    }
+
+    @DeleteMapping("/{groupId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    suspend fun deleteGroup(
+        @PathVariable realmName: String,
+        @PathVariable groupId: String,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
+    ) {
+        groupService.deleteGroup(realmName, groupId, actor)
+    }
+
+    @PostMapping("/{groupId}/children")
+    @ResponseStatus(HttpStatus.CREATED)
+    suspend fun createSubgroup(
+        @PathVariable realmName: String,
+        @PathVariable groupId: String,
+        @RequestBody request: CreateGroupRequest,
+        @AuthenticationPrincipal actor: JwtAuthenticationToken
+    ): GroupResponse {
+        return groupService.createSubgroup(realmName, groupId, request, actor)
+    }
+}

@@ -145,6 +145,68 @@ class KeycloakAdminClient(
         return response.headers.location?.path?.substringAfterLast("/") ?: ""
     }
 
+    suspend fun getClient(realmName: String, clientUuid: String): ClientRepresentation {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid")
+            .retrieve()
+            .bodyToMono<ClientRepresentation>()
+            .awaitSingle()
+    }
+
+    suspend fun getClientByClientId(realmName: String, clientId: String): ClientRepresentation? {
+        val clients = getClients(realmName)
+        return clients.find { it.clientId == clientId }
+    }
+
+    suspend fun updateClient(realmName: String, clientUuid: String, clientRep: ClientRepresentation) {
+        val client = adminClient()
+        client.put()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(clientRep)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Updated client: ${clientRep.clientId} in realm: $realmName")
+    }
+
+    suspend fun deleteClient(realmName: String, clientUuid: String) {
+        val client = adminClient()
+        client.delete()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid")
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Deleted client: $clientUuid from realm: $realmName")
+    }
+
+    suspend fun getClientSecret(realmName: String, clientUuid: String): String? {
+        val client = adminClient()
+        return try {
+            val response = client.get()
+                .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid/client-secret")
+                .retrieve()
+                .bodyToMono<ClientSecretResponse>()
+                .awaitSingle()
+            response.value
+        } catch (e: Exception) {
+            logger.warn("Failed to get client secret: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun regenerateClientSecret(realmName: String, clientUuid: String): String {
+        val client = adminClient()
+        val response = client.post()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid/client-secret")
+            .retrieve()
+            .bodyToMono<ClientSecretResponse>()
+            .awaitSingle()
+        logger.info("Regenerated client secret for client: $clientUuid in realm: $realmName")
+        return response.value
+    }
+
     // ==================== ROLE OPERATIONS ====================
 
     suspend fun getRealmRoles(realmName: String): List<RoleRepresentation> {
@@ -176,6 +238,60 @@ class KeycloakAdminClient(
             .retrieve()
             .toBodilessEntity()
             .awaitSingle()
+        logger.info("Created realm role: ${role.name} in realm: $realmName")
+    }
+
+    suspend fun getRealmRole(realmName: String, roleName: String): RoleRepresentation {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/roles/$roleName")
+            .retrieve()
+            .bodyToMono<RoleRepresentation>()
+            .awaitSingle()
+    }
+
+    suspend fun updateRealmRole(realmName: String, roleName: String, role: RoleRepresentation) {
+        val client = adminClient()
+        client.put()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/roles/$roleName")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(role)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Updated realm role: $roleName in realm: $realmName")
+    }
+
+    suspend fun deleteRealmRole(realmName: String, roleName: String) {
+        val client = adminClient()
+        client.delete()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/roles/$roleName")
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Deleted realm role: $roleName from realm: $realmName")
+    }
+
+    suspend fun createClientRole(realmName: String, clientUuid: String, role: RoleRepresentation) {
+        val client = adminClient()
+        client.post()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid/roles")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(role)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Created client role: ${role.name} for client: $clientUuid in realm: $realmName")
+    }
+
+    suspend fun deleteClientRole(realmName: String, clientUuid: String, roleName: String) {
+        val client = adminClient()
+        client.delete()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/clients/$clientUuid/roles/$roleName")
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Deleted client role: $roleName from client: $clientUuid in realm: $realmName")
     }
 
     // ==================== GROUP OPERATIONS ====================
@@ -188,6 +304,118 @@ class KeycloakAdminClient(
             .bodyToFlux<GroupRepresentation>()
             .collectList()
             .awaitSingle()
+    }
+
+    suspend fun getGroup(realmName: String, groupId: String): GroupRepresentation {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/groups/$groupId")
+            .retrieve()
+            .bodyToMono<GroupRepresentation>()
+            .awaitSingle()
+    }
+
+    suspend fun createGroup(realmName: String, group: GroupRepresentation): String {
+        val client = adminClient()
+        val response = client.post()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/groups")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(group)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Created group: ${group.name} in realm: $realmName")
+        return response.headers.location?.path?.substringAfterLast("/") ?: ""
+    }
+
+    suspend fun createSubgroup(realmName: String, parentGroupId: String, group: GroupRepresentation): String {
+        val client = adminClient()
+        val response = client.post()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/groups/$parentGroupId/children")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(group)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Created subgroup: ${group.name} under parent: $parentGroupId in realm: $realmName")
+        return response.headers.location?.path?.substringAfterLast("/") ?: ""
+    }
+
+    suspend fun updateGroup(realmName: String, groupId: String, group: GroupRepresentation) {
+        val client = adminClient()
+        client.put()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/groups/$groupId")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(group)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Updated group: $groupId in realm: $realmName")
+    }
+
+    suspend fun deleteGroup(realmName: String, groupId: String) {
+        val client = adminClient()
+        client.delete()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/groups/$groupId")
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Deleted group: $groupId from realm: $realmName")
+    }
+
+    // ==================== IDENTITY PROVIDER OPERATIONS ====================
+
+    suspend fun getIdentityProviders(realmName: String): List<IdentityProviderRepresentation> {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/identity-provider/instances")
+            .retrieve()
+            .bodyToFlux<IdentityProviderRepresentation>()
+            .collectList()
+            .awaitSingle()
+    }
+
+    suspend fun getIdentityProvider(realmName: String, alias: String): IdentityProviderRepresentation {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/identity-provider/instances/$alias")
+            .retrieve()
+            .bodyToMono<IdentityProviderRepresentation>()
+            .awaitSingle()
+    }
+
+    suspend fun createIdentityProvider(realmName: String, idp: IdentityProviderRepresentation) {
+        val client = adminClient()
+        client.post()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/identity-provider/instances")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(idp)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Created identity provider: ${idp.alias} in realm: $realmName")
+    }
+
+    suspend fun updateIdentityProvider(realmName: String, alias: String, idp: IdentityProviderRepresentation) {
+        val client = adminClient()
+        client.put()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/identity-provider/instances/$alias")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(idp)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Updated identity provider: $alias in realm: $realmName")
+    }
+
+    suspend fun deleteIdentityProvider(realmName: String, alias: String) {
+        val client = adminClient()
+        client.delete()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/identity-provider/instances/$alias")
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Deleted identity provider: $alias from realm: $realmName")
     }
 
     // ==================== USER STORAGE PROVIDER OPERATIONS ====================
