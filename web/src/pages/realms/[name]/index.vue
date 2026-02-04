@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRealmStore } from '@/stores/realm'
 import { useToast } from 'primevue/usetoast'
@@ -14,6 +14,7 @@ import TabPanel from 'primevue/tabpanel'
 import ClientList from '@/components/ClientList.vue'
 import RoleList from '@/components/RoleList.vue'
 import GroupList from '@/components/GroupList.vue'
+import UserList from '@/components/UserList.vue'
 
 defineOptions({
   name: 'RealmDashboardPage'
@@ -30,8 +31,6 @@ const realmName = computed(() => route.params.name as string)
 const loading = ref(true)
 const syncing = ref(false)
 const error = ref<string | null>(null)
-
-import { computed } from 'vue'
 
 onMounted(async () => {
   await loadRealm()
@@ -283,7 +282,7 @@ function formatDate(dateString: string): string {
           <TabPanel value="groups">
             <template #header>
               <span class="tab-header">
-                <i class="pi pi-users" />
+                <i class="pi pi-sitemap" />
                 <span>Groups</span>
                 <Tag
                   :value="String(realmStore.currentRealm.groups?.length || 0)"
@@ -293,6 +292,16 @@ function formatDate(dateString: string): string {
               </span>
             </template>
             <GroupList :groups="realmStore.currentRealm.groups || []" :realm-name="realmName" />
+          </TabPanel>
+
+          <TabPanel value="users">
+            <template #header>
+              <span class="tab-header">
+                <i class="pi pi-users" />
+                <span>Users</span>
+              </span>
+            </template>
+            <UserList :realm-name="realmName" />
           </TabPanel>
         </TabView>
       </div>

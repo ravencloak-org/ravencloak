@@ -37,6 +37,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/my-actions': RouteRecordInfo<
+      '/my-actions',
+      '/my-actions',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/realms/': RouteRecordInfo<
       '/realms/',
       '/realms',
@@ -47,6 +54,13 @@ declare module 'vue-router/auto-routes' {
     '/realms/[name]/': RouteRecordInfo<
       '/realms/[name]/',
       '/realms/:name',
+      { name: ParamValue<true> },
+      { name: ParamValue<false> },
+      | never
+    >,
+    '/realms/[name]/audit/': RouteRecordInfo<
+      '/realms/[name]/audit/',
+      '/realms/:name/audit',
       { name: ParamValue<true> },
       { name: ParamValue<false> },
       | never
@@ -114,6 +128,27 @@ declare module 'vue-router/auto-routes' {
       { name: ParamValue<false> },
       | never
     >,
+    '/realms/[name]/users/': RouteRecordInfo<
+      '/realms/[name]/users/',
+      '/realms/:name/users',
+      { name: ParamValue<true> },
+      { name: ParamValue<false> },
+      | never
+    >,
+    '/realms/[name]/users/[userId]/': RouteRecordInfo<
+      '/realms/[name]/users/[userId]/',
+      '/realms/:name/users/:userId',
+      { name: ParamValue<true>, userId: ParamValue<true> },
+      { name: ParamValue<false>, userId: ParamValue<false> },
+      | never
+    >,
+    '/realms/[name]/users/create': RouteRecordInfo<
+      '/realms/[name]/users/create',
+      '/realms/:name/users/create',
+      { name: ParamValue<true> },
+      { name: ParamValue<false> },
+      | never
+    >,
     '/realms/create': RouteRecordInfo<
       '/realms/create',
       '/realms/create',
@@ -146,6 +181,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/my-actions.vue': {
+      routes:
+        | '/my-actions'
+      views:
+        | never
+    }
     'src/pages/realms/index.vue': {
       routes:
         | '/realms/'
@@ -155,6 +196,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/realms/[name]/index.vue': {
       routes:
         | '/realms/[name]/'
+      views:
+        | never
+    }
+    'src/pages/realms/[name]/audit/index.vue': {
+      routes:
+        | '/realms/[name]/audit/'
       views:
         | never
     }
@@ -209,6 +256,24 @@ declare module 'vue-router/auto-routes' {
     'src/pages/realms/[name]/roles/create.vue': {
       routes:
         | '/realms/[name]/roles/create'
+      views:
+        | never
+    }
+    'src/pages/realms/[name]/users/index.vue': {
+      routes:
+        | '/realms/[name]/users/'
+      views:
+        | never
+    }
+    'src/pages/realms/[name]/users/[userId]/index.vue': {
+      routes:
+        | '/realms/[name]/users/[userId]/'
+      views:
+        | never
+    }
+    'src/pages/realms/[name]/users/create.vue': {
+      routes:
+        | '/realms/[name]/users/create'
       views:
         | never
     }

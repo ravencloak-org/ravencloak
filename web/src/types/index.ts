@@ -180,6 +180,70 @@ export interface ApiError {
   timestamp: string
 }
 
+export interface AuthorizedClientInfo {
+  clientId: string
+  clientName: string
+  assignedAt: string
+}
+
+export interface RealmUser {
+  id: string
+  keycloakUserId: string
+  email: string
+  displayName?: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  jobTitle?: string
+  department?: string
+  avatarUrl?: string
+  status: string
+  lastLoginAt?: string
+  createdAt: string
+  authorizedClients: AuthorizedClientInfo[]
+}
+
+export interface AuthorizedClientDetail {
+  clientId: string
+  clientIdName: string
+  clientDisplayName?: string
+  publicClient: boolean
+  assignedAt: string
+  assignedBy?: string
+}
+
+export interface RealmUserDetail extends Omit<RealmUser, 'authorizedClients'> {
+  bio?: string
+  updatedAt?: string
+  authorizedClients: AuthorizedClientDetail[]
+}
+
+export interface CreateRealmUserRequest {
+  email: string
+  displayName?: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  jobTitle?: string
+  department?: string
+  clientIds?: string[]
+}
+
+export interface UpdateRealmUserRequest {
+  displayName?: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  bio?: string
+  jobTitle?: string
+  department?: string
+  status?: string
+}
+
+export interface AssignClientsRequest {
+  clientIds: string[]
+}
+
 export interface IntegrationSnippets {
   vanillaJs: string
   react: string
