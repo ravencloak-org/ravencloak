@@ -12,4 +12,5 @@ interface KcClientRepository : R2dbcRepository<KcClient, UUID> {
     fun findByKeycloakId(keycloakId: String): Mono<KcClient>
     fun existsByKeycloakId(keycloakId: String): Mono<Boolean>
     fun deleteByRealmId(realmId: UUID): Mono<Void>
+    fun findByPairedClientId(pairedClientId: UUID): Mono<KcClient>
 }

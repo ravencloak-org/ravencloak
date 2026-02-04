@@ -29,8 +29,18 @@ data class KcClient(
     val redirectUris: Json = Json.of("[]"),
     @Column("web_origins")
     val webOrigins: Json = Json.of("[]"),
+    @Column("standard_flow_enabled")
+    val standardFlowEnabled: Boolean = true,
+    @Column("direct_access_grants_enabled")
+    val directAccessGrantsEnabled: Boolean = false,
+    @Column("service_accounts_enabled")
+    val serviceAccountsEnabled: Boolean = false,
+    @Column("authorization_services_enabled")
+    val authorizationServicesEnabled: Boolean = false,
     @Column("keycloak_id")
     val keycloakId: String,
+    @Column("paired_client_id")
+    val pairedClientId: UUID? = null,
     @Column("synced_at")
     val syncedAt: Instant = Instant.now(),
     @Column("created_at")

@@ -94,6 +94,28 @@ data class CredentialRepresentation(
     val temporary: Boolean = false
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class ClientSecretResponse(
+    val type: String? = null,
+    val value: String
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class IdentityProviderRepresentation(
+    val alias: String,
+    val displayName: String? = null,
+    val providerId: String,
+    val enabled: Boolean = true,
+    val trustEmail: Boolean = false,
+    val storeToken: Boolean = false,
+    val addReadTokenRoleOnCreate: Boolean = false,
+    val authenticateByDefault: Boolean = false,
+    val linkOnly: Boolean = false,
+    val firstBrokerLoginFlowAlias: String? = null,
+    val postBrokerLoginFlowAlias: String? = null,
+    val config: Map<String, String>? = null
+)
+
 data class CreateRealmRequest(
     val realmName: String,
     val displayName: String? = null,

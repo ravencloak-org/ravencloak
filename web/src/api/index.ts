@@ -1,0 +1,8 @@
+export { default as api } from './client'
+export { realmsApi } from './realms'
+export { clientsApi } from './clients'
+export { rolesApi } from './roles'
+export { groupsApi } from './groups'
+export { idpApi } from './idp'
+export { usersApi } from './users'
+export { auditApi } from './audit'

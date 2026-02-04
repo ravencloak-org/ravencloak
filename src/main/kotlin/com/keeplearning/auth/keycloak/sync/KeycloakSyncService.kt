@@ -279,7 +279,7 @@ class KeycloakSyncService(
                             name = componentRep.name,
                             providerId = componentRep.providerId,
                             priority = componentRep.config?.get("priority")?.firstOrNull()?.toIntOrNull() ?: 0,
-                            config = objectMapper.writeValueAsString(componentRep.config ?: emptyMap<String, List<String>>()),
+                            config = Json.of(objectMapper.writeValueAsString(componentRep.config ?: emptyMap<String, List<String>>())),
                             syncedAt = Instant.now(),
                             updatedAt = Instant.now()
                         )
@@ -291,7 +291,7 @@ class KeycloakSyncService(
                             name = componentRep.name,
                             providerId = componentRep.providerId,
                             priority = componentRep.config?.get("priority")?.firstOrNull()?.toIntOrNull() ?: 0,
-                            config = objectMapper.writeValueAsString(componentRep.config ?: emptyMap<String, List<String>>()),
+                            config = Json.of(objectMapper.writeValueAsString(componentRep.config ?: emptyMap<String, List<String>>())),
                             keycloakId = componentRep.id,
                             syncedAt = Instant.now()
                         )

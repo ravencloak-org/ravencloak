@@ -257,7 +257,7 @@ function formatDate(dateString: string): string {
                 />
               </span>
             </template>
-            <ClientList :clients="realmStore.currentRealm.clients || []" />
+            <ClientList :clients="realmStore.currentRealm.clients || []" :realm-name="props.name" />
           </TabPanel>
 
           <TabPanel value="roles">
@@ -272,7 +272,7 @@ function formatDate(dateString: string): string {
                 />
               </span>
             </template>
-            <RoleList :roles="realmStore.currentRealm.roles || []" />
+            <RoleList :roles="realmStore.currentRealm.roles || []" :realm-name="props.name" />
           </TabPanel>
 
           <TabPanel value="groups">
@@ -287,7 +287,7 @@ function formatDate(dateString: string): string {
                 />
               </span>
             </template>
-            <GroupList :groups="realmStore.currentRealm.groups || []" />
+            <GroupList :groups="realmStore.currentRealm.groups || []" :realm-name="props.name" />
           </TabPanel>
         </TabView>
       </div>

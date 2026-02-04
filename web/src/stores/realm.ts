@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { realmApi } from '@/services/api'
+import { realmsApi } from '@/api'
 import type { Realm, RealmDetails, CreateRealmRequest } from '@/types'
 
 export const useRealmStore = defineStore('realm', () => {
@@ -16,7 +16,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      realms.value = await realmApi.list()
+      realms.value = await realmsApi.list()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch realms'
       throw err
@@ -30,7 +30,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      currentRealm.value = await realmApi.get(name)
+      currentRealm.value = await realmsApi.get(name)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch realm'
       throw err
@@ -44,7 +44,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      const realm = await realmApi.create(request)
+      const realm = await realmsApi.create(request)
       realms.value.push(realm)
       return realm
     } catch (err) {
@@ -60,7 +60,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      const updated = await realmApi.update(name, request)
+      const updated = await realmsApi.update(name, request)
       const index = realms.value.findIndex(r => r.realmName === name)
       if (index >= 0) {
         realms.value[index] = updated
@@ -81,7 +81,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      await realmApi.delete(name)
+      await realmsApi.delete(name)
       realms.value = realms.value.filter(r => r.realmName !== name)
       if (currentRealm.value?.realmName === name) {
         currentRealm.value = null
@@ -99,7 +99,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      await realmApi.enableSpi(name)
+      await realmsApi.enableSpi(name)
       await fetchRealm(name)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to enable SPI'
@@ -114,7 +114,7 @@ export const useRealmStore = defineStore('realm', () => {
     error.value = null
 
     try {
-      await realmApi.sync(name)
+      await realmsApi.sync(name)
       await fetchRealm(name)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to sync realm'
@@ -142,5 +142,9 @@ export const useRealmStore = defineStore('realm', () => {
     enableSpi,
     syncRealm,
     clearCurrentRealm
+  }
+}, {
+  persist: {
+    paths: ['realms', 'currentRealm']
   }
 })
