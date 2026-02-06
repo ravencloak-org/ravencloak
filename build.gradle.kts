@@ -16,7 +16,7 @@ buildCacheMetrics {
 }
 
 group = "com.keeplearning"
-version = findProperty("version")?.toString()?.takeIf { it != "unspecified" } ?: "0.0.1-SNAPSHOT"
+version = findProperty("version")?.toString()?.takeIf { it != "unspecified" && it.isNotBlank() } ?: "0.0.1-SNAPSHOT"
 description = "Authentication Backend"
 
 java {
