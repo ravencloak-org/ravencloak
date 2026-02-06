@@ -33,5 +33,5 @@ steps:
     commands:
       - echo "Building Auth Backend..."
       - rm -f /root/.gradle/caches/journal-1/*.lock 2>/dev/null || true
-      - ./gradlew compileKotlin bootJar --no-daemon -x :keycloak-spi:compileKotlin -x test
+      - ./gradlew compileKotlin test bootJar --no-daemon -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
       - echo "Build successful!"
