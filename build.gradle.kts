@@ -4,6 +4,7 @@ plugins {
 	id("org.springframework.boot") version "4.0.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.graalvm.buildtools.native") version "0.11.3"
+	id("com.google.cloud.tools.jib") version "3.5.2"
 	id("build-cache-metrics")
 }
 
@@ -78,6 +79,27 @@ tasks.withType<Test> {
 		showCauses = true
 		showStackTraces = true
 		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+	}
+}
+
+jib {
+	from {
+		image = "eclipse-temurin:21-jre-noble"
+		platforms {
+			platform {
+				architecture = "arm64"
+				os = "linux"
+			}
+		}
+	}
+	to {
+		image = "ghcr.io/dsjkeeplearning/kos-auth-backend"
+		tags = setOf(project.version.toString(), "latest")
+	}
+	container {
+		ports = listOf("8080")
+		mainClass = "com.keeplearning.auth.KosAuthApplicationKt"
+		creationTime.set("USE_CURRENT_TIMESTAMP")
 	}
 }
 

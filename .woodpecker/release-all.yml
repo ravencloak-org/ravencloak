@@ -44,12 +44,15 @@ steps:
         fi
         echo "Version: $(cat .version)"
 
-  - name: build-all
+  - name: build-and-push
     image: amazoncorretto:21
     volumes:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
       CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
+      GITHUB_TOKEN:
+        from_secret: github_token
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
       S3_BUILD_CACHE_REGION:
@@ -61,13 +64,14 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
+      - rm -rf /root/.gradle/daemon 2>/dev/null || true
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
       - VERSION=$(cat .version)
       - VERSION=${VERSION#release-v}
       - echo "Building all modules version $VERSION"
-      - ./gradlew clean :keycloak-spi:shadowJar bootJar -Pversion=$VERSION --no-daemon -x test
+      # Jib builds and pushes auth backend image to GHCR — no Docker daemon needed
+      - ./gradlew clean :keycloak-spi:shadowJar :bootJar :jib -Pversion=$VERSION --no-daemon -x test -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
       - mkdir -p release-assets
-      - echo "JAR files:" && ls -la keycloak-spi/build/libs/ && ls -la build/libs/
       - cp keycloak-spi/build/libs/*.jar release-assets/
       - cp build/libs/*.jar release-assets/
 
@@ -155,20 +159,6 @@ steps:
             release-assets/*.jar
         fi
 
-  - name: build-and-push-docker
-    image: docker:cli
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      GITHUB_TOKEN:
-        from_secret: github_token
-    commands:
-      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
-      - VERSION=$(cat .version)
-      - echo "Building Docker image with version $VERSION"
-      - docker buildx create --name multiarch --driver docker-container --use || docker buildx use multiarch
-      - docker buildx build --build-arg VERSION=$VERSION --cache-from type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache --cache-to type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache,mode=max --tag "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION" --tag ghcr.io/dsjkeeplearning/kos-auth-backend:latest --push .
-
   - name: deploy
     image: docker:cli
     volumes:
@@ -176,7 +166,6 @@ steps:
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
-      # App configuration
       KEYCLOAK_ISSUER_PREFIX:
         from_secret: keycloak_issuer_prefix
       KEYCLOAK_SAAS_ISSUER_URI:
