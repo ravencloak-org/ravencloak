@@ -82,6 +82,8 @@ tasks.withType<Test> {
 	}
 }
 
+val jibTag: String? = findProperty("jibTag")?.toString()
+
 jib {
 	from {
 		image = "eclipse-temurin:21-jre-noble"
@@ -93,9 +95,8 @@ jib {
 		}
 	}
 	to {
-		image = "ghcr.io/dsjkeeplearning/kos-auth-backend"
-		// Version tag set via -Djib.to.image in CI
-		tags = setOf("latest")
+		image = "ghcr.io/dsjkeeplearning/kos-auth-backend:latest"
+		tags = if (!jibTag.isNullOrBlank()) setOf(jibTag) else emptySet()
 	}
 	container {
 		ports = listOf("8080")
