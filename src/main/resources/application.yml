@@ -4,13 +4,13 @@ spring:
 
   # R2DBC Configuration
   r2dbc:
-    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5423}/${DB_NAME:kos-auth}
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5234}/${DB_NAME:kos-auth}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:}
 
   # Flyway Configuration (for database migrations)
   flyway:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kos-auth}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5234}/${DB_NAME:kos-auth}
     user: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:}
     locations: classpath:db/migration
