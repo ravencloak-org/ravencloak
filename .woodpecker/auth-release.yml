@@ -27,12 +27,12 @@ steps:
     commands:
       - rm -rf /root/.gradle/daemon 2>/dev/null || true
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - VERSION=${CI_COMMIT_TAG#v}
-      - echo "Building and pushing Auth Backend version $VERSION"
-      # Jib builds the container image and pushes to GHCR — no Docker daemon needed
-      - ./gradlew :bootJar :jib -Pversion=$VERSION --no-daemon -x test -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
-      - mkdir -p release-assets
-      - cp build/libs/*.jar release-assets/
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo "Building and pushing Auth Backend version $VERSION"
+        ./gradlew :bootJar :jib --no-daemon -x test -PjibTag=$VERSION -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
+        mkdir -p release-assets
+        cp build/libs/*.jar release-assets/
 
   - name: generate-changelog
     image: alpine/git
@@ -70,15 +70,16 @@ steps:
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
-      - git config --global user.email "ci@keeplearningos.com"
-      - git config --global user.name "Woodpecker CI"
-      - git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
-      - git fetch origin main
-      - git checkout main
-      - sed -i "s|auth-v[0-9.]*-blue|auth-${CI_COMMIT_TAG}-blue|g" README.md
-      - git add README.md
-      - git diff --cached --quiet || git commit -m "Update auth version badge to ${CI_COMMIT_TAG}"
-      - git push origin main
+      - |
+        git config --global user.email "ci@keeplearningos.com"
+        git config --global user.name "Woodpecker CI"
+        git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
+        git fetch origin main
+        git checkout main
+        sed -i "s|auth-v[0-9.]*-blue|auth-${CI_COMMIT_TAG}-blue|g" README.md
+        git add README.md
+        git diff --cached --quiet || git commit -m "Update auth version badge to ${CI_COMMIT_TAG}"
+        git push origin main
 
   - name: github-release
     image: alpine
@@ -126,11 +127,12 @@ steps:
       SPRING_PROFILES_ACTIVE:
         from_secret: spring_profiles_active
     commands:
-      - VERSION=${CI_COMMIT_TAG#v}
-      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
-      - docker pull "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
-      - docker stop auth-backend || true
-      - docker rm auth-backend || true
-      - echo "Deploying auth-backend version $VERSION"
-      - docker run -d --name auth-backend --restart unless-stopped -p 8080:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
-      - docker image prune -f
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker pull "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+        docker stop auth-backend || true
+        docker rm auth-backend || true
+        echo "Deploying auth-backend version $VERSION"
+        docker run -d --name auth-backend --restart unless-stopped -p 8080:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+        docker image prune -f
