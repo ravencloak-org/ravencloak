@@ -22,7 +22,7 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
-      - rm -f /root/.gradle/caches/journal-1/*.lock 2>/dev/null || true
+      - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
       - VERSION=${CI_COMMIT_TAG#v}
       - echo "Building Auth Backend version $VERSION"
       - ./gradlew bootJar -Pversion=$VERSION --no-daemon -x test
