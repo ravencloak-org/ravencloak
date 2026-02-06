@@ -1,19 +1,15 @@
 # Keycloak SPI - Build & Test (Push/PR/Manual)
 # Manual trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi-build
 when:
-  - event: [push, pull_request]
+  - event: pull_request
+  - event: push
+    branch: main
   - event: manual
     evaluate: 'CI_PIPELINE_DEPLOY_TO == "keycloak-spi-build"'
-    path:
-      include:
-        - "keycloak-spi/**"
-        - ".woodpecker/keycloak-spi*.yml"
-        - "build.gradle.kts"
-        - "settings.gradle.kts"
 
 steps:
   - name: build-and-test
-    image: eclipse-temurin:21-jdk
+    image: amazoncorretto:21
     volumes:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
@@ -29,7 +25,7 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
-      - rm -f /root/.gradle/caches/journal-1/*.lock 2>/dev/null || true
+      - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
       - echo "Building and testing Keycloak SPI module..."
       - ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
       - echo "Build successful!"

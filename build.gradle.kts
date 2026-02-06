@@ -45,6 +45,7 @@ dependencies {
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	implementation("io.github.cdimascio:dotenv-kotlin:6.4.1")
+	implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.1")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.postgresql:r2dbc-postgresql")
@@ -58,6 +59,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
+	testImplementation("io.mockk:mockk:1.13.13")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testRuntimeOnly("io.r2dbc:r2dbc-h2")
 }
@@ -70,6 +72,13 @@ kotlin {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	testLogging {
+		events("passed", "skipped", "failed")
+		showExceptions = true
+		showCauses = true
+		showStackTraces = true
+		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+	}
 }
 
 // Disable AOT processing for development (causes issues with R2DBC Json type)

@@ -1,25 +1,22 @@
 # Auth Backend - Build & Test (Push/PR/Manual)
 # Manual trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=auth-build
 when:
-  - event: [push, pull_request]
+  - event: pull_request
+  - event: push
+    branch: main
   - event: manual
     evaluate: 'CI_PIPELINE_DEPLOY_TO == "auth-build"'
-    path:
-      include:
-        - "src/**"
-        - "build.gradle.kts"
-        - "settings.gradle.kts"
-        - ".woodpecker/auth*.yml"
-      exclude:
-        - "keycloak-spi/**"
 
 steps:
-  - name: build
-    image: eclipse-temurin:21-jdk
+  - name: compile
+    # amazoncorretto is built for ARM64/Graviton — eclipse-temurin crashes
+    # in the dynamic linker (ld-linux-aarch64.so.1) on ARM64 hosts
+    image: amazoncorretto:21
     volumes:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
       CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
       S3_BUILD_CACHE_REGION:
@@ -31,7 +28,46 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
-      - echo "Building Auth Backend..."
-      - rm -f /root/.gradle/caches/journal-1/*.lock 2>/dev/null || true
-      - ./gradlew compileKotlin bootJar --no-daemon -x :keycloak-spi:compileKotlin -x test
-      - echo "Build successful!"
+      - rm -rf /root/.gradle/daemon 2>/dev/null || true
+      - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
+      - ./gradlew :compileKotlin :compileTestKotlin --no-daemon --max-workers=2
+
+  - name: test
+    image: amazoncorretto:21
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
+    environment:
+      CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
+      S3_BUILD_CACHE_BUCKET:
+        from_secret: s3_build_cache_bucket
+      S3_BUILD_CACHE_REGION:
+        from_secret: s3_build_cache_region
+      AWS_ACCESS_KEY_ID:
+        from_secret: s3_build_cache_access_key_id
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: s3_build_cache_secret_key
+      S3_BUILD_CACHE_ENDPOINT:
+        from_secret: s3_build_cache_endpoint
+    commands:
+      - ./gradlew :test --no-daemon --max-workers=2
+
+  - name: package
+    image: amazoncorretto:21
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
+    environment:
+      CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
+      S3_BUILD_CACHE_BUCKET:
+        from_secret: s3_build_cache_bucket
+      S3_BUILD_CACHE_REGION:
+        from_secret: s3_build_cache_region
+      AWS_ACCESS_KEY_ID:
+        from_secret: s3_build_cache_access_key_id
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: s3_build_cache_secret_key
+      S3_BUILD_CACHE_ENDPOINT:
+        from_secret: s3_build_cache_endpoint
+    commands:
+      - ./gradlew :bootJar --no-daemon --max-workers=2
