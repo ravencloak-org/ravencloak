@@ -1,17 +1,11 @@
 # Auth Backend - Build & Test (Push/PR/Manual)
 # Manual trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=auth-build
 when:
-  - event: [push, pull_request]
+  - event: pull_request
+  - event: push
+    branch: main
   - event: manual
     evaluate: 'CI_PIPELINE_DEPLOY_TO == "auth-build"'
-    path:
-      include:
-        - "src/**"
-        - "build.gradle.kts"
-        - "settings.gradle.kts"
-        - ".woodpecker/auth*.yml"
-      exclude:
-        - "keycloak-spi/**"
 
 steps:
   - name: compile
