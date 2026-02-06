@@ -36,7 +36,7 @@ steps:
     commands:
       - rm -rf /root/.gradle/daemon 2>/dev/null || true
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - ./gradlew compileKotlin compileTestKotlin --no-daemon --max-workers=2 -x :keycloak-spi:compileKotlin
+      - ./gradlew :compileKotlin :compileTestKotlin --no-daemon --max-workers=2
 
   - name: test
     image: amazoncorretto:21
@@ -56,7 +56,7 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
-      - ./gradlew test --no-daemon --max-workers=2 -x :keycloak-spi:test
+      - ./gradlew :test --no-daemon --max-workers=2
 
   - name: package
     image: amazoncorretto:21
@@ -76,4 +76,4 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
-      - ./gradlew bootJar --no-daemon --max-workers=2
+      - ./gradlew :bootJar --no-daemon --max-workers=2

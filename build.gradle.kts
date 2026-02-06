@@ -72,6 +72,13 @@ kotlin {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	testLogging {
+		events("passed", "skipped", "failed")
+		showExceptions = true
+		showCauses = true
+		showStackTraces = true
+		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+	}
 }
 
 // Disable AOT processing for development (causes issues with R2DBC Json type)
