@@ -30,7 +30,7 @@ steps:
       - VERSION=${CI_COMMIT_TAG#v}
       - echo "Building and pushing Auth Backend version $VERSION"
       # Jib builds the container image and pushes to GHCR — no Docker daemon needed
-      - ./gradlew :bootJar :jib -PappVersion=$VERSION --no-daemon -x test -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
+      - ./gradlew :bootJar :jib --no-daemon -x test -Djib.to.image=ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
       - mkdir -p release-assets
       - cp build/libs/*.jar release-assets/
 

@@ -16,7 +16,7 @@ buildCacheMetrics {
 }
 
 group = "com.keeplearning"
-version = findProperty("appVersion")?.toString() ?: "0.0.1-SNAPSHOT"
+version = "0.0.1-SNAPSHOT"
 description = "Authentication Backend"
 
 java {
@@ -94,7 +94,8 @@ jib {
 	}
 	to {
 		image = "ghcr.io/dsjkeeplearning/kos-auth-backend"
-		tags = setOf(project.version.toString(), "latest")
+		// Version tag set via -Djib.to.image in CI
+		tags = setOf("latest")
 	}
 	container {
 		ports = listOf("8080")
