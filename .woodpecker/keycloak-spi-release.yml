@@ -62,15 +62,16 @@ steps:
         from_secret: s3_build_cache_endpoint
     commands:
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - VERSION=$(cat .version)
-      - VERSION=${VERSION#spi-v}
-      - echo "Building Keycloak SPI version $VERSION"
-      - ./gradlew :keycloak-spi:clean :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
-      - mkdir -p release-assets
-      - echo "JAR files in build/libs:" && ls -la keycloak-spi/build/libs/
-      - cp keycloak-spi/build/libs/*.jar release-assets/
-      - cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
-      - echo "Build successful!"
+      - |
+        VERSION=$(cat .version)
+        VERSION=${VERSION#spi-v}
+        echo "Building Keycloak SPI version $VERSION"
+        ./gradlew :keycloak-spi:clean :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
+        mkdir -p release-assets
+        echo "JAR files in build/libs:" && ls -la keycloak-spi/build/libs/
+        cp keycloak-spi/build/libs/*.jar release-assets/
+        cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
+        echo "Build successful!"
 
   - name: generate-changelog
     image: alpine/git
@@ -110,11 +111,13 @@ steps:
     commands:
       - mkdir -p /shared/providers
       - rm -f /shared/providers/*.jar
-      - echo "Files in release-assets:" && ls -la release-assets/
-      - SPI_JAR=$(ls release-assets/keycloak-user-storage-spi*.jar 2>/dev/null | head -1) && cp "$SPI_JAR" /shared/providers/keycloak-user-storage-spi.jar
-      - echo "Deployed JAR to /opt/keycloak-providers/"
-      - echo "Restarting Keycloak to load new SPI..."
-      - 'docker restart keycloak || echo "Warning - Could not restart keycloak container"'
+      - |
+        echo "Files in release-assets:" && ls -la release-assets/
+        SPI_JAR=$(ls release-assets/keycloak-user-storage-spi*.jar 2>/dev/null | head -1)
+        cp "$SPI_JAR" /shared/providers/keycloak-user-storage-spi.jar
+        echo "Deployed JAR to /opt/keycloak-providers/"
+        echo "Restarting Keycloak to load new SPI..."
+        docker restart keycloak || echo "Warning - Could not restart keycloak container"
 
   - name: update-readme
     image: alpine/git
@@ -122,17 +125,18 @@ steps:
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
-      - VERSION=$(cat .version)
-      - SEMVER=$(echo ${VERSION} | sed 's/^spi-//')
-      - git config --global user.email "ci@keeplearningos.com"
-      - git config --global user.name "Woodpecker CI"
-      - git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
-      - git fetch origin main
-      - git checkout main
-      - sed -i "s|keycloak--spi-v[0-9.]*-green|keycloak--spi-${SEMVER}-green|g" README.md
-      - git add README.md
-      - git diff --cached --quiet || git commit -m "Update keycloak-spi version badge to ${VERSION}"
-      - git push origin main
+      - |
+        VERSION=$(cat .version)
+        SEMVER=$(echo ${VERSION} | sed 's/^spi-//')
+        git config --global user.email "ci@keeplearningos.com"
+        git config --global user.name "Woodpecker CI"
+        git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
+        git fetch origin main
+        git checkout main
+        sed -i "s|keycloak--spi-v[0-9.]*-green|keycloak--spi-${SEMVER}-green|g" README.md
+        git add README.md
+        git diff --cached --quiet || git commit -m "Update keycloak-spi version badge to ${VERSION}"
+        git push origin main
 
   - name: github-release
     image: alpine
@@ -141,11 +145,11 @@ steps:
         from_secret: github_token
     commands:
       - apk add --no-cache github-cli
-      - VERSION=$(cat .version)
-      - echo "Files in release-assets:" && ls -la release-assets/
-      - SPI_JAR=$(find release-assets -name "*.jar" -type f | head -1)
-      - echo "Using JAR file:" $SPI_JAR
       - |
+        VERSION=$(cat .version)
+        SPI_JAR=$(find release-assets -name "*.jar" -type f | head -1)
+        echo "Files in release-assets:" && ls -la release-assets/
+        echo "Using JAR file:" $SPI_JAR
         if gh release view $VERSION --repo $CI_REPO > /dev/null 2>&1; then
           echo "Release $VERSION already exists, updating notes and uploading assets..."
           gh release edit $VERSION --repo $CI_REPO --notes-file release-assets/CHANGELOG.md
