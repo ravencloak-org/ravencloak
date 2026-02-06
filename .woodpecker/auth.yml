@@ -36,5 +36,9 @@ steps:
     commands:
       - echo "Building Auth Backend..."
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - ./gradlew compileKotlin test bootJar --no-daemon --max-workers=2 -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
+      # Split into separate invocations to reduce peak memory per phase
+      # Build cache ensures tasks aren't re-executed across invocations
+      - ./gradlew compileKotlin compileTestKotlin --no-daemon --max-workers=1 -x :keycloak-spi:compileKotlin
+      - ./gradlew test --no-daemon --max-workers=1 -x :keycloak-spi:test
+      - ./gradlew bootJar --no-daemon --max-workers=1
       - echo "Build successful!"
