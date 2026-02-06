@@ -14,7 +14,7 @@ when:
         - "keycloak-spi/**"
 
 steps:
-  - name: build
+  - name: compile
     # amazoncorretto is built for ARM64/Graviton — eclipse-temurin crashes
     # in the dynamic linker (ld-linux-aarch64.so.1) on ARM64 hosts
     image: amazoncorretto:21
@@ -22,8 +22,6 @@ steps:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
       CI: "true"
-      # Daemon JVM args are set in gradle.properties (org.gradle.jvmargs)
-      # GRADLE_OPTS only affects the client launcher JVM, not the build daemon
       GRADLE_OPTS: "-Xmx128m"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
@@ -36,8 +34,46 @@ steps:
       S3_BUILD_CACHE_ENDPOINT:
         from_secret: s3_build_cache_endpoint
     commands:
-      - echo "Building Auth Backend..."
       - rm -rf /root/.gradle/daemon 2>/dev/null || true
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - ./gradlew compileKotlin test bootJar --no-daemon --max-workers=2 -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
-      - echo "Build successful!"
+      - ./gradlew compileKotlin compileTestKotlin --no-daemon --max-workers=2 -x :keycloak-spi:compileKotlin
+
+  - name: test
+    image: amazoncorretto:21
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
+    environment:
+      CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
+      S3_BUILD_CACHE_BUCKET:
+        from_secret: s3_build_cache_bucket
+      S3_BUILD_CACHE_REGION:
+        from_secret: s3_build_cache_region
+      AWS_ACCESS_KEY_ID:
+        from_secret: s3_build_cache_access_key_id
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: s3_build_cache_secret_key
+      S3_BUILD_CACHE_ENDPOINT:
+        from_secret: s3_build_cache_endpoint
+    commands:
+      - ./gradlew test --no-daemon --max-workers=2 -x :keycloak-spi:test
+
+  - name: package
+    image: amazoncorretto:21
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
+    environment:
+      CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
+      S3_BUILD_CACHE_BUCKET:
+        from_secret: s3_build_cache_bucket
+      S3_BUILD_CACHE_REGION:
+        from_secret: s3_build_cache_region
+      AWS_ACCESS_KEY_ID:
+        from_secret: s3_build_cache_access_key_id
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: s3_build_cache_secret_key
+      S3_BUILD_CACHE_ENDPOINT:
+        from_secret: s3_build_cache_endpoint
+    commands:
+      - ./gradlew bootJar --no-daemon --max-workers=2
