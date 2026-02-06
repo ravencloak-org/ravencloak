@@ -16,6 +16,8 @@ data class ClientCustomRole(
     @Column("display_name")
     val displayName: String? = null,
     val description: String? = null,
+    @Column("is_default")
+    val isDefault: Boolean = false,
     @Column("created_by")
     val createdBy: UUID? = null,
     @Column("created_at")
