@@ -6,7 +6,7 @@ when:
 
 steps:
   - name: build
-    image: eclipse-temurin:21-jdk
+    image: amazoncorretto:21
     volumes:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:

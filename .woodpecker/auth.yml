@@ -15,7 +15,9 @@ when:
 
 steps:
   - name: build
-    image: eclipse-temurin:21-jdk
+    # amazoncorretto is built for ARM64/Graviton — eclipse-temurin crashes
+    # in the dynamic linker (ld-linux-aarch64.so.1) on ARM64 hosts
+    image: amazoncorretto:21
     volumes:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
@@ -35,10 +37,7 @@ steps:
         from_secret: s3_build_cache_endpoint
     commands:
       - echo "Building Auth Backend..."
+      - rm -rf /root/.gradle/daemon 2>/dev/null || true
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      # Split into separate invocations to reduce peak memory per phase
-      # Build cache ensures tasks aren't re-executed across invocations
-      - ./gradlew compileKotlin compileTestKotlin --no-daemon --max-workers=1 -x :keycloak-spi:compileKotlin
-      - ./gradlew test --no-daemon --max-workers=1 -x :keycloak-spi:test
-      - ./gradlew bootJar --no-daemon --max-workers=1
+      - ./gradlew compileKotlin test bootJar --no-daemon --max-workers=2 -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
       - echo "Build successful!"
