@@ -45,6 +45,7 @@ dependencies {
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	implementation("io.github.cdimascio:dotenv-kotlin:6.4.1")
+	implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.1")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.postgresql:r2dbc-postgresql")

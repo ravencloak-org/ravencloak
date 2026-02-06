@@ -40,7 +40,9 @@ class SecurityConfig(
             .authorizeExchange { exchanges ->
                 exchanges
                     .pathMatchers("/api/public/**").permitAll()
-                    .pathMatchers("/auth/super/login", "/oauth2/**",).permitAll()
+                    .pathMatchers("/auth/super/login", "/oauth2/**").permitAll()
+                    // OpenAPI / Swagger UI endpoints
+                    .pathMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**").permitAll()
                     .pathMatchers("/api/super/**").access(superAdminAuthorizationManager)
                     .pathMatchers("/api/account/**").hasAnyRole("ACCOUNT_ADMIN", "INSTITUTE_ADMIN")
                     .pathMatchers("/api/clients/**").authenticated()

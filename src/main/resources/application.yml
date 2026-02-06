@@ -43,6 +43,15 @@ keycloak:
   sync:
     enabled: ${KEYCLOAK_SYNC_ENABLED:true}
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    oauth:
+      client-id: kos-admin-console
+      use-pkce-with-authorization-code-grant: true
+
 logging:
   level:
     org.springframework.security: DEBUG
