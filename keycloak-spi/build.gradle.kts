@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.keeplearning"
-version = findProperty("version")?.toString()?.takeIf { it != "unspecified" } ?: "0.0.1-SNAPSHOT"
+version = findProperty("appVersion")?.toString() ?: "0.0.1-SNAPSHOT"
 
 repositories {
     mavenCentral()

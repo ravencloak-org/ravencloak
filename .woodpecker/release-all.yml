@@ -70,7 +70,7 @@ steps:
       - VERSION=${VERSION#release-v}
       - echo "Building all modules version $VERSION"
       # Jib builds and pushes auth backend image to GHCR — no Docker daemon needed
-      - ./gradlew clean :keycloak-spi:shadowJar :bootJar :jib -Pversion=$VERSION --no-daemon -x test -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
+      - ./gradlew clean :keycloak-spi:shadowJar :bootJar :jib -PappVersion=$VERSION --no-daemon -x test -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
       - mkdir -p release-assets
       - cp keycloak-spi/build/libs/*.jar release-assets/
       - cp build/libs/*.jar release-assets/

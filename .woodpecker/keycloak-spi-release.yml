@@ -65,7 +65,7 @@ steps:
       - VERSION=$(cat .version)
       - VERSION=${VERSION#spi-v}
       - echo "Building Keycloak SPI version $VERSION"
-      - ./gradlew :keycloak-spi:clean :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar -Pversion=$VERSION --no-daemon
+      - ./gradlew :keycloak-spi:clean :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar -PappVersion=$VERSION --no-daemon
       - mkdir -p release-assets
       - echo "JAR files in build/libs:" && ls -la keycloak-spi/build/libs/
       - cp keycloak-spi/build/libs/*.jar release-assets/
