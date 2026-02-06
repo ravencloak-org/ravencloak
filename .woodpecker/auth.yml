@@ -20,7 +20,9 @@ steps:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
       CI: "true"
-      GRADLE_OPTS: "-Xmx512m -XX:MaxMetaspaceSize=256m"
+      # Daemon JVM args are set in gradle.properties (org.gradle.jvmargs)
+      # GRADLE_OPTS only affects the client launcher JVM, not the build daemon
+      GRADLE_OPTS: "-Xmx128m"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
       S3_BUILD_CACHE_REGION:
