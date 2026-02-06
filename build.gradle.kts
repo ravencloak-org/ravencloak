@@ -16,7 +16,7 @@ buildCacheMetrics {
 }
 
 group = "com.keeplearning"
-version = findProperty("version")?.toString()?.takeIf { it != "unspecified" && it.isNotBlank() } ?: "0.0.1-SNAPSHOT"
+version = "0.0.1-SNAPSHOT"
 description = "Authentication Backend"
 
 java {
@@ -82,6 +82,8 @@ tasks.withType<Test> {
 	}
 }
 
+val jibTag: String? = findProperty("jibTag")?.toString()
+
 jib {
 	from {
 		image = "eclipse-temurin:21-jre-noble"
@@ -93,8 +95,8 @@ jib {
 		}
 	}
 	to {
-		image = "ghcr.io/dsjkeeplearning/kos-auth-backend"
-		tags = setOf(project.version.toString(), "latest")
+		image = "ghcr.io/dsjkeeplearning/kos-auth-backend:latest"
+		tags = if (!jibTag.isNullOrBlank()) setOf(jibTag) else emptySet()
 	}
 	container {
 		ports = listOf("8080")
