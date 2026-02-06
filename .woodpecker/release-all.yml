@@ -67,10 +67,14 @@ steps:
       - rm -rf /root/.gradle/daemon 2>/dev/null || true
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
       - |
-        VERSION=$(cat .version)
-        VERSION=${VERSION#release-v}
+        if [ -n "$CI_COMMIT_TAG" ]; then
+          VERSION=${CI_COMMIT_TAG#release-v}
+        else
+          VERSION=$(cat .version 2>/dev/null)
+          VERSION=${VERSION#release-v}
+        fi
         echo "Building all modules version $VERSION"
-        test -n "$VERSION" || { echo "ERROR - VERSION is empty"; exit 1; }
+        test -n "$VERSION" || { echo "ERROR - VERSION is empty (CI_COMMIT_TAG=$CI_COMMIT_TAG)"; exit 1; }
         ./gradlew clean :keycloak-spi:shadowJar :bootJar :jib --no-daemon -x test -PjibTag=$VERSION -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
         mkdir -p release-assets
         cp keycloak-spi/build/libs/*.jar release-assets/
@@ -80,7 +84,7 @@ steps:
     image: alpine/git
     commands:
       - |
-        VERSION=$(cat .version)
+        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
         PREV_TAG=$(git tag -l 'release-v*' --sort=-v:refname | grep -v $VERSION | head -n1)
         if [ -z "$PREV_TAG" ]; then
           PREV_TAG=$(git rev-list --max-parents=0 HEAD)
@@ -127,7 +131,7 @@ steps:
         from_secret: github_token
     commands:
       - |
-        VERSION=$(cat .version)
+        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
         SEMVER=$(echo ${VERSION} | sed 's/^release-//')
         git config --global user.email "ci@keeplearningos.com"
         git config --global user.name "Woodpecker CI"
@@ -148,7 +152,7 @@ steps:
     commands:
       - apk add --no-cache github-cli
       - |
-        VERSION=$(cat .version)
+        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
         if gh release view $VERSION --repo $CI_REPO > /dev/null 2>&1; then
           echo "Release $VERSION already exists, updating notes and uploading assets..."
           gh release edit $VERSION --repo $CI_REPO --notes-file release-assets/CHANGELOG.md
@@ -188,7 +192,7 @@ steps:
         from_secret: spring_profiles_active
     commands:
       - |
-        VERSION=$(cat .version 2>/dev/null || echo ${CI_COMMIT_TAG:-})
+        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
         VERSION=${VERSION#release-v}
         echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
         docker pull "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
