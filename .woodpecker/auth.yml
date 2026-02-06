@@ -20,6 +20,7 @@ steps:
       - /var/lib/woodpecker/cache/gradle:/root/.gradle
     environment:
       CI: "true"
+      GRADLE_OPTS: "-Xmx512m -XX:MaxMetaspaceSize=256m"
       S3_BUILD_CACHE_BUCKET:
         from_secret: s3_build_cache_bucket
       S3_BUILD_CACHE_REGION:
@@ -33,5 +34,5 @@ steps:
     commands:
       - echo "Building Auth Backend..."
       - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - ./gradlew compileKotlin test bootJar --no-daemon -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
+      - ./gradlew compileKotlin test bootJar --no-daemon --max-workers=2 -x :keycloak-spi:compileKotlin -x :keycloak-spi:test
       - echo "Build successful!"
