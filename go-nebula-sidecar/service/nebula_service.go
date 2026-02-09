@@ -74,7 +74,7 @@ func NewNebulaService(cfg *config.Config) (*NebulaService, error) {
 
 // GenerateCertificate creates a new Nebula certificate signed by the CA.
 func (s *NebulaService) GenerateCertificate(ctx context.Context, name, ip string, groups []string) (*GeneratedCert, error) {
-	_, span := otel.Tracer("nebula-sidecar").Start(ctx, "nebula.generate_certificate")
+	_, span := otel.Tracer("kos-auth-go-gin").Start(ctx, "nebula.generate_certificate")
 	defer span.End()
 	span.SetAttributes(
 		attribute.String("nebula.node_name", name),

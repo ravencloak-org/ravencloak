@@ -64,7 +64,7 @@ services:
       - KEYCLOAK_ISSUER_PREFIX=http://localhost:8088/realms/
       - KEYCLOAK_SAAS_ISSUER_URI=http://localhost:8088/realms/saas-admin
       - SAAS_ADMIN_CLIENT_SECRET=${SAAS_ADMIN_CLIENT_SECRET:-}
-      - OTEL_SERVICE_NAME=kos-auth-backend
+      - OTEL_SERVICE_NAME=kos-auth-spring
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=otlp
@@ -108,7 +108,7 @@ services:
       - NEBULA_CA_CERT_PATH=/etc/nebula/ca.crt
       - NEBULA_CA_KEY_PATH=/etc/nebula/ca.key
       - SERVICE_PORT=8081
-      - OTEL_SERVICE_NAME=nebula-sidecar
+      - OTEL_SERVICE_NAME=kos-auth-go-gin
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
       - ${NEBULA_CA_DIR:-./nebula-ca}:/etc/nebula:ro

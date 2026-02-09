@@ -19,7 +19,7 @@ import (
 func Init(ctx context.Context) (func(context.Context) error, error) {
 	serviceName := os.Getenv("OTEL_SERVICE_NAME")
 	if serviceName == "" {
-		serviceName = "nebula-sidecar"
+		serviceName = "kos-auth-go-gin"
 	}
 
 	res, err := resource.New(ctx,

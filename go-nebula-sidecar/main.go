@@ -62,7 +62,7 @@ func main() {
 	// Setup Gin router
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.Use(otelgin.Middleware("nebula-sidecar"))
+	router.Use(otelgin.Middleware("kos-auth-go-gin"))
 	router.Use(api.RequestIDMiddleware())
 	router.Use(api.LoggingMiddleware())
 	router.Use(gin.Recovery())

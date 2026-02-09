@@ -13,7 +13,7 @@ export function initTelemetry() {
   const collectorUrl = import.meta.env.VITE_OTEL_COLLECTOR_URL || 'http://localhost:4318'
 
   const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: 'kos-auth-admin',
+    [ATTR_SERVICE_NAME]: 'kos-auth-vite',
   })
 
   const exporter = new OTLPTraceExporter({
