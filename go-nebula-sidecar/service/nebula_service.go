@@ -1,16 +1,20 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
 	"net/netip"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/config"
 	"github.com/rs/zerolog/log"
 	"github.com/slackhq/nebula/cert"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/curve25519"
 )
 
@@ -69,7 +73,14 @@ func NewNebulaService(cfg *config.Config) (*NebulaService, error) {
 }
 
 // GenerateCertificate creates a new Nebula certificate signed by the CA.
-func (s *NebulaService) GenerateCertificate(name, ip string, groups []string) (*GeneratedCert, error) {
+func (s *NebulaService) GenerateCertificate(ctx context.Context, name, ip string, groups []string) (*GeneratedCert, error) {
+	_, span := otel.Tracer("nebula-sidecar").Start(ctx, "nebula.generate_certificate")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("nebula.node_name", name),
+		attribute.String("nebula.ip", ip),
+		attribute.String("nebula.groups", strings.Join(groups, ",")),
+	)
 	prefix, err := netip.ParsePrefix(ip + "/24")
 	if err != nil {
 		return nil, fmt.Errorf("parse IP prefix: %w", err)

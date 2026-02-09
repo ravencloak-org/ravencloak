@@ -126,6 +126,8 @@ steps:
         from_secret: db_password
       SPRING_PROFILES_ACTIVE:
         from_secret: spring_profiles_active
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        from_secret: otel_exporter_otlp_endpoint
     commands:
       - |
         VERSION=${CI_COMMIT_TAG#v}
@@ -134,5 +136,5 @@ steps:
         docker stop auth-backend || true
         docker rm auth-backend || true
         echo "Deploying auth-backend version $VERSION"
-        docker run -d --name auth-backend --restart unless-stopped -p 8080:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+        docker run -d --name auth-backend --restart unless-stopped -p 8080:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" -e OTEL_SERVICE_NAME=kos-auth-backend -e OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" -e OTEL_TRACES_EXPORTER=otlp -e OTEL_METRICS_EXPORTER=otlp -e OTEL_LOGS_EXPORTER=otlp "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
         docker image prune -f

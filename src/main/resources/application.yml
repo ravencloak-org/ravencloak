@@ -52,7 +52,14 @@ springdoc:
       client-id: kos-admin-console
       use-pkce-with-authorization-code-grant: true
 
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [trace_id=%X{trace_id} span_id=%X{span_id}] %logger{36} - %msg%n"
   level:
     org.springframework.security: DEBUG
     org.springframework.security.oauth2: DEBUG

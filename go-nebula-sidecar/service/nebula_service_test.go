@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"net/netip"
@@ -111,7 +112,7 @@ func TestGenerateCertificate(t *testing.T) {
 		t.Fatalf("create service: %v", err)
 	}
 
-	gen, err := svc.GenerateCertificate("test-host", "192.168.100.42", []string{"developer"})
+	gen, err := svc.GenerateCertificate(context.Background(), "test-host", "192.168.100.42", []string{"developer"})
 	if err != nil {
 		t.Fatalf("generate cert: %v", err)
 	}
@@ -180,7 +181,7 @@ func TestGenerateCertificate_MultipleGroups(t *testing.T) {
 		t.Fatalf("create service: %v", err)
 	}
 
-	gen, err := svc.GenerateCertificate("ec2-host", "192.168.100.10", []string{"ec2-uat", "admin"})
+	gen, err := svc.GenerateCertificate(context.Background(), "ec2-host", "192.168.100.10", []string{"ec2-uat", "admin"})
 	if err != nil {
 		t.Fatalf("generate cert: %v", err)
 	}

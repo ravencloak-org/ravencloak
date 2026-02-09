@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type Handler struct {
@@ -57,8 +58,9 @@ func (h *Handler) HealthCheck(c *gin.Context) {
 
 	// Check auth backend
 	authURL := fmt.Sprintf("%s/health", h.cfg.AuthBackendURL)
-	client := &http.Client{Timeout: 2 * time.Second}
-	authResp, err := client.Get(authURL)
+	client := &http.Client{Timeout: 2 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	authReq, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, authURL, nil)
+	authResp, err := client.Do(authReq)
 	if err != nil || (authResp != nil && authResp.StatusCode >= 500) {
 		resp.Status = "degraded"
 		resp.AuthBackend = "unreachable"
@@ -122,7 +124,7 @@ func (h *Handler) GenerateCert(c *gin.Context) {
 	}
 
 	// Generate certificate
-	gen, err := h.nebulaSvc.GenerateCertificate(req.NodeName, ip, groups)
+	gen, err := h.nebulaSvc.GenerateCertificate(c.Request.Context(), req.NodeName, ip, groups)
 	if err != nil {
 		log.Error().Err(err).Msg("generate certificate")
 		respondError(c, http.StatusInternalServerError, "certificate generation failed")
@@ -217,7 +219,7 @@ func (h *Handler) GenerateEC2Cert(c *gin.Context) {
 
 	groups := []string{"ec2", "ec2-" + req.Environment}
 
-	gen, err := h.nebulaSvc.GenerateCertificate(req.InstanceName, ip, groups)
+	gen, err := h.nebulaSvc.GenerateCertificate(c.Request.Context(), req.InstanceName, ip, groups)
 	if err != nil {
 		log.Error().Err(err).Msg("generate certificate")
 		respondError(c, http.StatusInternalServerError, "certificate generation failed")

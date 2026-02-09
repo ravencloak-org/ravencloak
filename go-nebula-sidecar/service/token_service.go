@@ -14,6 +14,7 @@ import (
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/config"
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/db"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type TokenValidationResult struct {
@@ -33,7 +34,8 @@ func NewTokenService(cfg *config.Config, repo *db.Repository) *TokenService {
 		cfg:  cfg,
 		repo: repo,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout:   5 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 	}
 }

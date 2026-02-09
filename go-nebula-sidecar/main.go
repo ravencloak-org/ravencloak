@@ -12,10 +12,12 @@ import (
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/api"
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/config"
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/db"
+	appelotel "github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/otel"
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/service"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func main() {
@@ -27,6 +29,13 @@ func main() {
 
 	// Configure logging
 	setupLogging(cfg.LogLevel)
+
+	// Initialize OpenTelemetry
+	otelShutdown, err := appelotel.Init(context.Background())
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to initialize OpenTelemetry, continuing without tracing")
+	}
+
 	log.Info().Str("port", cfg.ServicePort).Msg("starting nebula certificate sidecar")
 
 	// Connect to database and run migrations
@@ -53,6 +62,7 @@ func main() {
 	// Setup Gin router
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
+	router.Use(otelgin.Middleware("nebula-sidecar"))
 	router.Use(api.RequestIDMiddleware())
 	router.Use(api.LoggingMiddleware())
 	router.Use(gin.Recovery())
@@ -104,6 +114,11 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal().Err(err).Msg("server forced to shutdown")
+	}
+	if otelShutdown != nil {
+		if err := otelShutdown(ctx); err != nil {
+			log.Warn().Err(err).Msg("failed to shutdown OpenTelemetry")
+		}
 	}
 	log.Info().Msg("server stopped")
 }

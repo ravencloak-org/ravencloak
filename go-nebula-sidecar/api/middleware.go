@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // RequestIDMiddleware adds a unique request ID to each request.
@@ -41,6 +42,14 @@ func LoggingMiddleware() gin.HandlerFunc {
 			event = log.Warn()
 		} else {
 			event = log.Info()
+		}
+
+		// Extract trace context for log correlation
+		span := trace.SpanFromContext(c.Request.Context())
+		if span.SpanContext().HasTraceID() {
+			event = event.
+				Str("trace_id", span.SpanContext().TraceID().String()).
+				Str("span_id", span.SpanContext().SpanID().String())
 		}
 
 		event.

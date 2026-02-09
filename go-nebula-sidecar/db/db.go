@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/config"
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
@@ -16,6 +17,7 @@ func Connect(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) {
 	}
 
 	poolConfig.MaxConns = int32(cfg.DBPoolSize)
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {

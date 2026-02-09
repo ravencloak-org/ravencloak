@@ -1,4 +1,17 @@
 services:
+  # OpenTelemetry Collector — receives traces/metrics/logs from all services, exports to SigNoz
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    ports:
+      - "4317:4317"   # gRPC (backend services)
+      - "4318:4318"   # HTTP (browser traces)
+    environment:
+      - SIGNOZ_ENDPOINT=${SIGNOZ_ENDPOINT:-ingest.us.signoz.cloud:443}
+      - SIGNOZ_ACCESS_TOKEN=${SIGNOZ_ACCESS_TOKEN:-}
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+
   # Database with ParadeDB (pg_search for BM25 full-text search)
   paradedb:
     image: paradedb/paradedb:latest
@@ -51,10 +64,17 @@ services:
       - KEYCLOAK_ISSUER_PREFIX=http://localhost:8088/realms/
       - KEYCLOAK_SAAS_ISSUER_URI=http://localhost:8088/realms/saas-admin
       - SAAS_ADMIN_CLIENT_SECRET=${SAAS_ADMIN_CLIENT_SECRET:-}
+      - OTEL_SERVICE_NAME=kos-auth-backend
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     depends_on:
       paradedb:
         condition: service_healthy
       keycloak:
+        condition: service_started
+      otel-collector:
         condition: service_started
 
   nebula-sidecar:
@@ -77,12 +97,16 @@ services:
       - NEBULA_CA_CERT_PATH=/etc/nebula/ca.crt
       - NEBULA_CA_KEY_PATH=/etc/nebula/ca.key
       - SERVICE_PORT=8081
+      - OTEL_SERVICE_NAME=nebula-sidecar
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
       - ${NEBULA_CA_DIR:-./nebula-ca}:/etc/nebula:ro
     depends_on:
       paradedb:
         condition: service_healthy
       auth-backend:
+        condition: service_started
+      otel-collector:
         condition: service_started
 
 volumes:
