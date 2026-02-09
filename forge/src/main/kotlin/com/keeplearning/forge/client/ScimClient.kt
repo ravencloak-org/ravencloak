@@ -18,6 +18,9 @@ class ScimClient(
     private val basePath: String
         get() = "/api/scim/v2/realms/${properties.realmName}/Users"
 
+    private val realmBasePath: String
+        get() = "/api/scim/v2/realms/${properties.realmName}"
+
     suspend fun listUsers(
         filter: String? = null,
         startIndex: Int = 1,
@@ -89,6 +92,27 @@ class ScimClient(
             .onStatus({ it.isError }) { response -> handleError(response) }
             .bodyToMono<Void>()
             .awaitSingleOrNull()
+    }
+
+    suspend fun bulkRequest(request: ScimBulkRequest): ScimBulkResponse {
+        return webClient.post()
+            .uri("$realmBasePath/Bulk")
+            .header("API-Version", properties.apiVersion)
+            .bodyValue(request)
+            .retrieve()
+            .onStatus({ it.isError }) { response -> handleError(response) }
+            .bodyToMono<ScimBulkResponse>()
+            .awaitSingle()
+    }
+
+    suspend fun getChecksum(): ScimChecksumResponse {
+        return webClient.get()
+            .uri("$basePath/checksum")
+            .header("API-Version", properties.apiVersion)
+            .retrieve()
+            .onStatus({ it.isError }) { response -> handleError(response) }
+            .bodyToMono<ScimChecksumResponse>()
+            .awaitSingle()
     }
 
     private fun handleError(response: ClientResponse): Mono<Throwable> {

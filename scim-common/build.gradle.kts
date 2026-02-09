@@ -13,6 +13,13 @@ repositories {
 dependencies {
     implementation(platform("tools.jackson:jackson-bom:3.0.3"))
     implementation("com.fasterxml.jackson.core:jackson-annotations")
+
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 java {
