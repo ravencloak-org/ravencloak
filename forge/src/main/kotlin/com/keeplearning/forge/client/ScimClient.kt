@@ -1,8 +1,8 @@
 package com.keeplearning.forge.client
 
 import com.keeplearning.auth.scim.common.*
-import com.keeplearning.forge.config.ForgeProperties
-import com.keeplearning.forge.exception.ForgeException
+import com.keeplearning.forge.config.AuthProperties
+import com.keeplearning.forge.exception.AuthException
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.springframework.web.reactive.function.client.ClientResponse
@@ -13,7 +13,7 @@ import java.util.UUID
 
 class ScimClient(
     private val webClient: WebClient,
-    private val properties: ForgeProperties
+    private val properties: AuthProperties
 ) {
     private val basePath: String
         get() = "/api/scim/v2/realms/${properties.realmName}/Users"
@@ -118,14 +118,14 @@ class ScimClient(
     private fun handleError(response: ClientResponse): Mono<Throwable> {
         return response.bodyToMono<ScimErrorResponse>()
             .map<Throwable> { error ->
-                ForgeException(
+                AuthException(
                     status = response.statusCode().value(),
                     scimError = error
                 )
             }
             .onErrorResume {
                 Mono.just(
-                    ForgeException(
+                    AuthException(
                         status = response.statusCode().value(),
                         message = "Forge SDK error (HTTP ${response.statusCode().value()})"
                     )

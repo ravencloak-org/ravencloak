@@ -162,7 +162,7 @@ val response = scimClient.bulkRequest(request)
 suspend fun deleteUser(id: String) {
     try {
         userRepo.delete(id)
-    } catch (e: ForgeException) {
+    } catch (e: AuthException) {
         if (e.status == 404) {
             // User already deleted — safe to ignore
         } else {
@@ -224,13 +224,13 @@ val filter = "userName eq \"alice@example.com\" or userName eq \"bob@example.com
 
 ## Error Handling
 
-All API errors throw `ForgeException`:
+All API errors throw `AuthException`:
 
 ```kotlin
 suspend fun safeGetUser(id: String): AppUser? {
     return try {
         userRepo.findById(id)
-    } catch (e: ForgeException) {
+    } catch (e: AuthException) {
         when (e.status) {
             404 -> null
             401, 403 -> throw SecurityException("Not authorized", e)
@@ -245,7 +245,7 @@ suspend fun safeGetUser(id: String): AppUser? {
 ```kotlin
 try {
     userRepo.create(user)
-} catch (e: ForgeException) {
+} catch (e: AuthException) {
     val scimError = e.scimError
     if (scimError != null) {
         println("Status: ${scimError.status}")
@@ -300,6 +300,46 @@ class UserService(private val userRepo: AuthRepository<AppUser>) {
     }
 }
 ```
+
+## Startup Sync
+
+The SDK can automatically sync your local user database to the auth backend on startup. Implement the `AuthStartupSync` abstract class and register it as a Spring bean:
+
+```kotlin
+@Component
+class MyUserSync(
+    private val localUserRepo: LocalUserRepository
+) : AuthStartupSync<LocalUser>() {
+
+    override suspend fun fetchAllLocalUsers(): List<LocalUser> {
+        return localUserRepo.findAll()
+    }
+
+    override fun mapToAuthUser(localUser: LocalUser): AuthUser {
+        return object : AuthUser() {
+            init {
+                email = localUser.email
+                firstName = localUser.firstName
+                lastName = localUser.lastName
+                displayName = "${localUser.firstName} ${localUser.lastName}"
+                active = localUser.isEnabled
+            }
+        }
+    }
+}
+```
+
+On startup, the `StartupSyncRunner` compares a SHA-256 checksum of your local users against the remote. If they differ, it diffs by email and bulk-creates missing users / bulk-updates changed ones. Remote-only users are ignored (no deletes). Sync failures are non-fatal.
+
+To disable:
+
+```yaml
+forge:
+  startup-sync:
+    enabled: false
+```
+
+For the full algorithm, configuration options, and more examples, see the [Startup Sync](startup-sync.md) guide.
 
 ## Low-Level ScimClient
 

@@ -5,7 +5,7 @@
 The primary low-level client for the SCIM 2.0 API. All methods are `suspend` functions.
 
 ```kotlin
-class ScimClient(webClient: WebClient, properties: ForgeProperties)
+class ScimClient(webClient: WebClient, properties: AuthProperties)
 ```
 
 ### Methods
@@ -34,7 +34,7 @@ Lists users with optional SCIM filtering and pagination.
 suspend fun getUser(userId: UUID): ScimUserResource
 ```
 
-Retrieves a single user by ID. Throws `ForgeException` if not found.
+Retrieves a single user by ID. Throws `AuthException` if not found.
 
 #### `createUser`
 
@@ -66,7 +66,7 @@ Applies partial modifications to a user (HTTP PATCH). Only specified fields are 
 suspend fun deleteUser(userId: UUID)
 ```
 
-Deletes a user by ID. Throws `ForgeException` if not found.
+Deletes a user by ID. Throws `AuthException` if not found.
 
 #### `bulkRequest`
 
@@ -416,15 +416,15 @@ object ScimSchemas {
 
 ---
 
-## ForgeException
+## AuthException
 
 Thrown when the SCIM API returns an error response.
 
 ```kotlin
-class ForgeException(
+class AuthException(
     val status: Int,
     val scimError: ScimErrorResponse? = null,
-    message: String? = scimError?.detail ?: "Forge SDK error (HTTP $status)",
+    message: String? = scimError?.detail ?: "Auth SDK error (HTTP $status)",
     cause: Throwable? = null
 ) : RuntimeException(message, cause)
 ```
@@ -433,5 +433,8 @@ class ForgeException(
 |-------|------|-------------|
 | `status` | `Int` | HTTP status code from the API response |
 | `scimError` | `ScimErrorResponse?` | Parsed SCIM error body, if available |
-| `message` | `String?` | Uses `scimError.detail` if present, otherwise `"Forge SDK error (HTTP $status)"` |
+| `message` | `String?` | Uses `scimError.detail` if present, otherwise `"Auth SDK error (HTTP $status)"` |
 | `cause` | `Throwable?` | Underlying exception, if any |
+
+!!! note "Migration from ForgeException"
+    `AuthException` was previously named `ForgeException`. The old name is still available as a `@Deprecated` typealias.

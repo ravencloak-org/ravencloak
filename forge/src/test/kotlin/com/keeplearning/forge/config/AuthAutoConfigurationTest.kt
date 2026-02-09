@@ -7,10 +7,10 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class ForgeAutoConfigurationTest {
+class AuthAutoConfigurationTest {
 
     private val contextRunner = ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(ForgeAutoConfiguration::class.java))
+        .withConfiguration(AutoConfigurations.of(AuthAutoConfiguration::class.java))
 
     @Test
     fun `does not configure when base-url is absent`() {
@@ -32,7 +32,7 @@ class ForgeAutoConfigurationTest {
             )
             .run { context ->
                 assertNotNull(context.getBean(ScimClient::class.java))
-                assertNotNull(context.getBean(ForgeProperties::class.java))
+                assertNotNull(context.getBean(AuthProperties::class.java))
             }
     }
 }

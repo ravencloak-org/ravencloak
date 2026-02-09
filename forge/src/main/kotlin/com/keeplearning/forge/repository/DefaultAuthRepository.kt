@@ -2,7 +2,7 @@ package com.keeplearning.forge.repository
 
 import com.keeplearning.auth.scim.common.*
 import com.keeplearning.forge.client.ScimClient
-import com.keeplearning.forge.exception.ForgeException
+import com.keeplearning.forge.exception.AuthException
 import java.time.Instant
 import java.util.UUID
 
@@ -15,7 +15,7 @@ class DefaultAuthRepository<T : AuthUser>(
         return try {
             val resource = scimClient.getUser(UUID.fromString(id))
             mapFromScim(resource)
-        } catch (e: ForgeException) {
+        } catch (e: AuthException) {
             if (e.status == 404) null else throw e
         }
     }

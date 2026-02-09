@@ -15,13 +15,13 @@ import org.springframework.web.reactive.function.client.WebClient
 
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "forge", name = ["base-url"])
-@EnableConfigurationProperties(ForgeProperties::class)
-class ForgeAutoConfiguration {
+@EnableConfigurationProperties(AuthProperties::class)
+class AuthAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = ["forgeWebClient"])
     fun forgeWebClient(
-        properties: ForgeProperties,
+        properties: AuthProperties,
         authorizedClientManager: ReactiveOAuth2AuthorizedClientManager
     ): WebClient {
         val oauth2Filter = ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager)
@@ -37,7 +37,7 @@ class ForgeAutoConfiguration {
     @ConditionalOnMissingBean
     fun scimClient(
         forgeWebClient: WebClient,
-        properties: ForgeProperties
+        properties: AuthProperties
     ): ScimClient {
         return ScimClient(forgeWebClient, properties)
     }
@@ -52,3 +52,6 @@ class ForgeAutoConfiguration {
         return StartupSyncRunner(authStartupSync, scimClient)
     }
 }
+
+@Deprecated("Renamed to AuthAutoConfiguration", ReplaceWith("AuthAutoConfiguration"))
+typealias ForgeAutoConfiguration = AuthAutoConfiguration
