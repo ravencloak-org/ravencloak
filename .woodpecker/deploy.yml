@@ -37,7 +37,26 @@ steps:
       - docker stop auth-backend || true
       - docker rm auth-backend || true
       - echo "Starting auth-backend..."
-      - docker run -d --name auth-backend --restart unless-stopped -p 8080:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" ghcr.io/dsjkeeplearning/kos-auth-backend:latest
+      - docker run -d --name auth-backend --restart unless-stopped -p 8091:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" ghcr.io/dsjkeeplearning/kos-auth-backend:latest
       - docker image prune -f
-      - echo "Deployment complete!"
+      - echo "Backend deployment complete!"
       - docker ps | grep auth-backend
+
+  - name: deploy-frontend
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+      - echo "Pulling latest frontend image..."
+      - docker pull ghcr.io/dsjkeeplearning/kos-auth-admin:latest
+      - docker stop auth-frontend || true
+      - docker rm auth-frontend || true
+      - echo "Starting auth-frontend..."
+      - docker run -d --name auth-frontend --restart unless-stopped -p 8090:80 ghcr.io/dsjkeeplearning/kos-auth-admin:latest
+      - docker image prune -f
+      - echo "Frontend deployment complete!"
+      - docker ps | grep auth-frontend
