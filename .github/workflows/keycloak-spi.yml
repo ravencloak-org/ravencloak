@@ -1,0 +1,142 @@
+# Keycloak SPI - Build, Test & Release
+# Triggered on:
+#   - Push to keycloak-spi/** on main (build + test only)
+#   - SPI version tags: spi-v* (build + test + GitHub Release)
+#   - Manual dispatch with version input (build + test + GitHub Release)
+
+name: Keycloak SPI - Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["spi-v*"]
+    paths:
+      - "keycloak-spi/**"
+      - "settings.gradle.kts"
+      - ".github/workflows/keycloak-spi.yml"
+  pull_request:
+    paths:
+      - "keycloak-spi/**"
+      - "settings.gradle.kts"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SPI version to release (e.g., 1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "corretto"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test keycloak-spi
+        run: ./gradlew :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
+        env:
+          S3_BUILD_CACHE_BUCKET: ${{ secrets.S3_BUILD_CACHE_BUCKET }}
+          S3_BUILD_CACHE_REGION: ${{ secrets.S3_BUILD_CACHE_REGION }}
+          S3_BUILD_CACHE_ACCESS_KEY_ID: ${{ secrets.S3_BUILD_CACHE_ACCESS_KEY_ID }}
+          S3_BUILD_CACHE_SECRET_KEY: ${{ secrets.S3_BUILD_CACHE_SECRET_KEY }}
+          S3_BUILD_CACHE_ENDPOINT: ${{ secrets.S3_BUILD_CACHE_ENDPOINT }}
+
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/spi-v') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "corretto"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "tag=spi-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME#spi-v}" >> "$GITHUB_OUTPUT"
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build shadowJar
+        run: |
+          ./gradlew :keycloak-spi:clean :keycloak-spi:shadowJar \
+            --no-daemon \
+            -Pversion=${{ steps.version.outputs.version }}
+        env:
+          S3_BUILD_CACHE_BUCKET: ${{ secrets.S3_BUILD_CACHE_BUCKET }}
+          S3_BUILD_CACHE_REGION: ${{ secrets.S3_BUILD_CACHE_REGION }}
+          S3_BUILD_CACHE_ACCESS_KEY_ID: ${{ secrets.S3_BUILD_CACHE_ACCESS_KEY_ID }}
+          S3_BUILD_CACHE_SECRET_KEY: ${{ secrets.S3_BUILD_CACHE_SECRET_KEY }}
+          S3_BUILD_CACHE_ENDPOINT: ${{ secrets.S3_BUILD_CACHE_ENDPOINT }}
+
+      - name: Create tag (manual dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git tag spi-v${{ inputs.version }}
+          git push origin spi-v${{ inputs.version }}
+
+      - name: Generate changelog
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          PREV_TAG=$(git tag -l 'spi-v*' --sort=-v:refname | grep -v "$TAG" | head -n1 || true)
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="$PREV_TAG..HEAD"
+          fi
+          {
+            echo "## Keycloak SPI Changes"
+            echo ""
+            git log "$RANGE" --pretty=format:"- %s (%h)" -- keycloak-spi/ || echo "- Initial release"
+            echo ""
+            echo ""
+            echo "## Other Changes"
+            echo ""
+            git log "$RANGE" --pretty=format:"- %s (%h)" -- . ':!keycloak-spi/' ':!src/' || echo "- No changes"
+            echo ""
+          } > CHANGELOG.md
+          cat CHANGELOG.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          SPI_JAR=$(find keycloak-spi/build/libs -name "keycloak-user-storage-spi*.jar" -type f | head -1)
+          echo "Uploading $SPI_JAR to release $TAG"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file CHANGELOG.md
+            gh release upload "$TAG" --clobber "$SPI_JAR"
+          else
+            gh release create "$TAG" \
+              --title "Keycloak SPI $TAG" \
+              --notes-file CHANGELOG.md \
+              "$SPI_JAR"
+          fi
