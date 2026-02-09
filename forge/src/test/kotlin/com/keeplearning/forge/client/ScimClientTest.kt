@@ -281,6 +281,76 @@ class ScimClientTest {
     }
 
     @Test
+    fun `bulkRequest sends POST to Bulk endpoint`() = runTest {
+        val bulkResponse = ScimBulkResponse(
+            operations = listOf(
+                ScimBulkOperationResponse(method = "POST", bulkId = "u1", status = "201"),
+                ScimBulkOperationResponse(method = "PUT", bulkId = "u2", status = "200")
+            )
+        )
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .setBody(objectMapper.writeValueAsString(bulkResponse))
+        )
+
+        val request = ScimBulkRequest(
+            operations = listOf(
+                ScimBulkOperation(
+                    method = "POST",
+                    path = "/Users",
+                    bulkId = "u1",
+                    data = ScimUserResource(userName = "new@example.com", active = true)
+                ),
+                ScimBulkOperation(
+                    method = "PUT",
+                    path = "/Users/${UUID.randomUUID()}",
+                    bulkId = "u2",
+                    data = ScimUserResource(userName = "existing@example.com", active = true)
+                )
+            )
+        )
+
+        val result = scimClient.bulkRequest(request)
+
+        assertEquals(2, result.operations.size)
+        assertEquals("201", result.operations[0].status)
+        assertEquals("200", result.operations[1].status)
+
+        val httpRequest = mockWebServer.takeRequest()
+        assertEquals("POST", httpRequest.method)
+        assertEquals("/api/scim/v2/realms/$realmName/Bulk", httpRequest.path)
+        assertEquals("1.0", httpRequest.getHeader("API-Version"))
+    }
+
+    @Test
+    fun `getChecksum sends GET to checksum endpoint`() = runTest {
+        val checksumResponse = ScimChecksumResponse(
+            checksum = "abc123def456",
+            userCount = 42
+        )
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .setBody(objectMapper.writeValueAsString(checksumResponse))
+        )
+
+        val result = scimClient.getChecksum()
+
+        assertEquals("abc123def456", result.checksum)
+        assertEquals(42, result.userCount)
+
+        val httpRequest = mockWebServer.takeRequest()
+        assertEquals("GET", httpRequest.method)
+        assertEquals("/api/scim/v2/realms/$realmName/Users/checksum", httpRequest.path)
+        assertEquals("1.0", httpRequest.getHeader("API-Version"))
+    }
+
+    @Test
     fun `server error without SCIM body wraps gracefully`() = runTest {
         mockWebServer.enqueue(
             MockResponse()

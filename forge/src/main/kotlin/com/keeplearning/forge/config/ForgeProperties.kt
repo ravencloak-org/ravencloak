@@ -7,5 +7,10 @@ data class ForgeProperties(
     val baseUrl: String,
     val realmName: String,
     val clientRegistrationId: String = "forge",
-    val apiVersion: String = "1.0"
+    val apiVersion: String = "1.0",
+    val startupSync: StartupSyncProperties = StartupSyncProperties()
+)
+
+data class StartupSyncProperties(
+    val enabled: Boolean = true
 )

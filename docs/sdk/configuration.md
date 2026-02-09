@@ -10,6 +10,7 @@ All properties are under the `forge` prefix:
 | `forge.realm-name` | `String` | *(required)* | Keycloak realm name — used to construct SCIM API paths |
 | `forge.client-registration-id` | `String` | `forge` | Spring Security OAuth2 client registration ID for authentication |
 | `forge.api-version` | `String` | `1.0` | API version sent in the `API-Version` header |
+| `forge.startup-sync.enabled` | `Boolean` | `true` | Enable automatic user sync on application startup (see [Startup Sync](startup-sync.md)) |
 
 !!! note
     Auto-configuration only activates when `forge.base-url` is set. Without it, no Forge beans are created.
@@ -22,6 +23,8 @@ forge:
   realm-name: my-realm
   client-registration-id: forge
   api-version: "1.0"
+  startup-sync:
+    enabled: true        # default; set to false to disable
 
 spring:
   security:
@@ -57,6 +60,15 @@ A reactive `WebClient` configured with:
 Wraps the `forgeWebClient` with SCIM-specific logic. This is the primary bean you'll inject into your services.
 
 Both beans are `@ConditionalOnMissingBean` — you can override either by defining your own.
+
+### 3. `startupSyncRunner` (StartupSyncRunner) — *conditional*
+
+Registered only when:
+
+- An `AuthStartupSync` bean is present (you provide the implementation)
+- `forge.startup-sync.enabled` is `true` (default)
+
+See [Startup Sync](startup-sync.md) for details.
 
 ## Customizing the WebClient
 

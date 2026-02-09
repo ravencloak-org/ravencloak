@@ -16,17 +16,17 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class DefaultForgeUserRepositoryTest {
+class DefaultAuthRepositoryTest {
 
     private lateinit var scimClient: ScimClient
-    private lateinit var repository: DefaultForgeUserRepository<TestUser>
+    private lateinit var repository: DefaultAuthRepository<TestUser>
 
-    class TestUser : ForgeUser()
+    class TestUser : AuthUser()
 
     @BeforeEach
     fun setup() {
         scimClient = mockk()
-        repository = DefaultForgeUserRepository(scimClient) { TestUser() }
+        repository = DefaultAuthRepository(scimClient) { TestUser() }
     }
 
     @Test
@@ -222,6 +222,96 @@ class DefaultForgeUserRepositoryTest {
 
         assertEquals("updated@example.com", result.email)
         coVerify { scimClient.replaceUser(userId, any()) }
+    }
+
+    @Test
+    fun `createAll sends bulk POST request`() = runTest {
+        val users = listOf(
+            TestUser().apply {
+                email = "user1@example.com"
+                firstName = "User"
+                lastName = "One"
+            },
+            TestUser().apply {
+                email = "user2@example.com"
+                firstName = "User"
+                lastName = "Two"
+            }
+        )
+
+        val bulkResponse = ScimBulkResponse(
+            operations = listOf(
+                ScimBulkOperationResponse(method = "POST", bulkId = "user1@example.com", status = "201"),
+                ScimBulkOperationResponse(method = "POST", bulkId = "user2@example.com", status = "201")
+            )
+        )
+
+        coEvery { scimClient.bulkRequest(any()) } returns bulkResponse
+
+        val result = repository.createAll(users)
+
+        assertEquals(2, result.operations.size)
+        assertEquals("201", result.operations[0].status)
+
+        coVerify {
+            scimClient.bulkRequest(match { req ->
+                req.operations.size == 2 &&
+                    req.operations.all { it.method == "POST" && it.path == "/Users" }
+            })
+        }
+    }
+
+    @Test
+    fun `updateAll sends bulk PUT request`() = runTest {
+        val id1 = UUID.randomUUID()
+        val id2 = UUID.randomUUID()
+        val users = listOf(
+            TestUser().apply {
+                id = id1.toString()
+                email = "user1@example.com"
+                firstName = "Updated"
+                lastName = "One"
+            },
+            TestUser().apply {
+                id = id2.toString()
+                email = "user2@example.com"
+                firstName = "Updated"
+                lastName = "Two"
+            }
+        )
+
+        val bulkResponse = ScimBulkResponse(
+            operations = listOf(
+                ScimBulkOperationResponse(method = "PUT", bulkId = "user1@example.com", status = "200"),
+                ScimBulkOperationResponse(method = "PUT", bulkId = "user2@example.com", status = "200")
+            )
+        )
+
+        coEvery { scimClient.bulkRequest(any()) } returns bulkResponse
+
+        val result = repository.updateAll(users)
+
+        assertEquals(2, result.operations.size)
+
+        coVerify {
+            scimClient.bulkRequest(match { req ->
+                req.operations.size == 2 &&
+                    req.operations.all { it.method == "PUT" } &&
+                    req.operations[0].path == "/Users/$id1" &&
+                    req.operations[1].path == "/Users/$id2"
+            })
+        }
+    }
+
+    @Test
+    fun `updateAll requires non-null IDs`() = runTest {
+        val users = listOf(
+            TestUser().apply { email = "test@example.com" }
+        )
+
+        assertThrows<IllegalArgumentException> {
+            repository.updateAll(users)
+        }
     }
 
     @Test

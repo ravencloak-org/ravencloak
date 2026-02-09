@@ -68,15 +68,34 @@ suspend fun deleteUser(userId: UUID)
 
 Deletes a user by ID. Throws `ForgeException` if not found.
 
----
-
-## ForgeUserRepository
-
-A higher-level repository interface that maps between `ForgeUser` domain objects and SCIM resources.
+#### `bulkRequest`
 
 ```kotlin
-interface ForgeUserRepository<T : ForgeUser>
+suspend fun bulkRequest(request: ScimBulkRequest): ScimBulkResponse
 ```
+
+Sends a bulk request containing multiple create (POST) and/or update (PUT) operations. Each operation is processed independently — one failure does not block others.
+
+#### `getChecksum`
+
+```kotlin
+suspend fun getChecksum(): ScimChecksumResponse
+```
+
+Returns a SHA-256 checksum of all users in the configured realm, along with the user count. Used by the [startup sync](startup-sync.md) mechanism to detect drift.
+
+---
+
+## AuthRepository
+
+A higher-level repository interface that maps between `AuthUser` domain objects and SCIM resources.
+
+```kotlin
+interface AuthRepository<T : AuthUser>
+```
+
+!!! note "Migration from ForgeUserRepository"
+    `AuthRepository` was previously named `ForgeUserRepository`. The old name is still available as a `@Deprecated` typealias for backward compatibility.
 
 ### Methods
 
@@ -124,6 +143,22 @@ suspend fun update(user: T): T
 
 Fully replaces an existing user. Requires `user.id` to be non-null.
 
+#### `createAll`
+
+```kotlin
+suspend fun createAll(users: List<T>): ScimBulkResponse
+```
+
+Creates multiple users in a single bulk request. Each user is sent as a POST operation. Returns a `ScimBulkResponse` with per-operation status codes.
+
+#### `updateAll`
+
+```kotlin
+suspend fun updateAll(users: List<T>): ScimBulkResponse
+```
+
+Updates multiple users in a single bulk request. Each user is sent as a PUT operation. All users must have a non-null `id`. Returns a `ScimBulkResponse` with per-operation status codes.
+
 #### `patch`
 
 ```kotlin
@@ -142,23 +177,26 @@ Deletes a user by ID.
 
 ---
 
-## DefaultForgeUserRepository
+## DefaultAuthRepository
 
-The default implementation of `ForgeUserRepository`. Created with a `ScimClient` and a factory function for your domain type.
+The default implementation of `AuthRepository`. Created with a `ScimClient` and a factory function for your domain type.
 
 ```kotlin
-class DefaultForgeUserRepository<T : ForgeUser>(
+class DefaultAuthRepository<T : AuthUser>(
     scimClient: ScimClient,
     factory: () -> T
-) : ForgeUserRepository<T>
+) : AuthRepository<T>
 ```
 
-The `factory` lambda creates new instances of your `ForgeUser` subclass. The repository handles all mapping between your domain type and `ScimUserResource`.
+The `factory` lambda creates new instances of your `AuthUser` subclass. The repository handles all mapping between your domain type and `ScimUserResource`.
+
+!!! note "Migration from DefaultForgeUserRepository"
+    `DefaultAuthRepository` was previously named `DefaultForgeUserRepository`. The old name is still available as a `@Deprecated` typealias.
 
 **Field mapping:**
 
-| ForgeUser field | ScimUserResource field |
-|-----------------|----------------------|
+| AuthUser field | ScimUserResource field |
+|----------------|----------------------|
 | `id` | `id` |
 | `externalId` | `externalId` |
 | `email` | `userName` |
@@ -173,12 +211,12 @@ The `factory` lambda creates new instances of your `ForgeUser` subclass. The rep
 
 ---
 
-## ForgeUser
+## AuthUser
 
 Abstract base class for user domain objects. Extend this to add application-specific fields.
 
 ```kotlin
-abstract class ForgeUser {
+abstract class AuthUser {
     open var id: String? = null
     open var externalId: String? = null
     open var email: String = ""
@@ -194,6 +232,9 @@ abstract class ForgeUser {
 ```
 
 All properties are `open` so subclasses can override them with custom accessors or annotations.
+
+!!! note "Migration from ForgeUser"
+    `AuthUser` was previously named `ForgeUser`. The old name is still available as a `@Deprecated` typealias.
 
 ---
 
@@ -272,6 +313,58 @@ data class ScimListResponse(
 )
 ```
 
+### ScimBulkRequest
+
+```kotlin
+data class ScimBulkRequest(
+    val schemas: List<String> = listOf(ScimSchemas.BULK_REQUEST),
+    @JsonProperty("Operations")
+    val operations: List<ScimBulkOperation>
+)
+```
+
+### ScimBulkOperation
+
+```kotlin
+data class ScimBulkOperation(
+    val method: String,           // "POST" or "PUT"
+    val path: String? = null,     // "/Users" for POST, "/Users/{id}" for PUT
+    val bulkId: String? = null,   // correlation ID
+    val data: ScimUserResource? = null
+)
+```
+
+### ScimBulkResponse
+
+```kotlin
+data class ScimBulkResponse(
+    val schemas: List<String> = listOf(ScimSchemas.BULK_RESPONSE),
+    @JsonProperty("Operations")
+    val operations: List<ScimBulkOperationResponse>
+)
+```
+
+### ScimBulkOperationResponse
+
+```kotlin
+data class ScimBulkOperationResponse(
+    val method: String,
+    val bulkId: String? = null,
+    val location: String? = null,
+    val status: String,           // "201", "200", "409", etc.
+    val response: Any? = null     // ScimUserResource or ScimErrorResponse
+)
+```
+
+### ScimChecksumResponse
+
+```kotlin
+data class ScimChecksumResponse(
+    val checksum: String,         // SHA-256 hex string
+    val userCount: Int
+)
+```
+
 ### ScimPatchRequest
 
 ```kotlin
@@ -316,6 +409,8 @@ object ScimSchemas {
     const val SERVICE_PROVIDER_CONFIG = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
     const val SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Schema"
     const val RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+    const val BULK_REQUEST = "urn:ietf:params:scim:api:messages:2.0:BulkRequest"
+    const val BULK_RESPONSE = "urn:ietf:params:scim:api:messages:2.0:BulkResponse"
 }
 ```
 
