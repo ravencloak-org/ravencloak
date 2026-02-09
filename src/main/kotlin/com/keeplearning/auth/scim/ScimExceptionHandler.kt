@@ -1,5 +1,6 @@
 package com.keeplearning.auth.scim
 
+import com.keeplearning.auth.scim.common.ScimErrorResponse
 import com.unboundid.scim2.common.exceptions.ScimException as UnboundIdScimException
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order

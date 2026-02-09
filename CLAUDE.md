@@ -44,7 +44,9 @@ This is a multi-module Gradle project:
 |--------|-------------|
 | `auth` (root) | Main Spring Boot authentication backend |
 | `keycloak-spi` | Keycloak User Storage SPI for external user validation |
-| `scim/` | SCIM 2.0 provisioning API (see [scim/README.md](scim/README.md)) |
+| `scim-common` | Shared SCIM 2.0 DTOs (ScimUserResource, ScimListResponse, etc.) |
+| `forge` | Spring Boot Starter client SDK wrapping the SCIM API (`com.keeplearning.forge`) |
+| `scim/` | SCIM 2.0 provisioning API docs (see [scim/README.md](scim/README.md)) |
 
 ## Architecture
 

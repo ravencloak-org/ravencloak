@@ -3,6 +3,9 @@ package com.keeplearning.auth.scim
 import com.keeplearning.auth.domain.entity.User
 import com.keeplearning.auth.domain.repository.KcRealmRepository
 import com.keeplearning.auth.domain.repository.UserRepository
+import com.keeplearning.auth.scim.common.ScimListResponse
+import com.keeplearning.auth.scim.common.ScimPatchRequest
+import com.keeplearning.auth.scim.common.ScimUserResource
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.slf4j.LoggerFactory

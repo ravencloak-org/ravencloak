@@ -1,5 +1,8 @@
 package com.keeplearning.auth.scim
 
+import com.keeplearning.auth.scim.common.ScimListResponse
+import com.keeplearning.auth.scim.common.ScimPatchRequest
+import com.keeplearning.auth.scim.common.ScimUserResource
 import org.springframework.http.HttpStatus
 import org.springframework.http.server.reactive.ServerHttpRequest
 import org.springframework.web.bind.annotation.*

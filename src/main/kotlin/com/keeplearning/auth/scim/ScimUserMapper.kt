@@ -1,6 +1,7 @@
 package com.keeplearning.auth.scim
 
 import com.keeplearning.auth.domain.entity.User
+import com.keeplearning.auth.scim.common.*
 import java.time.Instant
 import java.util.UUID
 

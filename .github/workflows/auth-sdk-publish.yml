@@ -1,21 +1,23 @@
-# Auth SDK - Build, Test & Publish to GitHub Packages
+# Forge SDK - Build, Test & Publish to GitHub Packages
 # Triggered on:
-#   - Push to auth-sdk/** on main (build + test only)
+#   - Push to forge/** or scim-common/** on main (build + test only)
 #   - SDK version tags: sdk-v* (build + test + publish)
 #   - Manual dispatch with version input
 
-name: Auth SDK - Publish
+name: Forge SDK - Publish
 
 on:
   push:
     branches: [main]
     paths:
-      - "auth-sdk/**"
+      - "forge/**"
+      - "scim-common/**"
       - "settings.gradle.kts"
       - ".github/workflows/auth-sdk-publish.yml"
   pull_request:
     paths:
-      - "auth-sdk/**"
+      - "forge/**"
+      - "scim-common/**"
       - "settings.gradle.kts"
   create:
     tags:
@@ -46,8 +48,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and test auth-sdk
-        run: ./gradlew :auth-sdk:build --no-daemon
+      - name: Build and test forge
+        run: ./gradlew :forge:build --no-daemon
 
   publish:
     needs: build-and-test
@@ -79,7 +81,7 @@ jobs:
 
       - name: Publish to GitHub Packages
         run: |
-          ./gradlew :auth-sdk:publish \
+          ./gradlew :scim-common:publish :forge:publish \
             --no-daemon \
             -Pversion=${{ steps.version.outputs.version }}
         env:

@@ -4,6 +4,7 @@ import com.keeplearning.auth.domain.entity.KcRealm
 import com.keeplearning.auth.domain.entity.User
 import com.keeplearning.auth.domain.repository.KcRealmRepository
 import com.keeplearning.auth.domain.repository.UserRepository
+import com.keeplearning.auth.scim.common.*
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension

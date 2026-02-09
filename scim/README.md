@@ -150,6 +150,73 @@ Errors follow RFC 7644 §3.12:
 }
 ```
 
+## Client SDK (`forge`)
+
+A Spring Boot Starter that wraps the SCIM API for client applications. Package: `com.keeplearning.forge`. Shared DTOs live in the `scim-common` module.
+
+### Gradle Dependency
+
+```kotlin
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/dsjkeeplearning/kos-auth-backend")
+        credentials {
+            username = System.getenv("GITHUB_ACTOR")
+            password = System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
+dependencies {
+    implementation("com.keeplearning:forge:0.1.0")
+}
+```
+
+### Configuration
+
+```yaml
+forge:
+  base-url: https://auth.example.com
+  realm-name: my-realm
+  client-registration-id: forge  # OAuth2 client registration
+  api-version: "1.0"
+```
+
+### Usage
+
+```kotlin
+@Service
+class UserService(private val scimClient: ScimClient) {
+
+    suspend fun findUser(email: String): ScimUserResource? {
+        val response = scimClient.listUsers(filter = "userName eq \"$email\"", count = 1)
+        return response.resources.firstOrNull()
+    }
+
+    suspend fun createUser(email: String, firstName: String, lastName: String): ScimUserResource {
+        return scimClient.createUser(
+            ScimUserResource(
+                userName = email,
+                name = ScimName(givenName = firstName, familyName = lastName),
+                active = true
+            )
+        )
+    }
+}
+```
+
+### Repository Pattern
+
+For entity-mapped access, use `DefaultForgeUserRepository`:
+
+```kotlin
+class AppUser : ForgeUser()
+
+@Bean
+fun appUserRepository(scimClient: ScimClient) =
+    DefaultForgeUserRepository(scimClient) { AppUser() }
+```
+
 ## References
 
 - [RFC 7643 — SCIM Core Schema](https://datatracker.ietf.org/doc/html/rfc7643)

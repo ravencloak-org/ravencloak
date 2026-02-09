@@ -1,5 +1,6 @@
 package com.keeplearning.auth.scim
 
+import com.keeplearning.auth.scim.common.ScimSchemas
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
