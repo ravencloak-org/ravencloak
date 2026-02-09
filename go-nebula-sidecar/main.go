@@ -12,6 +12,7 @@ import (
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/api"
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/config"
 	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/db"
+	"github.com/dsjkeeplearning/kos-auth-backend/go-nebula-sidecar/service"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -39,6 +40,16 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to run database migrations")
 	}
 
+	// Initialize services
+	repo := db.NewRepository(pool)
+	tokenSvc := service.NewTokenService(cfg, repo)
+	allocSvc := service.NewAllocationService(repo)
+
+	nebulaSvc, err := service.NewNebulaService(cfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize nebula service")
+	}
+
 	// Setup Gin router
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
@@ -47,8 +58,23 @@ func main() {
 	router.Use(gin.Recovery())
 
 	// Register routes
-	handler := api.NewHandler(cfg, pool)
+	handler := api.NewHandler(cfg, pool, repo, nebulaSvc, allocSvc)
+
+	// Public endpoints
 	router.GET("/health", handler.HealthCheck)
+	router.GET("/api/nebula/crl", handler.GetCRL)
+
+	// Authenticated endpoints
+	authenticated := router.Group("/api/nebula")
+	authenticated.Use(api.AuthMiddleware(tokenSvc))
+	{
+		authenticated.POST("/generate-cert", handler.GenerateCert)
+		authenticated.GET("/list-certs", handler.ListCerts)
+		authenticated.POST("/revoke-cert", handler.RevokeCert)
+
+		// Admin-only
+		authenticated.POST("/generate-ec2-cert", api.RequireRole("admin", "devops"), handler.GenerateEC2Cert)
+	}
 
 	// Start server with graceful shutdown
 	srv := &http.Server{
