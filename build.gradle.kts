@@ -15,6 +15,9 @@ buildCacheMetrics {
 	useInternalApi.set(true)          // Use internal API for local cache metrics
 }
 
+// OpenTelemetry Java Agent — auto-instruments WebFlux, WebClient, R2DBC, Netty
+val otelAgent by configurations.creating
+
 group = "com.keeplearning"
 version = "0.0.1-SNAPSHOT"
 description = "Authentication Backend"
@@ -30,6 +33,7 @@ repositories {
 }
 
 dependencies {
+	otelAgent("io.opentelemetry.javaagent:opentelemetry-javaagent:2.12.0")
 	implementation("io.netty:netty-resolver-dns-native-macos:4.1.100.Final:osx-aarch_64")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
@@ -84,6 +88,12 @@ tasks.withType<Test> {
 	}
 }
 
+val copyOtelAgent by tasks.registering(Copy::class) {
+	from(otelAgent)
+	into(layout.buildDirectory.dir("otel"))
+	rename { "opentelemetry-javaagent.jar" }
+}
+
 val jibTag: String? = findProperty("jibTag")?.toString()
 
 jib {
@@ -104,7 +114,21 @@ jib {
 		ports = listOf("8080")
 		mainClass = "com.keeplearning.auth.KosAuthApplicationKt"
 		creationTime.set("USE_CURRENT_TIMESTAMP")
+		jvmFlags = listOf("-javaagent:/app/otel/opentelemetry-javaagent.jar")
 	}
+	extraDirectories {
+		paths {
+			path {
+				setFrom(layout.buildDirectory.dir("otel"))
+				into = "/app/otel"
+			}
+		}
+	}
+}
+
+// Ensure OTel agent is copied before JIB builds the container
+tasks.matching { it.name.startsWith("jib") }.configureEach {
+	dependsOn(copyOtelAgent)
 }
 
 // Disable AOT processing for development (causes issues with R2DBC Json type)
