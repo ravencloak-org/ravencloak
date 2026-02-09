@@ -2,7 +2,7 @@ package com.keeplearning.forge.repository
 
 import com.keeplearning.auth.scim.common.*
 import com.keeplearning.forge.client.ScimClient
-import com.keeplearning.forge.exception.ForgeException
+import com.keeplearning.forge.exception.AuthException
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -67,7 +67,7 @@ class DefaultAuthRepositoryTest {
     fun `findById returns null on 404`() = runTest {
         val userId = UUID.randomUUID()
 
-        coEvery { scimClient.getUser(userId) } throws ForgeException(status = 404)
+        coEvery { scimClient.getUser(userId) } throws AuthException(status = 404)
 
         val result = repository.findById(userId.toString())
 
@@ -78,9 +78,9 @@ class DefaultAuthRepositoryTest {
     fun `findById rethrows non-404 exceptions`() = runTest {
         val userId = UUID.randomUUID()
 
-        coEvery { scimClient.getUser(userId) } throws ForgeException(status = 500)
+        coEvery { scimClient.getUser(userId) } throws AuthException(status = 500)
 
-        assertThrows<ForgeException> {
+        assertThrows<AuthException> {
             repository.findById(userId.toString())
         }
     }

@@ -207,14 +207,14 @@ class UserService(private val scimClient: ScimClient) {
 
 ### Repository Pattern
 
-For entity-mapped access, use `DefaultForgeUserRepository`:
+For entity-mapped access, use `DefaultAuthRepository`:
 
 ```kotlin
-class AppUser : ForgeUser()
+class AppUser : AuthUser()
 
 @Bean
 fun appUserRepository(scimClient: ScimClient) =
-    DefaultForgeUserRepository(scimClient) { AppUser() }
+    DefaultAuthRepository(scimClient) { AppUser() }
 ```
 
 ## References

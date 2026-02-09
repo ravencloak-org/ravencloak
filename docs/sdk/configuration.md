@@ -46,7 +46,7 @@ The `client_credentials` grant allows your service to authenticate with Keycloak
 
 ## How Auto-Configuration Works
 
-`ForgeAutoConfiguration` creates two beans when `forge.base-url` is present:
+`AuthAutoConfiguration` creates two beans when `forge.base-url` is present:
 
 ### 1. `forgeWebClient` (WebClient)
 
@@ -80,7 +80,7 @@ class ForgeConfig {
 
     @Bean
     fun forgeWebClient(
-        properties: ForgeProperties,
+        properties: AuthProperties,
         authorizedClientManager: ReactiveOAuth2AuthorizedClientManager
     ): WebClient {
         val oauth2 = ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager)

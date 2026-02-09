@@ -80,7 +80,7 @@ forge:
 
 ### 3. That's it
 
-The `StartupSyncRunner` bean is automatically registered by `ForgeAutoConfiguration` when:
+The `StartupSyncRunner` bean is automatically registered by `AuthAutoConfiguration` when:
 
 - `forge.base-url` is configured
 - An `AuthStartupSync` bean exists in the application context

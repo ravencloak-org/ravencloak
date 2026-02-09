@@ -75,16 +75,19 @@ GitHub Packages requires authentication even for downloading public packages.
 
 The SDK uses Spring Boot's auto-configuration mechanism. No annotation is required — just having the dependency on the classpath and setting `forge.base-url` is enough.
 
-If you prefer explicit opt-in, use the `@EnableForge` annotation:
+If you prefer explicit opt-in, use the `@EnableAuth` annotation:
 
 ```kotlin
 @SpringBootApplication
-@EnableForge
+@EnableAuth
 class MyApplication
 ```
 
 !!! tip
-    `@EnableForge` is optional. The SDK registers itself via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, so auto-configuration activates automatically when `forge.base-url` is set.
+    `@EnableAuth` is optional. The SDK registers itself via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, so auto-configuration activates automatically when `forge.base-url` is set.
+
+!!! note "Migration from @EnableForge"
+    `@EnableAuth` was previously named `@EnableForge`. The old name is still available as a `@Deprecated` typealias.
 
 ## Verify Installation
 

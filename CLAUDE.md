@@ -44,8 +44,8 @@ This is a multi-module Gradle project:
 |--------|-------------|
 | `auth` (root) | Main Spring Boot authentication backend |
 | `keycloak-spi` | Keycloak User Storage SPI for external user validation |
-| `scim-common` | Shared SCIM 2.0 DTOs (ScimUserResource, ScimListResponse, etc.) |
-| `forge` | Spring Boot Starter client SDK wrapping the SCIM API (`com.keeplearning.forge`) |
+| `scim-common` | Shared SCIM 2.0 DTOs (ScimUserResource, ScimListResponse, ScimBulkRequest/Response, ScimChecksumUtil, etc.) |
+| `forge` | Spring Boot Starter client SDK wrapping the SCIM API (`com.keeplearning.forge`) — includes bulk operations, checksum, and startup sync |
 | `scim/` | SCIM 2.0 provisioning API docs (see [scim/README.md](scim/README.md)) |
 
 ## Architecture
@@ -336,12 +336,44 @@ Header-based API versioning via Spring Framework 7 (`API-Version: 1.0`). See [sc
 
 | Class | Purpose |
 |-------|---------|
-| `ScimUserController` | SCIM User CRUD (`/api/scim/v2/Users`) |
+| `ScimUserController` | SCIM User CRUD (`/api/scim/v2/realms/{realm}/Users`) |
+| `ScimBulkController` | Bulk create/update (`/api/scim/v2/realms/{realm}/Bulk`) |
+| `ScimChecksumController` | User checksum (`/api/scim/v2/realms/{realm}/Users/checksum`) |
 | `ScimDiscoveryController` | ServiceProviderConfig, Schemas, ResourceTypes |
 | `ScimUserService` | Business logic wrapping UserRepository |
+| `ScimBulkService` | Processes bulk POST/PUT operations (per-operation error handling) |
+| `ScimChecksumService` | Computes deterministic SHA-256 user checksum via `ScimChecksumUtil` |
 | `ScimUserMapper` | User entity ↔ SCIM resource mapping |
 | `ScimFilterTranslator` | SCIM filter → R2DBC SQL translation |
 | `ScimExceptionHandler` | RFC 7644 §3.12 error responses |
+
+### Forge SDK (`forge/`)
+
+Client SDK for SCIM 2.0 user provisioning. Uses Spring WebFlux + OAuth2 client credentials.
+
+**Key Types (all renamed from `Forge*` to `Auth*` — old names kept as `@Deprecated` typealiases):**
+
+| Class | Purpose |
+|-------|---------|
+| `AuthUser` | Abstract base class for user domain entities (extend to add custom fields) |
+| `AuthRepository<T>` | Generic repository interface with CRUD + `createAll`/`updateAll` bulk ops |
+| `DefaultAuthRepository<T>` | Default implementation mapping `AuthUser` ↔ `ScimUserResource` |
+| `ScimClient` | Low-level SCIM HTTP client (`listUsers`, `getUser`, `createUser`, `replaceUser`, `patchUser`, `deleteUser`, `bulkRequest`, `getChecksum`) |
+| `AuthProperties` | Configuration: `forge.base-url`, `forge.realm-name`, `forge.client-registration-id`, `forge.api-version`, `forge.startup-sync.enabled` |
+| `AuthAutoConfiguration` | Auto-configures `forgeWebClient`, `scimClient`, and conditionally `startupSyncRunner` |
+| `AuthException` | Exception thrown on SCIM API errors (wraps HTTP status + `ScimErrorResponse`) |
+| `EnableAuth` | Optional annotation for explicit SDK opt-in |
+
+**Startup Sync (`forge/src/main/kotlin/.../sync/`):**
+
+| Class | Purpose |
+|-------|---------|
+| `AuthStartupSync<T>` | Abstract class clients extend — provides `fetchAllLocalUsers()` and `mapToAuthUser()` |
+| `StartupSyncRunner<T>` | `ApplicationRunner` that checksums local vs remote users and bulk-syncs differences on startup |
+
+Sync algorithm: compute local checksum → compare with `GET /Users/checksum` → if different, fetch all remote, diff by email → bulk POST creates + bulk PUT updates. Remote-only users ignored. Failures non-fatal.
+
+`StartupSyncRunner` is registered only when an `AuthStartupSync` bean exists AND `forge.startup-sync.enabled=true` (default).
 
 ### ParadeDB Setup (Required for V2+ migrations)
 

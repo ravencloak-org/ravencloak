@@ -1,8 +1,8 @@
 package com.keeplearning.forge.client
 
 import com.keeplearning.auth.scim.common.*
-import com.keeplearning.forge.config.ForgeProperties
-import com.keeplearning.forge.exception.ForgeException
+import com.keeplearning.forge.config.AuthProperties
+import com.keeplearning.forge.exception.AuthException
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -30,7 +30,7 @@ class ScimClientTest {
         mockWebServer = MockWebServer()
         mockWebServer.start()
 
-        val properties = ForgeProperties(
+        val properties = AuthProperties(
             baseUrl = mockWebServer.url("/").toString().trimEnd('/'),
             realmName = realmName,
             apiVersion = "1.0"
@@ -134,7 +134,7 @@ class ScimClientTest {
     }
 
     @Test
-    fun `getUser 404 throws ForgeException`() = runTest {
+    fun `getUser 404 throws AuthException`() = runTest {
         val errorResponse = ScimErrorResponse(
             status = "404",
             detail = "User not found"
@@ -147,7 +147,7 @@ class ScimClientTest {
                 .setBody(objectMapper.writeValueAsString(errorResponse))
         )
 
-        val ex = assertThrows<ForgeException> {
+        val ex = assertThrows<AuthException> {
             scimClient.getUser(UUID.randomUUID())
         }
         assertEquals(404, ex.status)
@@ -271,7 +271,7 @@ class ScimClientTest {
                 .setBody(objectMapper.writeValueAsString(errorResponse))
         )
 
-        val ex = assertThrows<ForgeException> {
+        val ex = assertThrows<AuthException> {
             scimClient.listUsers(filter = "bad filter")
         }
         assertEquals(400, ex.status)
@@ -358,7 +358,7 @@ class ScimClientTest {
                 .setBody("Internal Server Error")
         )
 
-        val ex = assertThrows<ForgeException> {
+        val ex = assertThrows<AuthException> {
             scimClient.getUser(UUID.randomUUID())
         }
         assertEquals(500, ex.status)

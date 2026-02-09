@@ -3,7 +3,7 @@ package com.keeplearning.forge.config
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "forge")
-data class ForgeProperties(
+data class AuthProperties(
     val baseUrl: String,
     val realmName: String,
     val clientRegistrationId: String = "forge",
@@ -14,3 +14,6 @@ data class ForgeProperties(
 data class StartupSyncProperties(
     val enabled: Boolean = true
 )
+
+@Deprecated("Renamed to AuthProperties", ReplaceWith("AuthProperties"))
+typealias ForgeProperties = AuthProperties
