@@ -75,7 +75,7 @@ steps:
         fi
         echo "Building all modules version $VERSION"
         test -n "$VERSION" || { echo "ERROR - VERSION is empty (CI_COMMIT_TAG=$CI_COMMIT_TAG)"; exit 1; }
-        ./gradlew clean :keycloak-spi:shadowJar :bootJar :jib --no-daemon -x test -PjibTag=$VERSION -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
+        ./gradlew clean :keycloak-spi:shadowJar :bootJar :jib :scim-common:publish :forge:publish :keycloak-spi:publish --no-daemon -x test -Pversion=$VERSION -PjibTag=$VERSION -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
         mkdir -p release-assets
         cp keycloak-spi/build/libs/*.jar release-assets/
         cp build/libs/*.jar release-assets/
