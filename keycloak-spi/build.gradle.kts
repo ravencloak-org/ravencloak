@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
     id("com.gradleup.shadow") version "9.0.0-beta4"
+    `maven-publish`
 }
 
 group = "com.keeplearning"
@@ -57,4 +58,24 @@ tasks.shadowJar {
 // Make the regular jar task depend on shadowJar for convenience
 tasks.named("jar") {
     dependsOn(tasks.shadowJar)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("shadow") {
+            artifact(tasks.shadowJar)
+            groupId = "com.keeplearning"
+            artifactId = "keycloak-user-storage-spi"
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/dsjkeeplearning/kos-auth-backend")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: "dsjkeeplearning"
+                password = System.getenv("GITHUB_TOKEN") ?: ""
+            }
+        }
+    }
 }
