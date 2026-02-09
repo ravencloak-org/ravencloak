@@ -2,7 +2,7 @@ package com.keeplearning.forge.repository
 
 import java.time.Instant
 
-abstract class ForgeUser {
+abstract class AuthUser {
     open var id: String? = null
     open var externalId: String? = null
     open var email: String = ""
@@ -15,3 +15,6 @@ abstract class ForgeUser {
     open var createdAt: Instant? = null
     open var updatedAt: Instant? = null
 }
+
+@Deprecated("Renamed to AuthUser", ReplaceWith("AuthUser"))
+typealias ForgeUser = AuthUser

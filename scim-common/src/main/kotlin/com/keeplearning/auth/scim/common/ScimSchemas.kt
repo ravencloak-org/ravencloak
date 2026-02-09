@@ -8,4 +8,6 @@ object ScimSchemas {
     const val SERVICE_PROVIDER_CONFIG = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
     const val SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Schema"
     const val RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+    const val BULK_REQUEST = "urn:ietf:params:scim:api:messages:2.0:BulkRequest"
+    const val BULK_RESPONSE = "urn:ietf:params:scim:api:messages:2.0:BulkResponse"
 }

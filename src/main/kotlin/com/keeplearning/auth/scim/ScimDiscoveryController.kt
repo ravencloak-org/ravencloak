@@ -14,7 +14,7 @@ class ScimDiscoveryController {
         return ScimServiceProviderConfig(
             documentationUri = "https://datatracker.ietf.org/doc/html/rfc7644",
             patch = ScimSupported(supported = true),
-            bulk = ScimBulkSupported(supported = false),
+            bulk = ScimBulkSupported(supported = true, maxOperations = 1000, maxPayloadSize = 1048576),
             filter = ScimFilterSupported(supported = true, maxResults = 200),
             changePassword = ScimSupported(supported = false),
             sort = ScimSupported(supported = false),

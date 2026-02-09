@@ -6,10 +6,10 @@ import com.keeplearning.forge.exception.ForgeException
 import java.time.Instant
 import java.util.UUID
 
-class DefaultForgeUserRepository<T : ForgeUser>(
+class DefaultAuthRepository<T : AuthUser>(
     private val scimClient: ScimClient,
     private val factory: () -> T
-) : ForgeUserRepository<T> {
+) : AuthRepository<T> {
 
     override suspend fun findById(id: String): T? {
         return try {
@@ -43,6 +43,31 @@ class DefaultForgeUserRepository<T : ForgeUser>(
         return mapFromScim(updated)
     }
 
+    override suspend fun createAll(users: List<T>): ScimBulkResponse {
+        val operations = users.map { user ->
+            ScimBulkOperation(
+                method = "POST",
+                path = "/Users",
+                bulkId = user.email,
+                data = mapToScim(user)
+            )
+        }
+        return scimClient.bulkRequest(ScimBulkRequest(operations = operations))
+    }
+
+    override suspend fun updateAll(users: List<T>): ScimBulkResponse {
+        val operations = users.map { user ->
+            val id = user.id ?: throw IllegalArgumentException("User ID is required for update")
+            ScimBulkOperation(
+                method = "PUT",
+                path = "/Users/$id",
+                bulkId = user.email,
+                data = mapToScim(user)
+            )
+        }
+        return scimClient.bulkRequest(ScimBulkRequest(operations = operations))
+    }
+
     override suspend fun patch(id: String, operations: List<ScimPatchOperation>): T {
         val request = ScimPatchRequest(operations = operations)
         val patched = scimClient.patchUser(UUID.fromString(id), request)
@@ -53,7 +78,7 @@ class DefaultForgeUserRepository<T : ForgeUser>(
         scimClient.deleteUser(UUID.fromString(id))
     }
 
-    private fun mapToScim(user: T): ScimUserResource {
+    internal fun mapToScim(user: T): ScimUserResource {
         return ScimUserResource(
             id = user.id,
             externalId = user.externalId,
@@ -70,7 +95,7 @@ class DefaultForgeUserRepository<T : ForgeUser>(
         )
     }
 
-    private fun mapFromScim(resource: ScimUserResource): T {
+    internal fun mapFromScim(resource: ScimUserResource): T {
         val entity = factory()
         entity.id = resource.id
         entity.externalId = resource.externalId
@@ -94,3 +119,6 @@ class DefaultForgeUserRepository<T : ForgeUser>(
         }
     }
 }
+
+@Deprecated("Renamed to DefaultAuthRepository", ReplaceWith("DefaultAuthRepository"))
+typealias DefaultForgeUserRepository<T> = DefaultAuthRepository<T>

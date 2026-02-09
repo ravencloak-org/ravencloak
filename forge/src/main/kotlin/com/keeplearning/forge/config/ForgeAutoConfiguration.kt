@@ -1,7 +1,10 @@
 package com.keeplearning.forge.config
 
 import com.keeplearning.forge.client.ScimClient
+import com.keeplearning.forge.sync.AuthStartupSync
+import com.keeplearning.forge.sync.StartupSyncRunner
 import org.springframework.boot.autoconfigure.AutoConfiguration
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -37,5 +40,15 @@ class ForgeAutoConfiguration {
         properties: ForgeProperties
     ): ScimClient {
         return ScimClient(forgeWebClient, properties)
+    }
+
+    @Bean
+    @ConditionalOnBean(AuthStartupSync::class)
+    @ConditionalOnProperty(prefix = "forge.startup-sync", name = ["enabled"], matchIfMissing = true)
+    fun <T : Any> startupSyncRunner(
+        authStartupSync: AuthStartupSync<T>,
+        scimClient: ScimClient
+    ): StartupSyncRunner<T> {
+        return StartupSyncRunner(authStartupSync, scimClient)
     }
 }
