@@ -75,11 +75,38 @@ A read-only User Storage Provider that validates users against the auth backend 
 **API Endpoint Called:**
 - `GET http://auth-backend:8080/api/users/{email}` - Returns user if exists (200) or not found (404)
 
-**CI/CD (Woodpecker CI):**
-- `.woodpecker/` contains all pipeline configurations
-- JAR is copied to `/opt/keycloak-providers/` shared volume on release
-- Keycloak mounts this folder and loads the SPI on restart
-- See [.woodpecker/README.md](.woodpecker/README.md) for detailed CI/CD documentation
+**CI/CD:**
+- GitHub Actions (`.github/workflows/`): Build, test, publish SDKs, release keycloak-spi
+- Woodpecker CI (`.woodpecker/`): Auth backend builds, deployment to EC2
+- See [.woodpecker/README.md](.woodpecker/README.md) for Woodpecker CI documentation
+
+## GitHub Actions
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| `keycloak-spi.yml` | Push to `keycloak-spi/**`, tag `spi-v*`, manual | Build, test & release SPI JAR |
+| `auth-sdk-publish.yml` | Push to `forge/**`/`scim-common/**`, tag `sdk-v*`, manual | Build, test & publish Forge SDK |
+
+### Manual Release (CLI)
+
+```bash
+# Keycloak SPI release
+gh workflow run keycloak-spi.yml -f version=1.0.1
+
+# Forge SDK release
+gh workflow run auth-sdk-publish.yml -f version=0.2.0
+```
+
+### GitHub Actions Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `GITHUB_TOKEN` | Auto-provided, GitHub Packages & Releases |
+| `S3_BUILD_CACHE_BUCKET` | Remote Gradle build cache (Cloudflare R2) |
+| `S3_BUILD_CACHE_REGION` | R2 region (`auto`) |
+| `S3_BUILD_CACHE_ACCESS_KEY_ID` | R2 access key |
+| `S3_BUILD_CACHE_SECRET_KEY` | R2 secret key |
+| `S3_BUILD_CACHE_ENDPOINT` | R2 endpoint URL |
 
 ## Woodpecker CI
 
@@ -88,15 +115,14 @@ A read-only User Storage Provider that validates users against the auth backend 
 | Pipeline | Trigger | Description |
 |----------|---------|-------------|
 | `auth.yml` | Push to `src/**` | Build auth backend |
-| `keycloak-spi.yml` | Push to `keycloak-spi/**` | Build and test SPI |
 | `auth-release.yml` | Tag `v*` | Release auth backend |
-| `keycloak-spi-release.yml` | Tag `spi-v*` or manual | Release SPI |
+| `keycloak-spi-release.yml` | Manual (`DEPLOY_TO=keycloak-spi`) | Deploy SPI from GitHub Release |
 | `release-all.yml` | Tag `release-v*` or manual | Release both modules |
 
-### Manual Release Triggers (CLI)
+### Manual Deploy Triggers (CLI)
 
 ```bash
-# Keycloak SPI release (auto-increments version)
+# Deploy latest keycloak-spi release to Keycloak
 woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
 
 # Combined release (auto-increments version)
@@ -109,7 +135,7 @@ woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --
 - **S3 build cache**: Cloudflare R2 via `com.github.burrunan.s3-build-cache` plugin
 - **Docker cache**: Registry-based cache at `ghcr.io/dsjkeeplearning/kos-auth-backend:cache`
 
-### Required Secrets
+### Woodpecker Secrets
 
 | Secret | Purpose |
 |--------|---------|
@@ -120,7 +146,8 @@ woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --
 ### Deployment Flow
 
 - **Auth Backend**: Docker image pushed to ghcr.io, container restarted on EC2
-- **Keycloak SPI**: JAR copied to `/opt/keycloak-providers/`, Keycloak restarted
+- **Keycloak SPI**: GH Action builds & creates GitHub Release → Woodpecker downloads JAR & deploys to `/opt/keycloak-providers/`
+- **Forge SDK**: GH Action publishes to GitHub Packages (Maven)
 
 ### Multi-Tenant Authentication
 

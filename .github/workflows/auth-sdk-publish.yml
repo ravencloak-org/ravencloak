@@ -50,6 +50,12 @@ jobs:
 
       - name: Build and test forge
         run: ./gradlew :forge:build --no-daemon
+        env:
+          S3_BUILD_CACHE_BUCKET: ${{ secrets.S3_BUILD_CACHE_BUCKET }}
+          S3_BUILD_CACHE_REGION: ${{ secrets.S3_BUILD_CACHE_REGION }}
+          S3_BUILD_CACHE_ACCESS_KEY_ID: ${{ secrets.S3_BUILD_CACHE_ACCESS_KEY_ID }}
+          S3_BUILD_CACHE_SECRET_KEY: ${{ secrets.S3_BUILD_CACHE_SECRET_KEY }}
+          S3_BUILD_CACHE_ENDPOINT: ${{ secrets.S3_BUILD_CACHE_ENDPOINT }}
 
   publish:
     needs: build-and-test
@@ -86,3 +92,8 @@ jobs:
             -Pversion=${{ steps.version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          S3_BUILD_CACHE_BUCKET: ${{ secrets.S3_BUILD_CACHE_BUCKET }}
+          S3_BUILD_CACHE_REGION: ${{ secrets.S3_BUILD_CACHE_REGION }}
+          S3_BUILD_CACHE_ACCESS_KEY_ID: ${{ secrets.S3_BUILD_CACHE_ACCESS_KEY_ID }}
+          S3_BUILD_CACHE_SECRET_KEY: ${{ secrets.S3_BUILD_CACHE_SECRET_KEY }}
+          S3_BUILD_CACHE_ENDPOINT: ${{ secrets.S3_BUILD_CACHE_ENDPOINT }}

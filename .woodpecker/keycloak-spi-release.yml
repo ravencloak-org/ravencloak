@@ -1,107 +1,31 @@
-# Keycloak SPI - Release (Tag: spi-v* or Manual)
+# Keycloak SPI - Deploy from GitHub Release
+# Downloads the SPI JAR from GitHub Release and deploys to Keycloak.
+# Build & release is handled by GitHub Actions (.github/workflows/keycloak-spi.yml).
+#
 # Trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
 when:
-  - event: tag
-    ref: refs/tags/spi-v*
   - event: manual
     evaluate: 'CI_PIPELINE_DEPLOY_TO == "keycloak-spi"'
 
 steps:
-  - name: determine-version
-    image: alpine/git
+  - name: download-release
+    image: alpine
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
     commands:
+      - apk add --no-cache github-cli
       - |
-        if [ "$CI_PIPELINE_EVENT" = "manual" ]; then
-          # Auto-increment: find latest spi-v* tag and bump patch version
-          LATEST_TAG=$(git tag -l 'spi-v*' --sort=-v:refname | head -n1)
-          if [ -z "$LATEST_TAG" ]; then
-            NEW_VERSION="spi-v1.0.0"
-          else
-            # Extract version numbers
-            VERSION=${LATEST_TAG#spi-v}
-            MAJOR=$(echo $VERSION | cut -d. -f1)
-            MINOR=$(echo $VERSION | cut -d. -f2)
-            PATCH=$(echo $VERSION | cut -d. -f3)
-            # Increment patch
-            PATCH=$((PATCH + 1))
-            NEW_VERSION="spi-v$MAJOR.$MINOR.$PATCH"
-          fi
-          echo "Auto-incrementing to $NEW_VERSION"
-
-          # Create and push tag
-          git config --global user.email "ci@keeplearningos.com"
-          git config --global user.name "Woodpecker CI"
-          git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
-          git tag $NEW_VERSION
-          git push origin $NEW_VERSION
-
-          echo $NEW_VERSION > .version
-        else
-          echo $CI_COMMIT_TAG > .version
+        # Find latest spi-v* release
+        LATEST_TAG=$(gh release list --repo ${CI_REPO} --limit 50 | grep 'spi-v' | head -1 | awk '{print $1}')
+        if [ -z "$LATEST_TAG" ]; then
+          echo "ERROR: No spi-v* release found"
+          exit 1
         fi
-        echo "Version: $(cat .version)"
-
-  - name: build-and-test
-    image: amazoncorretto:21
-    volumes:
-      - /var/lib/woodpecker/cache/gradle:/root/.gradle
-    environment:
-      CI: "true"
-      S3_BUILD_CACHE_BUCKET:
-        from_secret: s3_build_cache_bucket
-      S3_BUILD_CACHE_REGION:
-        from_secret: s3_build_cache_region
-      AWS_ACCESS_KEY_ID:
-        from_secret: s3_build_cache_access_key_id
-      AWS_SECRET_ACCESS_KEY:
-        from_secret: s3_build_cache_secret_key
-      S3_BUILD_CACHE_ENDPOINT:
-        from_secret: s3_build_cache_endpoint
-    commands:
-      - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
-      - |
-        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
-        VERSION=${VERSION#spi-v}
-        echo "Building Keycloak SPI version $VERSION"
-        ./gradlew :keycloak-spi:clean :keycloak-spi:compileKotlin :keycloak-spi:test :keycloak-spi:shadowJar --no-daemon
+        echo "Downloading JAR from release $LATEST_TAG"
         mkdir -p release-assets
-        echo "JAR files in build/libs:" && ls -la keycloak-spi/build/libs/
-        cp keycloak-spi/build/libs/*.jar release-assets/
-        cp keycloak-spi/build/reports/tests/test/index.html release-assets/test-report.html || true
-        echo "Build successful!"
-
-  - name: generate-changelog
-    image: alpine/git
-    commands:
-      - |
-        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
-        PREV_TAG=$(git tag -l 'spi-v*' --sort=-v:refname | grep -v $VERSION | head -n1)
-        if [ -z "$PREV_TAG" ]; then
-          PREV_TAG=$(git rev-list --max-parents=0 HEAD)
-          echo "No previous tag found, using initial commit"
-        fi
-        echo "Generating changelog from $PREV_TAG to $VERSION"
-
-        echo "# Changelog for $VERSION" > release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-        echo "## Keycloak SPI Changes" >> release-assets/CHANGELOG.md
-        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- keycloak-spi/ >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-
-        echo "## Auth Backend Changes" >> release-assets/CHANGELOG.md
-        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- src/ build.gradle.kts >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-
-        echo "## Other Changes" >> release-assets/CHANGELOG.md
-        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- . ':!keycloak-spi/' ':!src/' >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
-        echo "" >> release-assets/CHANGELOG.md
-
-        cat release-assets/CHANGELOG.md
+        gh release download "$LATEST_TAG" --repo ${CI_REPO} --pattern "keycloak-user-storage-spi*.jar" --dir release-assets
+        echo "Downloaded:" && ls -la release-assets/
 
   - name: deploy
     image: docker:cli
@@ -112,52 +36,13 @@ steps:
       - mkdir -p /shared/providers
       - rm -f /shared/providers/*.jar
       - |
-        echo "Files in release-assets:" && ls -la release-assets/
         SPI_JAR=$(ls release-assets/keycloak-user-storage-spi*.jar 2>/dev/null | head -1)
+        if [ -z "$SPI_JAR" ]; then
+          echo "ERROR: No SPI JAR found in release-assets/"
+          exit 1
+        fi
         cp "$SPI_JAR" /shared/providers/keycloak-user-storage-spi.jar
-        echo "Deployed JAR to /opt/keycloak-providers/"
+        echo "Deployed to /opt/keycloak-providers/"
         echo "Restarting Keycloak to load new SPI..."
         docker restart keycloak || echo "Warning - Could not restart keycloak container"
-
-  - name: update-readme
-    image: alpine/git
-    environment:
-      GITHUB_TOKEN:
-        from_secret: github_token
-    commands:
-      - |
-        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
-        SEMVER=$(echo ${VERSION} | sed 's/^spi-//')
-        git config --global user.email "ci@keeplearningos.com"
-        git config --global user.name "Woodpecker CI"
-        git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
-        git fetch origin main
-        git checkout main
-        sed -i "s|keycloak--spi-v[0-9.]*-green|keycloak--spi-${SEMVER}-green|g" README.md
-        git add README.md
-        git diff --cached --quiet || git commit -m "Update keycloak-spi version badge to ${VERSION}"
-        git push origin main
-
-  - name: github-release
-    image: alpine
-    environment:
-      GITHUB_TOKEN:
-        from_secret: github_token
-    commands:
-      - apk add --no-cache github-cli
-      - |
-        VERSION=${CI_COMMIT_TAG:-$(cat .version 2>/dev/null)}
-        SPI_JAR=$(find release-assets -name "*.jar" -type f | head -1)
-        echo "Files in release-assets:" && ls -la release-assets/
-        echo "Using JAR file:" $SPI_JAR
-        if gh release view $VERSION --repo $CI_REPO > /dev/null 2>&1; then
-          echo "Release $VERSION already exists, updating notes and uploading assets..."
-          gh release edit $VERSION --repo $CI_REPO --notes-file release-assets/CHANGELOG.md
-          gh release upload $VERSION --repo $CI_REPO --clobber "$SPI_JAR"
-        else
-          gh release create $VERSION \
-            --repo $CI_REPO \
-            --title "Keycloak SPI $VERSION" \
-            --notes-file release-assets/CHANGELOG.md \
-            "$SPI_JAR"
-        fi
+        echo "Deploy complete!"
