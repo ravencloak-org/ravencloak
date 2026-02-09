@@ -86,6 +86,7 @@ A read-only User Storage Provider that validates users against the auth backend 
 |----------|---------|-------------|
 | `keycloak-spi.yml` | Push to `keycloak-spi/**`, tag `spi-v*`, manual | Build, test & release SPI JAR |
 | `auth-sdk-publish.yml` | Push to `forge/**`/`scim-common/**`, tag `sdk-v*`, manual | Build, test & publish Forge SDK |
+| `deploy-docs.yml` | Push to `docs/**`/`mkdocs.yml`, release published, manual | Build & deploy MkDocs to GitHub Pages |
 
 ### Manual Release (CLI)
 
