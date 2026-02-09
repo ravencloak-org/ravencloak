@@ -44,6 +44,7 @@ This is a multi-module Gradle project:
 |--------|-------------|
 | `auth` (root) | Main Spring Boot authentication backend |
 | `keycloak-spi` | Keycloak User Storage SPI for external user validation |
+| `scim/` | SCIM 2.0 provisioning API (see [scim/README.md](scim/README.md)) |
 
 ## Architecture
 
@@ -135,6 +136,7 @@ The system supports multiple Keycloak realms via dynamic JWT issuer validation:
 | `/auth/super/login`, `/oauth2/**` | Public (OAuth2 flow) |
 | `/api/super/**` | Super admin only (via `SuperAdminAuthorizationManager`) |
 | `/api/account/**` | `ACCOUNT_ADMIN` or `INSTITUTE_ADMIN` role |
+| `/api/scim/v2/**` | Authenticated (OAuth2 JWT) |
 | All other routes | Authenticated |
 
 ### Domain Model
@@ -295,6 +297,21 @@ interface ApplicationResponse {
   backendClient?: ClientDetailResponse
 }
 ```
+
+## SCIM 2.0 Provisioning API
+
+Header-based API versioning via Spring Framework 7 (`API-Version: 1.0`). See [scim/README.md](scim/README.md) for full documentation.
+
+**Key packages:** `com.keeplearning.auth.scim`
+
+| Class | Purpose |
+|-------|---------|
+| `ScimUserController` | SCIM User CRUD (`/api/scim/v2/Users`) |
+| `ScimDiscoveryController` | ServiceProviderConfig, Schemas, ResourceTypes |
+| `ScimUserService` | Business logic wrapping UserRepository |
+| `ScimUserMapper` | User entity ↔ SCIM resource mapping |
+| `ScimFilterTranslator` | SCIM filter → R2DBC SQL translation |
+| `ScimExceptionHandler` | RFC 7644 §3.12 error responses |
 
 ### ParadeDB Setup (Required for V2+ migrations)
 
