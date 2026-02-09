@@ -8,7 +8,7 @@ This guide covers common patterns and recipes for using the Forge SDK.
 
 ```kotlin
 @Service
-class UserService(private val userRepo: ForgeUserRepository<AppUser>) {
+class UserService(private val userRepo: AuthRepository<AppUser>) {
 
     suspend fun findByEmail(email: String): AppUser? {
         return userRepo.findByEmail(email)
@@ -90,6 +90,70 @@ suspend fun updateName(id: String, firstName: String, lastName: String): AppUser
         ScimPatchOperation(op = "replace", path = "name.familyName", value = lastName)
     ))
 }
+```
+
+## Bulk Operations
+
+### Create multiple users
+
+`createAll()` sends all users in a single bulk request. Each operation is independent — one failure does not block others.
+
+```kotlin
+suspend fun importUsers(users: List<AppUser>): ScimBulkResponse {
+    return userRepo.createAll(users)
+}
+```
+
+### Update multiple users
+
+`updateAll()` updates all users in a single bulk request. Every user must have a non-null `id`.
+
+```kotlin
+suspend fun syncUsers(users: List<AppUser>): ScimBulkResponse {
+    return userRepo.updateAll(users)
+}
+```
+
+### Inspecting bulk results
+
+The `ScimBulkResponse` contains per-operation results:
+
+```kotlin
+val response = userRepo.createAll(users)
+
+val succeeded = response.operations.count { it.status.startsWith("2") }
+val failed = response.operations.size - succeeded
+
+for (op in response.operations) {
+    if (!op.status.startsWith("2")) {
+        println("Failed: ${op.bulkId} -> ${op.status}")
+    }
+}
+```
+
+### Using ScimClient directly for bulk
+
+For more control, build the bulk request manually:
+
+```kotlin
+val request = ScimBulkRequest(
+    operations = listOf(
+        ScimBulkOperation(
+            method = "POST",
+            path = "/Users",
+            bulkId = "user-1",
+            data = ScimUserResource(userName = "alice@example.com", active = true)
+        ),
+        ScimBulkOperation(
+            method = "PUT",
+            path = "/Users/$existingUserId",
+            bulkId = "user-2",
+            data = ScimUserResource(userName = "bob@example.com", active = true)
+        )
+    )
+)
+
+val response = scimClient.bulkRequest(request)
 ```
 
 ## Delete a User
@@ -195,10 +259,10 @@ try {
 
 ### Define your domain class
 
-Extend `ForgeUser` with application-specific fields:
+Extend `AuthUser` with application-specific fields:
 
 ```kotlin
-class AppUser : ForgeUser() {
+class AppUser : AuthUser() {
     // Add custom fields as needed
     var department: String? = null
     var employeeId: String? = null
@@ -212,18 +276,18 @@ class AppUser : ForgeUser() {
 class UserConfig {
 
     @Bean
-    fun appUserRepository(scimClient: ScimClient): ForgeUserRepository<AppUser> =
-        DefaultForgeUserRepository(scimClient) { AppUser() }
+    fun appUserRepository(scimClient: ScimClient): AuthRepository<AppUser> =
+        DefaultAuthRepository(scimClient) { AppUser() }
 }
 ```
 
-The factory lambda `{ AppUser() }` creates new instances when mapping from SCIM responses. Standard `ForgeUser` fields are automatically mapped; custom fields need manual handling.
+The factory lambda `{ AppUser() }` creates new instances when mapping from SCIM responses. Standard `AuthUser` fields are automatically mapped; custom fields need manual handling.
 
 ### Inject and use
 
 ```kotlin
 @Service
-class UserService(private val userRepo: ForgeUserRepository<AppUser>) {
+class UserService(private val userRepo: AuthRepository<AppUser>) {
 
     suspend fun getUser(id: String): AppUser? = userRepo.findById(id)
 
@@ -276,12 +340,14 @@ class ScimService(private val scimClient: ScimClient) {
 }
 ```
 
-### When to use ScimClient vs ForgeUserRepository
+### When to use ScimClient vs AuthRepository
 
 | Use case | Recommended |
 |----------|-------------|
-| Simple CRUD with domain objects | `ForgeUserRepository` |
+| Simple CRUD with domain objects | `AuthRepository` |
+| Batch create/update | `AuthRepository` (`createAll` / `updateAll`) |
 | Multiple email addresses or phone numbers | `ScimClient` |
 | Custom SCIM attributes | `ScimClient` |
 | SCIM PATCH with multiple operations | Either (repository wraps patch) |
 | Pagination over all users | Either |
+| Checksum comparison | `ScimClient` (`getChecksum`) |

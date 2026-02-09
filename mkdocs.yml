@@ -39,6 +39,7 @@ nav:
       - Configuration: sdk/configuration.md
       - API Reference: sdk/api-reference.md
       - Usage Guide: sdk/usage-guide.md
+      - Startup Sync: sdk/startup-sync.md
   - Modules:
       - Keycloak SPI: modules/keycloak-spi.md
   - Deployment:
