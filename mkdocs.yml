@@ -1,0 +1,69 @@
+site_name: KOS Auth Backend
+site_description: Multi-tenant authentication backend with Spring Boot/Kotlin and Keycloak
+repo_url: https://github.com/dsjkeeplearning/kos-auth-backend
+repo_name: dsjkeeplearning/kos-auth-backend
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - API:
+      - OpenAPI Spec: api/openapi.md
+      - SCIM 2.0: api/scim.md
+  - SDK Integration:
+      - Installation: sdk/installation.md
+      - Configuration: sdk/configuration.md
+      - API Reference: sdk/api-reference.md
+      - Usage Guide: sdk/usage-guide.md
+  - Modules:
+      - Keycloak SPI: modules/keycloak-spi.md
+  - Deployment:
+      - CI/CD: deployment/ci-cd.md
+      - Docker: deployment/docker.md
+
+plugins:
+  - search
+  - neoteroi.mkdocsoad
+  - macros:
+      module_name: docs/macros
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+
+extra_css:
+  - css/mkdocsoad.css

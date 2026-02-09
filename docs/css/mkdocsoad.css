@@ -1,0 +1,20 @@
+/* neoteroi OpenAPI Documentation styling */
+
+.oad-operation {
+  margin-bottom: 1.5em;
+}
+
+.oad-operation summary {
+  font-weight: 600;
+}
+
+.oad-panel {
+  border-radius: 4px;
+  margin-bottom: 0.5em;
+}
+
+/* Improve readability of request/response bodies */
+.oad-operation pre {
+  max-height: 400px;
+  overflow: auto;
+}

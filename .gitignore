@@ -43,6 +43,10 @@ out/
 ### Kotlin ###
 .kotlin
 
+### MkDocs ###
+site/
+__pycache__/
+
 ### Node.js / Frontend ###
 web/node_modules/
 web/dist/
