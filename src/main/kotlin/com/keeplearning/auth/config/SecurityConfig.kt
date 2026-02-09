@@ -45,6 +45,7 @@ class SecurityConfig(
                     .pathMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**").permitAll()
                     .pathMatchers("/api/super/**").access(superAdminAuthorizationManager)
                     .pathMatchers("/api/account/**").hasAnyRole("ACCOUNT_ADMIN", "INSTITUTE_ADMIN")
+                    .pathMatchers("/api/scim/v2/**").authenticated()
                     .pathMatchers("/api/clients/**").authenticated()
                     .anyExchange().authenticated()
             }
