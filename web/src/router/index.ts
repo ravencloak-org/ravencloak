@@ -8,12 +8,18 @@ const wrappedRoutes = [
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
-    children: routes.filter(r => r.path !== '/login')
+    children: routes.filter(r => r.path !== '/login' && r.path !== '/access-denied')
   },
   routes.find(r => r.path === '/login') ?? {
     path: '/login',
     name: 'login',
     component: () => import('@/pages/login.vue'),
+    meta: { requiresAuth: false }
+  },
+  routes.find(r => r.path === '/access-denied') ?? {
+    path: '/access-denied',
+    name: 'access-denied',
+    component: () => import('@/pages/access-denied.vue'),
     meta: { requiresAuth: false }
   },
   {
@@ -46,10 +52,9 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
     return { path: '/realms' }
   }
 
-  // Authenticated but missing SUPER_ADMIN role - logout and stop
+  // Authenticated but missing SUPER_ADMIN role - show access denied
   if (requiresAuth && authStore.isAuthenticated && !authStore.isSuperAdmin) {
-    authStore.logout()
-    return false
+    return { path: '/access-denied' }
   }
 
   return true
