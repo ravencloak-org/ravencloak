@@ -45,7 +45,7 @@ while IFS='=' read -r key value; do
     value="${value%\'}"
     value="${value#\'}"
     # Export S3 cache and app variables
-    if [[ "$key" == S3_BUILD_CACHE_* ]] || [[ "$key" == KEYCLOAK_* ]] || [[ "$key" == SAAS_* ]] || [[ "$key" == DB_* ]] || [[ "$key" == SPRING_* ]]; then
+    if [[ "$key" == S3_BUILD_CACHE_* ]] || [[ "$key" == KEYCLOAK_* ]] || [[ "$key" == SAAS_* ]] || [[ "$key" == DB_* ]] || [[ "$key" == SPRING_* ]] || [[ "$key" == OTEL_* ]] || [[ "$key" == NEBULA_* ]] || [[ "$key" == VITE_* ]]; then
         export "$key=$value"
         echo "  Loaded: $key"
     fi
@@ -60,8 +60,12 @@ s3_vars=("S3_BUILD_CACHE_BUCKET" "S3_BUILD_CACHE_REGION" "S3_BUILD_CACHE_ACCESS_
 # App variables
 app_vars=("KEYCLOAK_ISSUER_PREFIX" "KEYCLOAK_SAAS_ISSUER_URI" "SAAS_ADMIN_CLIENT_SECRET" "DB_HOST" "DB_PORT" "DB_NAME" "DB_USERNAME" "SPRING_PROFILES_ACTIVE")
 # DB_PASSWORD can be empty
+# Infrastructure variables
+infra_vars=("OTEL_EXPORTER_OTLP_ENDPOINT" "NEBULA_LIGHTHOUSE_EXTERNAL_IP")
+# Frontend variables
+frontend_vars=("VITE_API_BASE_URL" "VITE_KEYCLOAK_URL" "VITE_KEYCLOAK_REALM" "VITE_KEYCLOAK_CLIENT_ID" "VITE_OTEL_COLLECTOR_URL" "VITE_OTEL_ENABLED")
 
-all_vars=("${s3_vars[@]}" "${app_vars[@]}")
+all_vars=("${s3_vars[@]}" "${app_vars[@]}" "${infra_vars[@]}" "${frontend_vars[@]}")
 for var in "${all_vars[@]}"; do
     val="${!var}"
     if [ -z "$val" ]; then
@@ -142,6 +146,22 @@ add_secret "db_name" "$DB_NAME"
 add_secret "db_username" "$DB_USERNAME"
 add_secret "db_password" "${DB_PASSWORD:-}"
 add_secret "spring_profiles_active" "${SPRING_PROFILES_ACTIVE:-prod}"
+
+# Add infrastructure secrets
+echo ""
+echo "Adding infrastructure secrets..."
+add_secret "otel_exporter_otlp_endpoint" "$OTEL_EXPORTER_OTLP_ENDPOINT"
+add_secret "nebula_lighthouse_external_ip" "$NEBULA_LIGHTHOUSE_EXTERNAL_IP"
+
+# Add frontend secrets
+echo ""
+echo "Adding frontend secrets..."
+add_secret "vite_api_base_url" "$VITE_API_BASE_URL"
+add_secret "vite_keycloak_url" "$VITE_KEYCLOAK_URL"
+add_secret "vite_keycloak_realm" "$VITE_KEYCLOAK_REALM"
+add_secret "vite_keycloak_client_id" "$VITE_KEYCLOAK_CLIENT_ID"
+add_secret "vite_otel_collector_url" "$VITE_OTEL_COLLECTOR_URL"
+add_secret "vite_otel_enabled" "${VITE_OTEL_ENABLED:-true}"
 
 echo ""
 echo "Done! Verifying secrets..."
