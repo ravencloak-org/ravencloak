@@ -30,14 +30,17 @@ steps:
         from_secret: db_password
       SPRING_PROFILES_ACTIVE:
         from_secret: spring_profiles_active
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        from_secret: otel_exporter_otlp_endpoint
     commands:
       - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
       - echo "Pulling latest image..."
       - docker pull ghcr.io/dsjkeeplearning/kos-auth-backend:latest
+      - docker network create auth-network 2>/dev/null || true
       - docker stop auth-backend || true
       - docker rm auth-backend || true
       - echo "Starting auth-backend..."
-      - docker run -d --name auth-backend --restart unless-stopped -p 8091:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" ghcr.io/dsjkeeplearning/kos-auth-backend:latest
+      - docker run -d --name auth-backend --restart unless-stopped --network auth-network -p 8091:8080 -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" -e OTEL_SERVICE_NAME=kos-auth-spring -e OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" -e OTEL_TRACES_EXPORTER=otlp -e OTEL_METRICS_EXPORTER=otlp -e OTEL_LOGS_EXPORTER=otlp ghcr.io/dsjkeeplearning/kos-auth-backend:latest
       - docker image prune -f
       - echo "Backend deployment complete!"
       - docker ps | grep auth-backend
@@ -56,7 +59,42 @@ steps:
       - docker stop auth-frontend || true
       - docker rm auth-frontend || true
       - echo "Starting auth-frontend..."
-      - docker run -d --name auth-frontend --restart unless-stopped -p 8090:80 ghcr.io/dsjkeeplearning/kos-auth-admin:latest
+      - docker run -d --name auth-frontend --restart unless-stopped --network auth-network -p 8090:80 ghcr.io/dsjkeeplearning/kos-auth-admin:latest
       - docker image prune -f
       - echo "Frontend deployment complete!"
       - docker ps | grep auth-frontend
+
+  - name: deploy-nebula-sidecar
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/nebula-ca:/host/nebula-ca:ro
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      DB_HOST:
+        from_secret: db_host
+      DB_PORT:
+        from_secret: db_port
+      DB_NAME:
+        from_secret: db_name
+      DB_USERNAME:
+        from_secret: db_username
+      DB_PASSWORD:
+        from_secret: db_password
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        from_secret: otel_exporter_otlp_endpoint
+      NEBULA_LIGHTHOUSE_EXTERNAL_IP:
+        from_secret: nebula_lighthouse_external_ip
+    commands:
+      - |
+        OTEL_GRPC_ENDPOINT=$(echo "$OTEL_EXPORTER_OTLP_ENDPOINT" | sed 's/:4318/:4317/')
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker pull ghcr.io/dsjkeeplearning/kos-nebula-sidecar:latest
+        docker stop nebula-sidecar || true
+        docker rm nebula-sidecar || true
+        echo "Starting nebula-sidecar..."
+        docker run -d --name nebula-sidecar --restart unless-stopped --network auth-network -e AUTH_BACKEND_URL=http://auth-backend:8080 -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e NEBULA_LIGHTHOUSE_IP=192.168.100.1 -e NEBULA_LIGHTHOUSE_EXTERNAL_IP="$NEBULA_LIGHTHOUSE_EXTERNAL_IP" -e NEBULA_LIGHTHOUSE_PORT=4242 -e NEBULA_CA_CERT_PATH=/etc/nebula/ca.crt -e NEBULA_CA_KEY_PATH=/etc/nebula/ca.key -e SERVICE_PORT=8081 -e OTEL_SERVICE_NAME=kos-auth-go-gin -e OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_GRPC_ENDPOINT" -v /opt/nebula-ca:/etc/nebula:ro ghcr.io/dsjkeeplearning/kos-nebula-sidecar:latest
+        docker image prune -f
+        echo "Nebula sidecar deployment complete!"
+        docker ps | grep nebula-sidecar
