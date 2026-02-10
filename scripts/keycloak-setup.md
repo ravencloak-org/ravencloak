@@ -1,79 +1,95 @@
 # Keycloak Production Setup Guide
 
-Production Keycloak: `http://auth.keeplearningos.com`
+Production Keycloak: `https://auth.keeplearningos.com`
+Frontend: `https://forge.keeplearningos.com`
 
 ## Architecture
 
+Everything lives in the **master** realm. No separate realm needed.
+
 ```
-Frontend (kos-admin-web)  ──PKCE auth code──►  Keycloak (saas-admin realm)
+Frontend (kos-admin-web)  ──PKCE auth code──►  Keycloak (master realm)
         │                                            │
         │ Bearer JWT                                 │
         ▼                                            │
-Backend (Spring Boot)  ──client_credentials──►  Keycloak (master realm / admin-cli)
+Backend (Spring Boot)  ──client_credentials──►  Keycloak (master realm / kos-admin-api)
 ```
 
-- **`saas-admin` realm** — user-facing auth (frontend login, SUPER_ADMIN role)
-- **`master` realm** — admin API access (backend manages all realms via `admin-cli`)
+### Clients in master realm
+
+| Client | Type | Purpose |
+|--------|------|---------|
+| `kos-admin-api` | Confidential, service account | Backend admin API (full cross-realm access) |
+| `kos-admin-web` | Public, PKCE | Frontend login (keycloak-js) |
+| `kos-admin-console` | Confidential | Backend OAuth2 (Spring Security registration) |
+| `admin-cli` | Public (default) | **Not modified** — used only for script authentication |
+
+### Authentication flow
+
+- Users authenticate via **GitHub IDP** (already configured in master)
+- `SUPER_ADMIN` realm role gates admin access in backend and frontend
 
 ---
 
-## Step 1: Configure `admin-cli` in Master Realm
+## Automated Setup
 
-The backend's `KeycloakAdminClient` uses client credentials on `admin-cli` to call the Keycloak Admin REST API.
+Run the setup script (idempotent — safe to re-run):
 
-1. Login to Keycloak Admin Console → **master** realm
-2. Go to **Clients** → `admin-cli`
-3. **Settings** tab:
-   - Client authentication: **ON** (makes it confidential)
+```bash
+KEYCLOAK_ADMIN_PASS='<admin password>' ./scripts/setup-keycloak-production.sh
+```
+
+This creates all clients, roles, and grants. See the script output for secrets.
+
+---
+
+## Manual Setup
+
+### Step 1: Create `kos-admin-api` Client (Backend Admin API)
+
+1. In **master** realm → **Clients** → **Create client**
+2. **General**:
+   - Client ID: `kos-admin-api`
+   - Name: `KOS Admin API`
+3. **Capability config**:
+   - Client authentication: **ON** (confidential)
+   - Standard flow: **OFF**
+   - Direct access grants: **OFF**
    - Service accounts roles: **ON**
-   - Save
-4. **Credentials** tab → copy the **Client secret**
-5. **Service accounts roles** tab → verify it has `admin` realm role (should be default)
+4. Save
+5. **Credentials** tab → copy the **Client secret**
+6. **Service accounts roles** tab → **Assign role** → select `admin`
 
 > **Save this**: `KEYCLOAK_ADMIN_CLIENT_SECRET=<secret>`
 
 ---
 
-## Step 2: Create `saas-admin` Realm
-
-1. Click realm dropdown (top-left) → **Create realm**
-2. Realm name: `saas-admin`
-3. Enabled: **ON**
-4. Save
-
-Optional: Under **Realm settings** → **Login** tab, enable:
-- User registration (if you want self-signup)
-- Email as username
-- Login with email
-
----
-
-## Step 3: Create `kos-admin-web` Client (Frontend — Public)
+### Step 2: Create `kos-admin-web` Client (Frontend — Public)
 
 Used by the Vue frontend (`keycloak-js`) for PKCE login.
 
-1. In `saas-admin` realm → **Clients** → **Create client**
+1. In **master** realm → **Clients** → **Create client**
 2. **General**:
    - Client ID: `kos-admin-web`
    - Name: `KOS Admin Web`
 3. **Capability config**:
    - Client authentication: **OFF** (public client)
-   - Standard flow: **ON** (Authorization Code)
+   - Standard flow: **ON** (Authorization Code + PKCE)
    - Direct access grants: **OFF**
 4. **Access settings**:
-   - Root URL: `https://auth.keeplearningos.com`
-   - Valid redirect URIs: `https://auth.keeplearningos.com/*`
-   - Valid post logout redirect URIs: `https://auth.keeplearningos.com/*`
-   - Web origins: `https://auth.keeplearningos.com`
+   - Root URL: `https://forge.keeplearningos.com`
+   - Home URL: `https://forge.keeplearningos.com`
+   - Valid redirect URIs: `https://forge.keeplearningos.com/*`, `https://auth.keeplearningos.com/*`
+   - Web origins: `https://forge.keeplearningos.com`, `https://auth.keeplearningos.com`
 5. Save
 
 ---
 
-## Step 4: Create `kos-admin-console` Client (Backend — Confidential)
+### Step 3: Create `kos-admin-console` Client (Backend — Confidential)
 
 Used by Spring Security OAuth2 registration (`saas-admin` in `application.yml`).
 
-1. In `saas-admin` realm → **Clients** → **Create client**
+1. In **master** realm → **Clients** → **Create client**
 2. **General**:
    - Client ID: `kos-admin-console`
    - Name: `KOS Admin Console`
@@ -82,8 +98,10 @@ Used by Spring Security OAuth2 registration (`saas-admin` in `application.yml`).
    - Standard flow: **ON** (authorization_code)
    - Service accounts roles: **ON**
 4. **Access settings**:
-   - Valid redirect URIs: `https://auth.keeplearningos.com/*`
-   - Web origins: `https://auth.keeplearningos.com`
+   - Root URL: `https://forge.keeplearningos.com`
+   - Home URL: `https://forge.keeplearningos.com`
+   - Valid redirect URIs: `https://forge.keeplearningos.com/*`, `https://auth.keeplearningos.com/*`
+   - Web origins: `https://forge.keeplearningos.com`, `https://auth.keeplearningos.com`
 5. Save
 6. **Credentials** tab → copy the **Client secret**
 
@@ -91,76 +109,72 @@ Used by Spring Security OAuth2 registration (`saas-admin` in `application.yml`).
 
 ---
 
-## Step 5: Create `SUPER_ADMIN` Role
+### Step 4: Create `SUPER_ADMIN` Role
 
 Required by `SuperAdminAuthorizationManager` (backend) and router guards (frontend).
 
-1. In `saas-admin` realm → **Realm roles** → **Create role**
+1. In **master** realm → **Realm roles** → **Create role**
 2. Role name: `SUPER_ADMIN`
-3. Save
-
----
-
-## Step 6: Create Admin User
-
-1. In `saas-admin` realm → **Users** → **Add user**
-2. Fill in: email, first name, last name
-3. Email verified: **ON**
+3. Description: `Super administrator with full system access`
 4. Save
-5. **Credentials** tab → **Set password** → toggle "Temporary" OFF
-6. **Role mapping** tab → **Assign role** → select `SUPER_ADMIN`
 
 ---
 
-## Step 7: Update Woodpecker CI Secrets
+### Step 5: Verify GitHub IDP
 
-### New secrets to add
+GitHub identity provider should already exist in master realm:
+
+1. Go to **Identity providers** in the left sidebar
+2. Confirm `github` is listed and enabled
+3. Verify the **Redirect URI** is registered in your GitHub OAuth App settings:
+   `https://auth.keeplearningos.com/realms/master/broker/github/endpoint`
+
+---
+
+### Step 6: Assign SUPER_ADMIN to Your User
+
+After logging in via GitHub for the first time:
+
+1. Go to **Users** → find your user
+2. **Role mapping** tab → **Assign role** → select `SUPER_ADMIN`
+
+---
+
+## Woodpecker CI Secrets
+
+### Backend secrets
 
 ```bash
-# admin-cli secret from master realm (Step 1)
-woodpecker-cli secret add --repository dsjkeeplearning/kos-auth-backend \
-  --name keycloak_admin_client_secret --value "<admin-cli secret>"
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name keycloak_base_url --value "https://auth.keeplearningos.com"
 
-# Keycloak base URL for admin API
-woodpecker-cli secret add --repository dsjkeeplearning/kos-auth-backend \
-  --name keycloak_base_url --value "http://auth.keeplearningos.com"
-```
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name keycloak_admin_client_id --value "kos-admin-api"
 
-### Existing secrets to verify/update
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name keycloak_admin_client_secret --value "<kos-admin-api secret>"
 
-```bash
-# kos-admin-console secret from saas-admin realm (Step 4)
-woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
   --name saas_admin_client_secret --value "<kos-admin-console secret>"
 
-# These should already be set, verify values:
-# keycloak_issuer_prefix = http://auth.keeplearningos.com/realms/
-# keycloak_saas_issuer_uri = http://auth.keeplearningos.com/realms/saas-admin
-# vite_keycloak_url = http://auth.keeplearningos.com
-# vite_keycloak_realm = saas-admin
-# vite_keycloak_client_id = kos-admin-web
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name keycloak_issuer_prefix --value "https://auth.keeplearningos.com/realms/"
+
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name keycloak_saas_issuer_uri --value "https://auth.keeplearningos.com/realms/master"
 ```
 
----
+### Frontend secrets (baked at Docker build time)
 
-## Step 8: Fix `deploy.yml` (REQUIRED)
+```bash
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name vite_keycloak_url --value "https://auth.keeplearningos.com"
 
-**`deploy.yml` is missing two env vars** that `KeycloakAdminClient` needs. The backend currently falls back to `http://localhost:8088` which won't work in production.
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name vite_keycloak_realm --value "master"
 
-Add to the `docker run` command in the deploy step:
-
-```
--e KEYCLOAK_BASE_URL="$KEYCLOAK_BASE_URL"
--e KEYCLOAK_ADMIN_CLIENT_SECRET="$KEYCLOAK_ADMIN_CLIENT_SECRET"
-```
-
-And add to the `environment:` block:
-
-```yaml
-KEYCLOAK_BASE_URL:
-  from_secret: keycloak_base_url
-KEYCLOAK_ADMIN_CLIENT_SECRET:
-  from_secret: keycloak_admin_client_secret
+woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+  --name vite_keycloak_client_id --value "kos-admin-web"
 ```
 
 ---
@@ -171,26 +185,45 @@ KEYCLOAK_ADMIN_CLIENT_SECRET:
 
 | Env Var | Config Property | Value | Purpose |
 |---------|----------------|-------|---------|
-| `KEYCLOAK_BASE_URL` | `keycloak.admin.base-url` | `http://auth.keeplearningos.com` | Admin REST API base URL |
-| `KEYCLOAK_ADMIN_CLIENT_SECRET` | `keycloak.admin.client-secret` | `<admin-cli secret>` | master realm client credentials |
-| `KEYCLOAK_ISSUER_PREFIX` | (used by `JwtIssuerReactiveAuthenticationManagerResolver`) | `http://auth.keeplearningos.com/realms/` | Multi-tenant JWT validation |
-| `KEYCLOAK_SAAS_ISSUER_URI` | `spring.security.oauth2.client.provider.keycloak.issuer-uri` | `http://auth.keeplearningos.com/realms/saas-admin` | OAuth2 provider discovery |
+| `KEYCLOAK_BASE_URL` | `keycloak.admin.base-url` | `https://auth.keeplearningos.com` | Admin REST API base URL |
+| `KEYCLOAK_ADMIN_CLIENT_ID` | `keycloak.admin.client-id` | `kos-admin-api` | Admin API client (replaces admin-cli) |
+| `KEYCLOAK_ADMIN_CLIENT_SECRET` | `keycloak.admin.client-secret` | `<kos-admin-api secret>` | Admin API client credentials |
+| `KEYCLOAK_ISSUER_PREFIX` | (JwtIssuerReactiveAuthenticationManagerResolver) | `https://auth.keeplearningos.com/realms/` | Multi-tenant JWT validation |
+| `KEYCLOAK_SAAS_ISSUER_URI` | `spring.security.oauth2.client.provider.keycloak.issuer-uri` | `https://auth.keeplearningos.com/realms/master` | OAuth2 provider discovery |
 | `SAAS_ADMIN_CLIENT_SECRET` | `spring.security.oauth2.client.registration.saas-admin.client-secret` | `<kos-admin-console secret>` | OAuth2 client credentials |
 
 ### Frontend (Vite build args — baked into Docker image)
 
 | Env Var | Value | Purpose |
 |---------|-------|---------|
-| `VITE_KEYCLOAK_URL` | `http://auth.keeplearningos.com` | keycloak-js server URL |
-| `VITE_KEYCLOAK_REALM` | `saas-admin` | keycloak-js realm |
+| `VITE_KEYCLOAK_URL` | `https://auth.keeplearningos.com` | keycloak-js server URL |
+| `VITE_KEYCLOAK_REALM` | `master` | keycloak-js realm |
 | `VITE_KEYCLOAK_CLIENT_ID` | `kos-admin-web` | keycloak-js public client |
+
+### deploy.yml env vars passed to backend container
+
+```yaml
+KEYCLOAK_BASE_URL:
+  from_secret: keycloak_base_url
+KEYCLOAK_ADMIN_CLIENT_ID:
+  from_secret: keycloak_admin_client_id
+KEYCLOAK_ADMIN_CLIENT_SECRET:
+  from_secret: keycloak_admin_client_secret
+KEYCLOAK_ISSUER_PREFIX:
+  from_secret: keycloak_issuer_prefix
+KEYCLOAK_SAAS_ISSUER_URI:
+  from_secret: keycloak_saas_issuer_uri
+SAAS_ADMIN_CLIENT_SECRET:
+  from_secret: saas_admin_client_secret
+```
 
 ---
 
 ## Verification
 
-1. Complete Steps 1–8 above
-2. Trigger a release: `git tag release-v<version> && git push --tags`
-3. After deploy, visit `https://auth.keeplearningos.com`
-4. Click login → redirects to Keycloak → authenticate → redirected back with JWT
-5. Check backend logs: `docker logs auth-backend` — no JWT/OAuth2 errors
+1. Run `./scripts/setup-keycloak-production.sh` or complete manual steps above
+2. Update Woodpecker secrets with the output values
+3. Trigger a release: `git tag release-v<version> && git push origin release-v<version>`
+4. Visit `https://forge.keeplearningos.com`
+5. Click login → redirects to Keycloak (GitHub IDP) → authenticate → redirected back with JWT
+6. Check backend logs: `docker logs auth-backend` — no JWT/OAuth2 errors
