@@ -1,6 +1,6 @@
 # Keycloak Production Setup Guide
 
-Production Keycloak: `https://keycloak.keeplearningos.com`
+Production Keycloak: `http://auth.keeplearningos.com`
 
 ## Architecture
 
@@ -123,7 +123,7 @@ woodpecker-cli secret add --repository dsjkeeplearning/kos-auth-backend \
 
 # Keycloak base URL for admin API
 woodpecker-cli secret add --repository dsjkeeplearning/kos-auth-backend \
-  --name keycloak_base_url --value "https://keycloak.keeplearningos.com"
+  --name keycloak_base_url --value "http://auth.keeplearningos.com"
 ```
 
 ### Existing secrets to verify/update
@@ -134,9 +134,9 @@ woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \
   --name saas_admin_client_secret --value "<kos-admin-console secret>"
 
 # These should already be set, verify values:
-# keycloak_issuer_prefix = https://keycloak.keeplearningos.com/realms/
-# keycloak_saas_issuer_uri = https://keycloak.keeplearningos.com/realms/saas-admin
-# vite_keycloak_url = https://keycloak.keeplearningos.com
+# keycloak_issuer_prefix = http://auth.keeplearningos.com/realms/
+# keycloak_saas_issuer_uri = http://auth.keeplearningos.com/realms/saas-admin
+# vite_keycloak_url = http://auth.keeplearningos.com
 # vite_keycloak_realm = saas-admin
 # vite_keycloak_client_id = kos-admin-web
 ```
@@ -171,17 +171,17 @@ KEYCLOAK_ADMIN_CLIENT_SECRET:
 
 | Env Var | Config Property | Value | Purpose |
 |---------|----------------|-------|---------|
-| `KEYCLOAK_BASE_URL` | `keycloak.admin.base-url` | `https://keycloak.keeplearningos.com` | Admin REST API base URL |
+| `KEYCLOAK_BASE_URL` | `keycloak.admin.base-url` | `http://auth.keeplearningos.com` | Admin REST API base URL |
 | `KEYCLOAK_ADMIN_CLIENT_SECRET` | `keycloak.admin.client-secret` | `<admin-cli secret>` | master realm client credentials |
-| `KEYCLOAK_ISSUER_PREFIX` | (used by `JwtIssuerReactiveAuthenticationManagerResolver`) | `https://keycloak.keeplearningos.com/realms/` | Multi-tenant JWT validation |
-| `KEYCLOAK_SAAS_ISSUER_URI` | `spring.security.oauth2.client.provider.keycloak.issuer-uri` | `https://keycloak.keeplearningos.com/realms/saas-admin` | OAuth2 provider discovery |
+| `KEYCLOAK_ISSUER_PREFIX` | (used by `JwtIssuerReactiveAuthenticationManagerResolver`) | `http://auth.keeplearningos.com/realms/` | Multi-tenant JWT validation |
+| `KEYCLOAK_SAAS_ISSUER_URI` | `spring.security.oauth2.client.provider.keycloak.issuer-uri` | `http://auth.keeplearningos.com/realms/saas-admin` | OAuth2 provider discovery |
 | `SAAS_ADMIN_CLIENT_SECRET` | `spring.security.oauth2.client.registration.saas-admin.client-secret` | `<kos-admin-console secret>` | OAuth2 client credentials |
 
 ### Frontend (Vite build args — baked into Docker image)
 
 | Env Var | Value | Purpose |
 |---------|-------|---------|
-| `VITE_KEYCLOAK_URL` | `https://keycloak.keeplearningos.com` | keycloak-js server URL |
+| `VITE_KEYCLOAK_URL` | `http://auth.keeplearningos.com` | keycloak-js server URL |
 | `VITE_KEYCLOAK_REALM` | `saas-admin` | keycloak-js realm |
 | `VITE_KEYCLOAK_CLIENT_ID` | `kos-admin-web` | keycloak-js public client |
 
