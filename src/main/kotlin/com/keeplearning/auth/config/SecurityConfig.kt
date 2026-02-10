@@ -95,9 +95,11 @@ class SecurityConfig(
     fun corsConfigurationSource(): CorsConfigurationSource {
         val corsConfig = CorsConfiguration()
         corsConfig.allowedOrigins = listOf("http://localhost:5173", "https://forge.keeplearningos.com")
-        corsConfig.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        corsConfig.allowedHeaders = listOf("Content-Type", "Authorization")
+        corsConfig.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        corsConfig.allowedHeaders = listOf("*")
+        corsConfig.exposedHeaders = listOf("*")
         corsConfig.allowCredentials = true
+        corsConfig.maxAge = 3600
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", corsConfig)
         return source
