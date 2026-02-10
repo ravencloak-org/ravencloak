@@ -44,7 +44,7 @@ ADMIN_API_CLIENT_ID="kos-admin-api"
 FRONTEND_CLIENT_ID="kos-admin-web"
 BACKEND_CLIENT_ID="kos-admin-console"
 ROLE_NAME="SUPER_ADMIN"
-FRONTEND_URL="https://auth.keeplearningos.com"
+FRONTEND_URL="https://forge.keeplearningos.com"
 
 # ── Helper: Keycloak API call ─────────────────────────────────────────────────
 kc_api() {
