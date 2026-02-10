@@ -4,6 +4,7 @@ import com.keeplearning.auth.security.SuperAdminAuthorizationManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.ServerHttpSecurity
@@ -35,10 +36,11 @@ class SecurityConfig(
     fun securityWebFilterChain(http: ServerHttpSecurity, logoutSuccessHandler: ServerLogoutSuccessHandler): SecurityWebFilterChain {
         return http
             .csrf { it.disable() }
-            .cors { }
+            .cors { it.configurationSource(corsConfigurationSource()) }
             .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
             .authorizeExchange { exchanges ->
                 exchanges
+                    .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .pathMatchers("/api/public/**").permitAll()
                     .pathMatchers("/auth/super/login", "/oauth2/**").permitAll()
                     // OpenAPI / Swagger UI endpoints
