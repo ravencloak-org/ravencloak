@@ -43,3 +43,8 @@ jobs:
             forge/build/libs/forge-*.jar
             scim-common/build/libs/scim-common-*.jar
             !**/*-sources.jar
+
+      - name: Trigger ECS build
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+        run: gh workflow run build.yml --repo dsjkeeplearning/ecs-jarvis-core
