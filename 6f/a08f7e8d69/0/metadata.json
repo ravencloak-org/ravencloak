@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "6fa08f7e8d69",
+  "session_id": "b5280b46-cf69-428d-8d41-a1aa8a0897ed",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-13T09:50:04.626097Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/workflows/build-frontend.yml"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "3f52ed67-6b95-49bf-9817-811ef23cd8b0",
+  "checkpoint_transcript_start": 3820,
+  "transcript_lines_at_start": 3820,
+  "token_usage": {
+    "input_tokens": 44,
+    "cache_creation_tokens": 8346,
+    "cache_read_tokens": 450088,
+    "output_tokens": 544,
+    "api_call_count": 5
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-13T09:50:03.935556Z",
+    "agent_lines": 0,
+    "human_added": 400,
+    "human_modified": 205,
+    "human_removed": 0,
+    "total_committed": 401,
+    "agent_percentage": 0
+  }
+}
