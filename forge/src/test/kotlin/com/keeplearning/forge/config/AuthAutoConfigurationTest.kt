@@ -4,6 +4,7 @@ import com.keeplearning.forge.client.ScimClient
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -27,7 +28,7 @@ class AuthAutoConfigurationTest {
                 "forge.realm-name=test-realm"
             )
             .withBean(
-                org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager::class.java,
+                OAuth2AuthorizedClientManager::class.java,
                 { io.mockk.mockk() }
             )
             .run { context ->

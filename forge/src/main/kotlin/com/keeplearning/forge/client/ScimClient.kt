@@ -3,16 +3,14 @@ package com.keeplearning.forge.client
 import com.keeplearning.auth.scim.common.*
 import com.keeplearning.forge.config.AuthProperties
 import com.keeplearning.forge.exception.AuthException
-import kotlinx.coroutines.reactor.awaitSingle
-import kotlinx.coroutines.reactor.awaitSingleOrNull
-import org.springframework.web.reactive.function.client.ClientResponse
-import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.bodyToMono
-import reactor.core.publisher.Mono
+import org.springframework.core.ParameterizedTypeReference
+import org.springframework.http.MediaType
+import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
 import java.util.UUID
 
 class ScimClient(
-    private val webClient: WebClient,
+    private val restClient: RestClient,
     private val properties: AuthProperties
 ) {
     private val basePath: String
@@ -26,110 +24,134 @@ class ScimClient(
         startIndex: Int = 1,
         count: Int = 100
     ): ScimListResponse {
-        return webClient.get()
-            .uri { builder ->
-                builder.path(basePath)
-                    .queryParam("startIndex", startIndex)
-                    .queryParam("count", count)
-                filter?.let { builder.queryParam("filter", it) }
-                builder.build()
-            }
-            .header("API-Version", properties.apiVersion)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimListResponse>()
-            .awaitSingle()
+        return try {
+            restClient.get()
+                .uri { builder ->
+                    builder.path(basePath)
+                        .queryParam("startIndex", startIndex)
+                        .queryParam("count", count)
+                    filter?.let { builder.queryParam("filter", it) }
+                    builder.build()
+                }
+                .header("API-Version", properties.apiVersion)
+                .retrieve()
+                .body(ScimListResponse::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM list users")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun getUser(userId: UUID): ScimUserResource {
-        return webClient.get()
-            .uri("$basePath/{userId}", userId)
-            .header("API-Version", properties.apiVersion)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimUserResource>()
-            .awaitSingle()
+        return try {
+            restClient.get()
+                .uri("$basePath/{userId}", userId)
+                .header("API-Version", properties.apiVersion)
+                .retrieve()
+                .body(ScimUserResource::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM get user")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun createUser(resource: ScimUserResource): ScimUserResource {
-        return webClient.post()
-            .uri(basePath)
-            .header("API-Version", properties.apiVersion)
-            .bodyValue(resource)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimUserResource>()
-            .awaitSingle()
+        return try {
+            restClient.post()
+                .uri(basePath)
+                .header("API-Version", properties.apiVersion)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(resource)
+                .retrieve()
+                .body(ScimUserResource::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM create user")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun replaceUser(userId: UUID, resource: ScimUserResource): ScimUserResource {
-        return webClient.put()
-            .uri("$basePath/{userId}", userId)
-            .header("API-Version", properties.apiVersion)
-            .bodyValue(resource)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimUserResource>()
-            .awaitSingle()
+        return try {
+            restClient.put()
+                .uri("$basePath/{userId}", userId)
+                .header("API-Version", properties.apiVersion)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(resource)
+                .retrieve()
+                .body(ScimUserResource::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM replace user")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun patchUser(userId: UUID, patchRequest: ScimPatchRequest): ScimUserResource {
-        return webClient.patch()
-            .uri("$basePath/{userId}", userId)
-            .header("API-Version", properties.apiVersion)
-            .bodyValue(patchRequest)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimUserResource>()
-            .awaitSingle()
+        return try {
+            restClient.patch()
+                .uri("$basePath/{userId}", userId)
+                .header("API-Version", properties.apiVersion)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(patchRequest)
+                .retrieve()
+                .body(ScimUserResource::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM patch user")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun deleteUser(userId: UUID) {
-        webClient.delete()
-            .uri("$basePath/{userId}", userId)
-            .header("API-Version", properties.apiVersion)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<Void>()
-            .awaitSingleOrNull()
+        try {
+            restClient.delete()
+                .uri("$basePath/{userId}", userId)
+                .header("API-Version", properties.apiVersion)
+                .retrieve()
+                .toBodilessEntity()
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun bulkRequest(request: ScimBulkRequest): ScimBulkResponse {
-        return webClient.post()
-            .uri("$realmBasePath/Bulk")
-            .header("API-Version", properties.apiVersion)
-            .bodyValue(request)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimBulkResponse>()
-            .awaitSingle()
+        return try {
+            restClient.post()
+                .uri("$realmBasePath/Bulk")
+                .header("API-Version", properties.apiVersion)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(ScimBulkResponse::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM bulk request")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
     suspend fun getChecksum(): ScimChecksumResponse {
-        return webClient.get()
-            .uri("$basePath/checksum")
-            .header("API-Version", properties.apiVersion)
-            .retrieve()
-            .onStatus({ it.isError }) { response -> handleError(response) }
-            .bodyToMono<ScimChecksumResponse>()
-            .awaitSingle()
+        return try {
+            restClient.get()
+                .uri("$basePath/checksum")
+                .header("API-Version", properties.apiVersion)
+                .retrieve()
+                .body(ScimChecksumResponse::class.java)
+                ?: throw AuthException(status = 500, message = "Empty response from SCIM checksum")
+        } catch (e: RestClientResponseException) {
+            throw handleError(e)
+        }
     }
 
-    private fun handleError(response: ClientResponse): Mono<Throwable> {
-        return response.bodyToMono<ScimErrorResponse>()
-            .map<Throwable> { error ->
-                AuthException(
-                    status = response.statusCode().value(),
-                    scimError = error
-                )
-            }
-            .onErrorResume {
-                Mono.just(
-                    AuthException(
-                        status = response.statusCode().value(),
-                        message = "Forge SDK error (HTTP ${response.statusCode().value()})"
-                    )
-                )
-            }
+    private fun handleError(e: RestClientResponseException): AuthException {
+        return try {
+            val scimError = e.getResponseBodyAs(ScimErrorResponse::class.java)
+            AuthException(
+                status = e.statusCode.value(),
+                scimError = scimError
+            )
+        } catch (_: Exception) {
+            AuthException(
+                status = e.statusCode.value(),
+                message = "Forge SDK error (HTTP ${e.statusCode.value()})"
+            )
+        }
     }
 }
