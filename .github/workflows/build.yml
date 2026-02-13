@@ -47,4 +47,7 @@ jobs:
       - name: Trigger ECS build
         env:
           GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-        run: gh workflow run build.yml --repo dsjkeeplearning/ecs-jarvis-core
+        run: |
+          # Dispatch to the default branch; falls back to explicit ref if needed
+          gh workflow run build.yml --repo dsjkeeplearning/ecs-jarvis-core --ref main || \
+            gh workflow run build.yml --repo dsjkeeplearning/ecs-jarvis-core --ref fix/local-forge-jar-support
