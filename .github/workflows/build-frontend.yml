@@ -56,3 +56,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_BASE_URL=https://api.forge.keeplearningos.com
+            VITE_KEYCLOAK_URL=https://auth.keeplearningos.com
+            VITE_KEYCLOAK_REALM=saas-admin
+            VITE_KEYCLOAK_CLIENT_ID=kos-admin-web
+            VITE_OTEL_ENABLED=false
