@@ -4,6 +4,7 @@ import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import com.keeplearning.auth.config.KeycloakSpiProperties
 import com.keeplearning.auth.domain.entity.KcRealm
+import com.keeplearning.auth.domain.entity.User
 import io.r2dbc.postgresql.codec.Json
 import com.keeplearning.auth.domain.repository.*
 import com.keeplearning.auth.keycloak.client.KeycloakAdminClient
@@ -31,6 +32,7 @@ class RealmService(
     private val roleRepository: KcRoleRepository,
     private val groupRepository: KcGroupRepository,
     private val userStorageProviderRepository: KcUserStorageProviderRepository,
+    private val userRepository: UserRepository,
     private val objectMapper: ObjectMapper
 ) {
     companion object {
@@ -117,6 +119,11 @@ class RealmService(
 
         // Sync all entities for the new realm
         syncService.syncRealm(request.realmName)
+
+        // Sync existing Keycloak users if SPI is enabled
+        if (request.enableUserStorageSpi) {
+            syncUsersFromKeycloak(request.realmName, realm)
+        }
 
         logger.info("Created realm: ${request.realmName}")
         return realm.toResponse()
@@ -208,10 +215,12 @@ class RealmService(
 
         // Handle SPI enablement changes
         var spiApiUrl = realm.spiApiUrl
+        var shouldSyncUsers = false
         if (request.spiEnabled == true && !realm.spiEnabled) {
             // Enable SPI
             spiApiUrl = request.spiApiUrl ?: spiProperties.defaultApiUrl
             keycloakClient.createUserStorageProvider(realmName, "kos-auth-storage", spiApiUrl)
+            shouldSyncUsers = true
         } else if (request.spiEnabled == false && realm.spiEnabled) {
             // Disable SPI - find and delete the component
             val providers = keycloakClient.getUserStorageProviders(realmName)
@@ -221,6 +230,9 @@ class RealmService(
                 }
             }
             spiApiUrl = null
+        } else if (request.spiApiUrl != null && realm.spiEnabled) {
+            // Update SPI API URL
+            spiApiUrl = request.spiApiUrl
         }
 
         // Update local database
@@ -239,6 +251,11 @@ class RealmService(
                 syncedAt = Instant.now()
             )
         ).awaitSingle()
+
+        // Sync existing Keycloak users if SPI was just enabled
+        if (shouldSyncUsers) {
+            syncUsersFromKeycloak(realmName, updatedRealm)
+        }
 
         logger.info("Updated realm: $realmName")
         return updatedRealm.toResponse()
@@ -279,6 +296,9 @@ class RealmService(
 
         // Sync to get the provider ID
         syncService.syncRealm(realmName)
+
+        // Sync existing Keycloak users to auth backend database
+        syncUsersFromKeycloak(realmName, updatedRealm)
 
         logger.info("Enabled SPI for realm: $realmName")
         return updatedRealm.toResponse()
@@ -388,6 +408,70 @@ class RealmService(
             failed = failed,
             results = results
         )
+    }
+
+    private suspend fun syncUsersFromKeycloak(realmName: String, realm: KcRealm) {
+        try {
+            logger.info("Starting user sync from Keycloak for realm: $realmName")
+
+            // Fetch all users from Keycloak (max 10000 to avoid memory issues)
+            val keycloakUsers = keycloakClient.getUsers(realmName, max = 10000)
+            logger.info("Found ${keycloakUsers.size} users in Keycloak realm: $realmName")
+
+            var imported = 0
+            var skipped = 0
+
+            for (kcUser in keycloakUsers) {
+                try {
+                    // Skip users without email or ID
+                    if (kcUser.email.isNullOrBlank() || kcUser.id.isNullOrBlank()) {
+                        logger.debug("Skipping user without email or ID: ${kcUser.username}")
+                        skipped++
+                        continue
+                    }
+
+                    // Check if user already exists in auth backend
+                    val existingUser = userRepository.findByKeycloakUserId(kcUser.id).awaitSingleOrNull()
+
+                    if (existingUser == null) {
+                        // Import user into auth backend
+                        val displayName = when {
+                            !kcUser.firstName.isNullOrBlank() && !kcUser.lastName.isNullOrBlank() ->
+                                "${kcUser.firstName} ${kcUser.lastName}"
+                            !kcUser.firstName.isNullOrBlank() -> kcUser.firstName
+                            !kcUser.lastName.isNullOrBlank() -> kcUser.lastName
+                            else -> kcUser.email.substringBefore("@")
+                        }
+
+                        userRepository.save(
+                            User(
+                                keycloakUserId = kcUser.id,
+                                email = kcUser.email,
+                                displayName = displayName,
+                                firstName = kcUser.firstName,
+                                lastName = kcUser.lastName,
+                                accountId = realm.accountId ?: realm.id!!,
+                                realmId = realm.id,
+                                status = if (kcUser.enabled) "ACTIVE" else "INACTIVE",
+                                createdAt = Instant.now()
+                            )
+                        ).awaitSingle()
+
+                        imported++
+                        logger.debug("Imported user: ${kcUser.email}")
+                    } else {
+                        skipped++
+                        logger.debug("User already exists: ${kcUser.email}")
+                    }
+                } catch (e: Exception) {
+                    logger.error("Failed to sync user ${kcUser.email}: ${e.message}", e)
+                }
+            }
+
+            logger.info("User sync complete for realm $realmName: $imported imported, $skipped skipped")
+        } catch (e: Exception) {
+            logger.error("Failed to sync users from Keycloak for realm $realmName: ${e.message}", e)
+        }
     }
 
     private fun KcRealm.toResponse() = RealmResponse(
