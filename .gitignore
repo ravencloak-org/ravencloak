@@ -54,3 +54,4 @@ web/dist-types/
 web/.vite/
 web/*.local
 web/*.tsbuildinfo
+cloudflared-config.yml
