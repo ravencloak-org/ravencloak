@@ -502,6 +502,79 @@ class KeycloakAdminClient(
             .awaitSingleOrNull()
     }
 
+    // ==================== USER ROLE MAPPING OPERATIONS ====================
+
+    suspend fun getUserClientRoleMappings(
+        realmName: String,
+        userId: String,
+        clientUuid: String
+    ): List<RoleRepresentation> {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/users/$userId/role-mappings/clients/$clientUuid")
+            .retrieve()
+            .bodyToFlux<RoleRepresentation>()
+            .collectList()
+            .awaitSingle()
+    }
+
+    suspend fun addUserClientRoleMappings(
+        realmName: String,
+        userId: String,
+        clientUuid: String,
+        roles: List<RoleRepresentation>
+    ) {
+        val client = adminClient()
+        client.post()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/users/$userId/role-mappings/clients/$clientUuid")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(roles)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Added ${roles.size} client role(s) to user: $userId in realm: $realmName")
+    }
+
+    suspend fun removeUserClientRoleMappings(
+        realmName: String,
+        userId: String,
+        clientUuid: String,
+        roles: List<RoleRepresentation>
+    ) {
+        val client = adminClient()
+        client.method(org.springframework.http.HttpMethod.DELETE)
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/users/$userId/role-mappings/clients/$clientUuid")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(roles)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Removed ${roles.size} client role(s) from user: $userId in realm: $realmName")
+    }
+
+    // ==================== SINGLE USER OPERATIONS ====================
+
+    suspend fun getUser(realmName: String, userId: String): UserRepresentation {
+        val client = adminClient()
+        return client.get()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/users/$userId")
+            .retrieve()
+            .bodyToMono<UserRepresentation>()
+            .awaitSingle()
+    }
+
+    suspend fun updateUser(realmName: String, userId: String, user: UserRepresentation) {
+        val client = adminClient()
+        client.put()
+            .uri("${adminProperties.baseUrl}/admin/realms/$realmName/users/$userId")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(user)
+            .retrieve()
+            .toBodilessEntity()
+            .awaitSingle()
+        logger.info("Updated user: $userId in realm: $realmName")
+    }
+
     // ==================== HEALTH CHECK ====================
 
     suspend fun healthCheck(): Boolean {
