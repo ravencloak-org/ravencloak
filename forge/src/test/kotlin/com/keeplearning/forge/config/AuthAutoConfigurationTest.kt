@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager
+import org.springframework.web.client.RestClient
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -28,8 +29,14 @@ class AuthAutoConfigurationTest {
                 "forge.realm-name=test-realm"
             )
             .withBean(
+                "forgeAuthorizedClientManager",
                 OAuth2AuthorizedClientManager::class.java,
                 { io.mockk.mockk() }
+            )
+            .withBean(
+                "forgeRestClient",
+                RestClient::class.java,
+                { RestClient.builder().baseUrl("http://localhost:8080").build() }
             )
             .run { context ->
                 assertNotNull(context.getBean(ScimClient::class.java))
