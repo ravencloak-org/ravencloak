@@ -97,3 +97,11 @@ data class SyncResponse(
     val userStorageProvidersProcessed: Int,
     val success: Boolean
 )
+
+data class BulkSyncResponse(
+    val totalProcessed: Int,
+    val imported: Int,
+    val updated: Int,
+    val failed: Int,
+    val results: List<SyncResponse>
+)

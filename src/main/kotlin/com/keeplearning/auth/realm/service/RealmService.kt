@@ -307,6 +307,89 @@ class RealmService(
         )
     }
 
+    suspend fun syncAllRealms(): BulkSyncResponse {
+        logger.info("Starting bulk realm sync from Keycloak")
+
+        // Fetch all realms from Keycloak
+        val keycloakRealms = keycloakClient.getRealms()
+        val results = mutableListOf<SyncResponse>()
+        var imported = 0
+        var updated = 0
+        var failed = 0
+
+        for (keycloakRealm in keycloakRealms) {
+            try {
+                val realmName = keycloakRealm.realm ?: continue
+
+                // Check if realm exists in local DB
+                val existingRealm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
+
+                if (existingRealm == null) {
+                    // Import new realm
+                    logger.info("Importing new realm: $realmName")
+                    val newRealm = realmRepository.save(
+                        KcRealm(
+                            accountId = null, // No account association for imported realms
+                            realmName = realmName,
+                            displayName = keycloakRealm.displayName ?: realmName,
+                            enabled = keycloakRealm.enabled ?: true,
+                            spiEnabled = false,
+                            spiApiUrl = null,
+                            attributes = Json.of("{}"),
+                            keycloakId = keycloakRealm.id!!,
+                            syncedAt = Instant.now()
+                        )
+                    ).awaitSingle()
+                    imported++
+
+                    // Sync all entities for the imported realm
+                    val syncResult = syncService.syncRealm(realmName)
+                    results.add(SyncResponse(
+                        realmName = realmName,
+                        clientsProcessed = syncResult.clients.count,
+                        rolesProcessed = syncResult.roles.count,
+                        groupsProcessed = syncResult.groups.count,
+                        userStorageProvidersProcessed = syncResult.userStorageProviders.count,
+                        success = syncResult.success
+                    ))
+                } else {
+                    // Update existing realm metadata and sync
+                    logger.info("Updating existing realm: $realmName")
+                    realmRepository.save(
+                        existingRealm.copy(
+                            displayName = keycloakRealm.displayName ?: existingRealm.displayName,
+                            enabled = keycloakRealm.enabled ?: existingRealm.enabled,
+                            syncedAt = Instant.now()
+                        )
+                    ).awaitSingle()
+
+                    val syncResult = syncService.syncRealm(realmName)
+                    results.add(SyncResponse(
+                        realmName = realmName,
+                        clientsProcessed = syncResult.clients.count,
+                        rolesProcessed = syncResult.roles.count,
+                        groupsProcessed = syncResult.groups.count,
+                        userStorageProvidersProcessed = syncResult.userStorageProviders.count,
+                        success = syncResult.success
+                    ))
+                    updated++
+                }
+            } catch (e: Exception) {
+                logger.error("Failed to sync realm ${keycloakRealm.realm}: ${e.message}", e)
+                failed++
+            }
+        }
+
+        logger.info("Bulk realm sync complete: $imported imported, $updated updated, $failed failed")
+        return BulkSyncResponse(
+            totalProcessed = keycloakRealms.size,
+            imported = imported,
+            updated = updated,
+            failed = failed,
+            results = results
+        )
+    }
+
     private fun KcRealm.toResponse() = RealmResponse(
         id = id!!,
         realmName = realmName,

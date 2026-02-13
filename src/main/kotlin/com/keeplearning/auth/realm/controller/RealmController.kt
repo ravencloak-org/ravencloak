@@ -53,4 +53,9 @@ class RealmController(
     suspend fun triggerSync(@PathVariable name: String): SyncResponse {
         return realmService.triggerSync(name)
     }
+
+    @PostMapping("/sync")
+    suspend fun syncAllRealms(): BulkSyncResponse {
+        return realmService.syncAllRealms()
+    }
 }

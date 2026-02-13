@@ -32,5 +32,9 @@ export const realmsApi = {
 
   sync: async (name: string): Promise<void> => {
     await api.post(`/api/super/realms/${name}/sync`)
+  },
+
+  syncAll: async (): Promise<void> => {
+    await api.post('/api/super/realms/sync')
   }
 }

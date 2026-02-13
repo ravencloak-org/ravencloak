@@ -17,6 +17,7 @@ const realmStore = useRealmStore()
 const toast = useToast()
 
 const loading = ref(true)
+const syncing = ref(false)
 const error = ref<string | null>(null)
 
 onMounted(async () => {
@@ -48,6 +49,32 @@ function navigateToCreateRealm(): void {
 
 function navigateToRealmDashboard(realmName: string): void {
   router.push(`/realms/${realmName}`)
+}
+
+async function syncFromKeycloak(): Promise<void> {
+  syncing.value = true
+  error.value = null
+
+  try {
+    await realmStore.syncAllRealms()
+    await loadRealms()
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Realms imported from Keycloak',
+      life: 3000
+    })
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to import realms'
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.value,
+      life: 5000
+    })
+  } finally {
+    syncing.value = false
+  }
 }
 </script>
 
@@ -84,12 +111,21 @@ function navigateToRealmDashboard(realmName: string): void {
     <div v-else-if="!realmStore.hasRealms" class="empty-state">
       <i class="pi pi-inbox empty-icon" />
       <h2>No Realms Found</h2>
-      <p>Get started by creating your first authentication realm.</p>
-      <Button
-        label="Create Your First Realm"
-        icon="pi pi-plus"
-        @click="navigateToCreateRealm"
-      />
+      <p>Import existing realms from Keycloak or create a new one.</p>
+      <div class="empty-state-actions">
+        <Button
+          label="Import from Keycloak"
+          icon="pi pi-refresh"
+          severity="secondary"
+          :loading="syncing"
+          @click="syncFromKeycloak"
+        />
+        <Button
+          label="Create New Realm"
+          icon="pi pi-plus"
+          @click="navigateToCreateRealm"
+        />
+      </div>
     </div>
 
     <div v-else class="realm-grid">
@@ -169,6 +205,12 @@ function navigateToRealmDashboard(realmName: string): void {
 .empty-state p {
   margin: 0 0 1.5rem;
   color: var(--p-text-muted-color);
+}
+
+.empty-state-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
 .realm-grid {

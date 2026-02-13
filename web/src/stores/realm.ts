@@ -124,6 +124,20 @@ export const useRealmStore = defineStore('realm', () => {
     }
   }
 
+  async function syncAllRealms(): Promise<void> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await realmsApi.syncAll()
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to sync realms from Keycloak'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   function clearCurrentRealm(): void {
     currentRealm.value = null
   }
@@ -141,6 +155,7 @@ export const useRealmStore = defineStore('realm', () => {
     deleteRealm,
     enableSpi,
     syncRealm,
+    syncAllRealms,
     clearCurrentRealm
   }
 }, {
