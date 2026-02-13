@@ -30,6 +30,7 @@ export function getKeycloak(): Keycloak {
 export async function initKeycloak(): Promise<boolean> {
   try {
     const authenticated = await keycloak.init({
+      onLoad: 'check-sso',
       pkceMethod: 'S256',
       checkLoginIframe: false
     })
