@@ -3,6 +3,8 @@ name: Build
 on:
   push:
     branches: [main, 'fix/*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -20,9 +22,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build all JARs
+      - name: Build and test all modules
         run: |
-          ./gradlew bootJar :keycloak-spi:shadowJar :forge:jar :scim-common:jar -x test --no-daemon
+          ./gradlew :test bootJar :keycloak-spi:shadowJar :forge:jar :scim-common:jar --no-daemon
 
       - name: Upload auth JARs
         uses: actions/upload-artifact@v4

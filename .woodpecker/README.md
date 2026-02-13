@@ -6,12 +6,12 @@ This document details the CI/CD setup using [Woodpecker CI](https://woodpecker-c
 
 | Pipeline | File | Trigger | Description |
 |----------|------|---------|-------------|
-| Auth Build | `auth.yml` | Push/PR to `src/**` | Compile and build Spring Boot app |
-| Keycloak SPI Build | `keycloak-spi.yml` | Push/PR to `keycloak-spi/**` | Compile, test, build SPI JAR |
 | Auth Release | `auth-release.yml` | Tag `v*` | Full release for auth backend |
 | Keycloak SPI Release | `keycloak-spi-release.yml` | Tag `spi-v*` or manual | Full release for SPI |
 | Combined Release | `release-all.yml` | Tag `release-v*` or manual | Release both modules together |
 | Deploy | `deploy.yml` | Manual only | Deploy existing release |
+
+> **Note:** Auth build & test on push/PR is handled by GitHub Actions (`.github/workflows/build.yml`).
 
 ## Caching Strategy
 
@@ -292,9 +292,7 @@ docker buildx create --name multiarch --driver docker-container --use || docker 
 ```
 .woodpecker/
 ├── README.md              # This documentation
-├── auth.yml               # Auth backend CI (push/PR)
 ├── auth-release.yml       # Auth backend release (tag v*)
-├── keycloak-spi.yml       # Keycloak SPI CI (push/PR)
 ├── keycloak-spi-release.yml # Keycloak SPI release (tag spi-v*)
 ├── release-all.yml        # Combined release (tag release-v*)
 └── deploy.yml             # Manual deployment
