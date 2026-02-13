@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+    branches: [main, 'fix/*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build all JARs
+        run: |
+          ./gradlew bootJar :keycloak-spi:shadowJar :forge:jar :scim-common:jar -x test --no-daemon
+
+      - name: Upload auth JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-jars
+          retention-days: 30
+          path: |
+            build/libs/auth-*.jar
+            keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar
+            !**/*-plain.jar
+
+      - name: Upload SDK JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-jars
+          retention-days: 30
+          path: |
+            forge/build/libs/forge-*.jar
+            scim-common/build/libs/scim-common-*.jar
+            !**/*-sources.jar
