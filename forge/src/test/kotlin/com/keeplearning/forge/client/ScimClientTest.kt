@@ -9,7 +9,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.*
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
-import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.client.RestClient
 import tools.jackson.module.kotlin.jacksonMapperBuilder
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -36,11 +36,11 @@ class ScimClientTest {
             apiVersion = "1.0"
         )
 
-        val webClient = WebClient.builder()
+        val restClient = RestClient.builder()
             .baseUrl(properties.baseUrl)
             .build()
 
-        scimClient = ScimClient(webClient, properties)
+        scimClient = ScimClient(restClient, properties)
     }
 
     @AfterEach
