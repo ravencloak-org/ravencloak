@@ -113,6 +113,7 @@ class ExternalUserStorageProvider(
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .header("Accept", "application/json")
                 .header("X-Realm-Name", realmName)
+                .header("API-Version", "1.0")
 
             // Add client ID header if available
             if (!clientId.isNullOrBlank()) {
