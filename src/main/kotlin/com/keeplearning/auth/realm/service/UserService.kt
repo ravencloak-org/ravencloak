@@ -19,47 +19,95 @@ class UserService(
     private val userRepository: UserRepository,
     private val realmRepository: KcRealmRepository,
     private val clientRepository: KcClientRepository,
-    private val userClientRepository: KcUserClientRepository
+    private val userClientRepository: KcUserClientRepository,
+    private val keycloakAdminClient: com.keeplearning.auth.keycloak.client.KeycloakAdminClient
 ) {
     private val logger = LoggerFactory.getLogger(UserService::class.java)
 
     suspend fun listUsers(realmName: String): List<RealmUserResponse> {
-        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+        // Fetch users directly from Keycloak instead of local database
+        val keycloakUsers = keycloakAdminClient.getUsers(realmName, max = 1000)
 
-        val users = userRepository.findByRealmId(realm.id!!)
-            .collectList().awaitSingle()
-
-        return users.map { user ->
-            val authorizedClients = getAuthorizedClientsForUser(user.id!!)
-            user.toResponse(authorizedClients)
+        return keycloakUsers.map { kcUser ->
+            // Use Keycloak user ID as both id and keycloakUserId for frontend compatibility
+            val keycloakId = kcUser.id ?: ""
+            RealmUserResponse(
+                id = try { UUID.fromString(keycloakId) } catch (e: Exception) { UUID.randomUUID() },
+                keycloakUserId = keycloakId,
+                email = kcUser.email ?: "",
+                displayName = kcUser.username,
+                firstName = kcUser.firstName,
+                lastName = kcUser.lastName,
+                phone = null,
+                jobTitle = null,
+                department = null,
+                avatarUrl = null,
+                status = if (kcUser.enabled) "ACTIVE" else "INACTIVE",
+                lastLoginAt = null,
+                createdAt = Instant.now(), // Keycloak UserRep doesn't include timestamp in current DTO
+                authorizedClients = emptyList() // Could be enhanced to fetch from Keycloak if needed
+            )
         }
     }
 
     suspend fun getUser(realmName: String, userId: UUID): RealmUserDetailResponse {
-        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
-
-        val user = userRepository.findById(userId).awaitSingleOrNull()
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
-
-        if (user.realmId != realm.id) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found in realm")
+        // Fetch user directly from Keycloak using the UUID as Keycloak user ID
+        val kcUser = try {
+            keycloakAdminClient.getUser(realmName, userId.toString())
+        } catch (e: Exception) {
+            logger.error("Failed to fetch user $userId from Keycloak realm $realmName", e)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
         }
 
-        val authorizedClients = getAuthorizedClientDetailsForUser(user.id!!)
-        return user.toDetailResponse(authorizedClients)
+        return RealmUserDetailResponse(
+            id = userId,
+            keycloakUserId = kcUser.id ?: "",
+            email = kcUser.email ?: "",
+            displayName = kcUser.username,
+            firstName = kcUser.firstName,
+            lastName = kcUser.lastName,
+            phone = null,
+            bio = null,
+            jobTitle = null,
+            department = null,
+            avatarUrl = null,
+            status = if (kcUser.enabled) "ACTIVE" else "INACTIVE",
+            lastLoginAt = null,
+            createdAt = Instant.now(),
+            updatedAt = Instant.now(),
+            authorizedClients = emptyList()
+        )
     }
 
     suspend fun getUserByEmail(realmName: String, email: String): RealmUserDetailResponse {
-        val realm = realmRepository.findByRealmName(realmName).awaitSingleOrNull()
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Realm '$realmName' not found")
+        // Fetch user directly from Keycloak by email
+        val kcUser = keycloakAdminClient.getUserByEmail(realmName, email)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User with email '$email' not found")
 
-        val user = userRepository.findByRealmIdAndEmail(realm.id!!, email).awaitSingleOrNull()
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+        val userId = try {
+            UUID.fromString(kcUser.id ?: "")
+        } catch (e: Exception) {
+            UUID.randomUUID()
+        }
 
-        val authorizedClients = getAuthorizedClientDetailsForUser(user.id!!)
-        return user.toDetailResponse(authorizedClients)
+        return RealmUserDetailResponse(
+            id = userId,
+            keycloakUserId = kcUser.id ?: "",
+            email = kcUser.email ?: email,
+            displayName = kcUser.username,
+            firstName = kcUser.firstName,
+            lastName = kcUser.lastName,
+            phone = null,
+            bio = null,
+            jobTitle = null,
+            department = null,
+            avatarUrl = null,
+            status = if (kcUser.enabled) "ACTIVE" else "INACTIVE",
+            lastLoginAt = null,
+            createdAt = Instant.now(),
+            updatedAt = Instant.now(),
+            authorizedClients = emptyList()
+        )
     }
 
     suspend fun createUser(
