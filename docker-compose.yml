@@ -16,6 +16,9 @@ services:
       - KEYCLOAK_ISSUER_PREFIX=${KEYCLOAK_ISSUER_PREFIX:-https://auth.keeplearningos.com/realms/}
       - KEYCLOAK_SAAS_ISSUER_URI=${KEYCLOAK_SAAS_ISSUER_URI:-https://auth.keeplearningos.com/realms/saas-admin}
       - SAAS_ADMIN_CLIENT_SECRET=${SAAS_ADMIN_CLIENT_SECRET}
+      # Server configuration for reverse proxy
+      - SERVER_FORWARD_HEADERS_STRATEGY=framework
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SAAS_ADMIN_REDIRECT_URI=https://api.ravencloak.org/login/oauth2/code/saas-admin
       # Disable OTEL for now
       - OTEL_SDK_DISABLED=true
     restart: unless-stopped
