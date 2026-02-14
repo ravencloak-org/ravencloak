@@ -12,9 +12,11 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       # Production Keycloak
-      - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-https://auth.keeplearningos.com}
+      - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-http://keycloak:8080}
       - KEYCLOAK_ISSUER_PREFIX=${KEYCLOAK_ISSUER_PREFIX:-https://auth.keeplearningos.com/realms/}
       - KEYCLOAK_SAAS_ISSUER_URI=${KEYCLOAK_SAAS_ISSUER_URI:-https://auth.keeplearningos.com/realms/saas-admin}
+      - KEYCLOAK_ADMIN_CLIENT_ID=${KEYCLOAK_ADMIN_CLIENT_ID}
+      - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_ADMIN_CLIENT_SECRET}
       - SAAS_ADMIN_CLIENT_SECRET=${SAAS_ADMIN_CLIENT_SECRET}
       # Server configuration for reverse proxy
       - SERVER_FORWARD_HEADERS_STRATEGY=framework
