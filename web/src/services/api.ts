@@ -5,7 +5,8 @@ import type { Realm, RealmDetails, CreateRealmRequest, User, ApiError } from '@/
 const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'API-Version': '1.0'
   }
 })
 
@@ -15,6 +16,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    // Ensure API-Version header is always present
+    config.headers['API-Version'] = '1.0'
+
     return config
   },
   (error) => Promise.reject(error)
