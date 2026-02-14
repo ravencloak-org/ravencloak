@@ -36,7 +36,10 @@ jobs:
           OTEL_SDK_DISABLED=true
           EOF
 
-          # Pull latest images (EC2 is already logged into GHCR)
+          # Login to GHCR with token that has packages:read
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          # Pull latest images
           docker compose pull auth-backend
 
           # Restart with new image
