@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   auth-frontend:
-    image: ghcr.io/dsjkeeplearning/kos-auth-backend-frontend:1.0.17
+    image: ghcr.io/dsjkeeplearning/kos-auth-backend-frontend:latest
     container_name: auth-frontend
     ports:
       - "8090:80"
