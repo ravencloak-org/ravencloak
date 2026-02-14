@@ -36,17 +36,17 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           # Pull latest images
-          docker-compose pull auth-backend
+          docker compose pull auth-backend
 
           # Restart with new image
-          docker-compose up -d auth-backend
+          docker compose up -d auth-backend
 
           # Clean up old images
           docker image prune -f
 
           # Show status
           echo "=== Deployment Status ==="
-          docker-compose ps
+          docker compose ps
           echo ""
           echo "=== Recent Logs ==="
           docker logs auth-backend --tail 30
