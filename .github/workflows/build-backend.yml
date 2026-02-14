@@ -1,4 +1,4 @@
-name: Build Frontend
+name: Build Backend
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-web
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -21,6 +21,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build with Gradle
+        run: ./gradlew clean bootJar --no-daemon
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -50,15 +60,9 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./web
-          file: ./web/Dockerfile
+          context: .
+          file: ./Dockerfile
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VITE_API_BASE_URL=https://api.forge.keeplearningos.com
-            VITE_KEYCLOAK_URL=https://auth.keeplearningos.com
-            VITE_KEYCLOAK_REALM=master
-            VITE_KEYCLOAK_CLIENT_ID=kos-admin-web
-            VITE_OTEL_ENABLED=false
