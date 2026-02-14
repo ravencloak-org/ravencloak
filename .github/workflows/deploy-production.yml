@@ -42,8 +42,9 @@ jobs:
           # Pull latest images
           docker compose pull auth-backend
 
-          # Stop and remove existing container
-          docker compose down auth-backend || true
+          # Force remove existing container (created manually, not by compose)
+          docker stop auth-backend 2>/dev/null || true
+          docker rm -f auth-backend 2>/dev/null || true
 
           # Start with new image
           docker compose up -d auth-backend
