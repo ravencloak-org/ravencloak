@@ -18,7 +18,7 @@ services:
       - SAAS_ADMIN_CLIENT_SECRET=${SAAS_ADMIN_CLIENT_SECRET}
       # Server configuration for reverse proxy
       - SERVER_FORWARD_HEADERS_STRATEGY=framework
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SAAS_ADMIN_REDIRECT_URI=https://api.ravencloak.org/login/oauth2/code/saas-admin
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_MASTER_REDIRECT_URI=https://api.ravencloak.org/login/oauth2/code/master
       # Disable OTEL for now
       - OTEL_SDK_DISABLED=true
     restart: unless-stopped
