@@ -15,9 +15,15 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Deploy to production
         run: |
           cd /home/ubuntu
+
+          # Copy updated docker-compose.yml from repo
+          cp ${{ github.workspace }}/docker-compose.yml docker-compose.yml
 
           # Create .env file from secrets
           cat > .env <<'EOF'
