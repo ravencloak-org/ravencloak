@@ -1,5 +1,6 @@
-# Auth Backend - Release with Docker Compose Deployment
+# Auth Backend - Build and Release (CI only)
 # Triggered automatically when a tag v* is created
+# Deployment handled by GitHub Actions (see .github/workflows/deploy-production.yml)
 when:
   - event: tag
     ref: refs/tags/v*
@@ -64,68 +65,3 @@ steps:
             --notes-file release-assets/CHANGELOG.md \
             release-assets/*
         fi
-
-  - name: deploy-with-compose
-    image: docker:cli
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      GITHUB_TOKEN:
-        from_secret: github_token
-      # Environment variables for docker-compose
-      DB_HOST:
-        from_secret: db_host
-      DB_PORT:
-        from_secret: db_port
-      DB_NAME:
-        from_secret: db_name
-      DB_USERNAME:
-        from_secret: db_username
-      DB_PASSWORD:
-        from_secret: db_password
-      KEYCLOAK_BASE_URL:
-        from_secret: keycloak_base_url
-      KEYCLOAK_ISSUER_PREFIX:
-        from_secret: keycloak_issuer_prefix
-      KEYCLOAK_SAAS_ISSUER_URI:
-        from_secret: keycloak_saas_issuer_uri
-      KEYCLOAK_ADMIN_CLIENT_ID:
-        from_secret: keycloak_admin_client_id
-      KEYCLOAK_ADMIN_CLIENT_SECRET:
-        from_secret: keycloak_admin_client_secret
-      SAAS_ADMIN_CLIENT_SECRET:
-        from_secret: saas_admin_client_secret
-      SPRING_PROFILES_ACTIVE:
-        from_secret: spring_profiles_active
-    commands:
-      - apk add --no-cache docker-compose
-      - echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
-      - |
-        # Create .env file from secrets
-        cat > .env <<EOF
-        DB_HOST=$DB_HOST
-        DB_PORT=$DB_PORT
-        DB_NAME=$DB_NAME
-        DB_USERNAME=$DB_USERNAME
-        DB_PASSWORD=$DB_PASSWORD
-        KEYCLOAK_BASE_URL=$KEYCLOAK_BASE_URL
-        KEYCLOAK_ISSUER_PREFIX=$KEYCLOAK_ISSUER_PREFIX
-        KEYCLOAK_SAAS_ISSUER_URI=$KEYCLOAK_SAAS_ISSUER_URI
-        KEYCLOAK_ADMIN_CLIENT_ID=$KEYCLOAK_ADMIN_CLIENT_ID
-        KEYCLOAK_ADMIN_CLIENT_SECRET=$KEYCLOAK_ADMIN_CLIENT_SECRET
-        SAAS_ADMIN_CLIENT_SECRET=$SAAS_ADMIN_CLIENT_SECRET
-        SPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE
-        EOF
-
-        echo "Pulling latest images..."
-        docker-compose pull
-
-        echo "Deploying with docker-compose..."
-        docker-compose up -d --remove-orphans
-
-        echo "Cleaning up old images..."
-        docker image prune -f
-
-        echo "Deployment complete!"
-        docker-compose ps
-        docker logs auth-backend --tail 20

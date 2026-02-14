@@ -1,0 +1,54 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Deploy Auth Backend
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /home/ubuntu
+
+            # Create .env file from secrets
+            cat > .env <<'EOF'
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            KEYCLOAK_BASE_URL=${{ secrets.KEYCLOAK_BASE_URL }}
+            KEYCLOAK_ISSUER_PREFIX=${{ secrets.KEYCLOAK_ISSUER_PREFIX }}
+            KEYCLOAK_SAAS_ISSUER_URI=${{ secrets.KEYCLOAK_SAAS_ISSUER_URI }}
+            KEYCLOAK_ADMIN_CLIENT_ID=${{ secrets.KEYCLOAK_ADMIN_CLIENT_ID }}
+            KEYCLOAK_ADMIN_CLIENT_SECRET=${{ secrets.KEYCLOAK_ADMIN_CLIENT_SECRET }}
+            SAAS_ADMIN_CLIENT_SECRET=${{ secrets.SAAS_ADMIN_CLIENT_SECRET }}
+            SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }}
+            OTEL_SDK_DISABLED=true
+            EOF
+
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull latest images
+            docker-compose pull auth-backend
+
+            # Restart with new image
+            docker-compose up -d auth-backend
+
+            # Clean up old images
+            docker image prune -f
+
+            # Show status
+            docker-compose ps
+            docker logs auth-backend --tail 30
