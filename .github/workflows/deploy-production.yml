@@ -42,8 +42,11 @@ jobs:
           # Pull latest images
           docker compose pull auth-backend
 
-          # Restart with new image (force recreate)
-          docker compose up -d --force-recreate auth-backend
+          # Stop and remove existing container
+          docker compose down auth-backend || true
+
+          # Start with new image
+          docker compose up -d auth-backend
 
           # Clean up old images
           docker image prune -f
