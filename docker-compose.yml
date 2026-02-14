@@ -1,6 +1,6 @@
 services:
   auth-backend:
-    image: ghcr.io/dsjkeeplearning/kos-auth-backend:latest
+    image: ghcr.io/ravencloak-org/ravencloak:latest
     container_name: auth-backend
     ports:
       - "8091:8080"
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   auth-frontend:
-    image: ghcr.io/dsjkeeplearning/kos-auth-backend-frontend:latest
+    image: ghcr.io/ravencloak-org/ravencloak-web:latest
     container_name: auth-frontend
     ports:
       - "8090:80"
