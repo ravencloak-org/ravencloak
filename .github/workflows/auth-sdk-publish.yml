@@ -1,10 +1,10 @@
-# Forge SDK - Build, Test & Publish to GitHub Packages
+# Ravencloak SDK - Build, Test & Publish to GitHub Packages
 # Triggered on:
 #   - Push to forge/** or scim-common/** on main (build + test only)
 #   - SDK version tags: sdk-v* (build + test + publish)
 #   - Manual dispatch with version input
 
-name: Forge SDK - Publish
+name: Ravencloak SDK - Publish
 
 on:
   push:
@@ -48,7 +48,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and test forge
+      - name: Build and test ravencloak SDK
         run: ./gradlew :forge:build --no-daemon
         env:
           S3_BUILD_CACHE_BUCKET: ${{ secrets.S3_BUILD_CACHE_BUCKET }}
