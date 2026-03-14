@@ -5,6 +5,7 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.graalvm.buildtools.native") version "0.11.3"
 	id("com.google.cloud.tools.jib") version "3.5.2"
+	id("com.google.protobuf") version "0.9.4"
 	id("build-cache-metrics")
 }
 
@@ -28,8 +29,16 @@ java {
 	}
 }
 
+val grpcKotlinVersion = "1.5.0"
+
 repositories {
 	mavenCentral()
+}
+
+dependencyManagement {
+	imports {
+		mavenBom("org.springframework.grpc:spring-grpc-dependencies:1.0.2")
+	}
 }
 
 dependencies {
@@ -53,6 +62,10 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.1")
 	implementation("com.unboundid.product.scim2:scim2-sdk-common:4.0.0")
 	implementation(project(":scim-common"))
+	// gRPC / Spring gRPC
+	implementation("org.springframework.grpc:spring-grpc-spring-boot-starter")
+	implementation("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
+	implementation("com.google.protobuf:protobuf-kotlin")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.postgresql:r2dbc-postgresql")
@@ -111,7 +124,7 @@ jib {
 		tags = if (!jibTag.isNullOrBlank()) setOf(jibTag) else emptySet()
 	}
 	container {
-		ports = listOf("8080")
+		ports = listOf("8080", "9090")
 		mainClass = "com.keeplearning.auth.KosAuthApplicationKt"
 		creationTime.set("USE_CURRENT_TIMESTAMP")
 		jvmFlags = listOf("-javaagent:/app/otel/opentelemetry-javaagent.jar")
@@ -138,4 +151,30 @@ tasks.named("processAot") {
 
 tasks.named("processTestAot") {
 	enabled = false
+}
+
+// ──────────────────── Protobuf / gRPC code generation ────────────────────
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:${dependencyManagement.importedProperties["protobuf-java.version"]}"
+	}
+	plugins {
+		create("grpc") {
+			artifact = "io.grpc:protoc-gen-grpc-java:${dependencyManagement.importedProperties["grpc.version"]}"
+		}
+		create("grpckt") {
+			artifact = "io.grpc:protoc-gen-grpc-kotlin:$grpcKotlinVersion:jdk8@jar"
+		}
+	}
+	generateProtoTasks {
+		all().forEach { task ->
+			task.plugins {
+				create("grpc")
+				create("grpckt")
+			}
+			task.builtins {
+				create("kotlin")
+			}
+		}
+	}
 }

@@ -1,6 +1,10 @@
 spring:
   application:
     name: kos-auth-backend
+  # gRPC server runs on a separate port alongside WebFlux (default: 9090)
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
 
   # R2DBC Configuration
   r2dbc:

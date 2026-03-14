@@ -1,0 +1,201 @@
+syntax = "proto3";
+
+package keeplearning.auth.provisioning.v1;
+
+option java_multiple_files = true;
+option java_package = "com.keeplearning.auth.grpc.provisioning.v1";
+option java_outer_classname = "UserProvisioningProto";
+
+// UserProvisioning provides gRPC-based user provisioning for third-party
+// applications to manage users within their Keycloak realms.
+// This replaces the former Forge/SCIM REST SDK with a strongly typed,
+// high-performance gRPC contract.
+service UserProvisioning {
+
+  // CreateUser creates a single user in the specified realm.
+  // Returns ALREADY_EXISTS if a user with the same email exists in the realm.
+  // Returns NOT_FOUND if the realm does not exist.
+  rpc CreateUser(CreateUserRequest) returns (User);
+
+  // GetUser retrieves a single user by ID within a realm.
+  // Returns NOT_FOUND if the user or realm does not exist.
+  rpc GetUser(GetUserRequest) returns (User);
+
+  // ListUsers returns a paginated list of users in a realm.
+  // Supports optional SCIM-style filtering (e.g., 'userName eq "john@example.com"').
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+  // UpdateUser performs a full replacement of user fields.
+  // Returns NOT_FOUND if the user or realm does not exist.
+  rpc UpdateUser(UpdateUserRequest) returns (User);
+
+  // DeleteUser removes a user from the realm.
+  // Returns NOT_FOUND if the user or realm does not exist.
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+
+  // BulkCreateUsers creates multiple users in a single call.
+  // Individual failures are reported per-operation without aborting the batch.
+  rpc BulkCreateUsers(BulkCreateUsersRequest) returns (BulkUsersResponse);
+
+  // BulkUpdateUsers replaces multiple users in a single call.
+  // Individual failures are reported per-operation without aborting the batch.
+  rpc BulkUpdateUsers(BulkUpdateUsersRequest) returns (BulkUsersResponse);
+
+  // GetChecksum returns a deterministic SHA-256 checksum of all users in a realm.
+  // Used for sync verification — clients can compare local vs remote checksums
+  // to detect drift without fetching the full user list.
+  rpc GetChecksum(GetChecksumRequest) returns (ChecksumResponse);
+}
+
+// User represents a provisioned user within a realm.
+message User {
+  // Server-assigned UUID.
+  string id = 1;
+  // Primary identifier (email address). Unique within a realm.
+  string email = 2;
+  // External system identifier (e.g., Keycloak user ID).
+  string external_id = 3;
+  // Given name.
+  optional string first_name = 4;
+  // Family name.
+  optional string last_name = 5;
+  // Display name shown in UIs.
+  optional string display_name = 6;
+  // Phone number.
+  optional string phone = 7;
+  // Job title / role within the organization.
+  optional string job_title = 8;
+  // Whether the user account is active.
+  bool active = 9;
+  // ISO 8601 timestamp when the user was created.
+  string created_at = 10;
+  // ISO 8601 timestamp when the user was last modified.
+  string updated_at = 11;
+}
+
+// ──────────────────── Single Operations ────────────────────
+
+message CreateUserRequest {
+  // Target Keycloak realm name.
+  string realm_name = 1;
+  // Email address (becomes the unique userName).
+  string email = 2;
+  // External system identifier.
+  string external_id = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  optional string display_name = 6;
+  optional string phone = 7;
+  optional string job_title = 8;
+  // Defaults to true if not set.
+  bool active = 9;
+}
+
+message GetUserRequest {
+  string realm_name = 1;
+  // UUID of the user.
+  string user_id = 2;
+}
+
+message ListUsersRequest {
+  string realm_name = 1;
+  // Optional SCIM-style filter expression.
+  // Examples: 'userName eq "john@example.com"', 'displayName sw "J"'
+  optional string filter = 2;
+  // 1-based start index for pagination (default: 1).
+  int32 start_index = 3;
+  // Maximum number of results to return (default: 100).
+  int32 count = 4;
+}
+
+message ListUsersResponse {
+  int32 total_results = 1;
+  int32 start_index = 2;
+  int32 items_per_page = 3;
+  repeated User users = 4;
+}
+
+message UpdateUserRequest {
+  string realm_name = 1;
+  // UUID of the user to update.
+  string user_id = 2;
+  string email = 3;
+  string external_id = 4;
+  optional string first_name = 5;
+  optional string last_name = 6;
+  optional string display_name = 7;
+  optional string phone = 8;
+  optional string job_title = 9;
+  bool active = 10;
+}
+
+message DeleteUserRequest {
+  string realm_name = 1;
+  string user_id = 2;
+}
+
+message DeleteUserResponse {}
+
+// ──────────────────── Bulk Operations ────────────────────
+
+message BulkCreateUsersRequest {
+  string realm_name = 1;
+  repeated CreateUserData users = 2;
+}
+
+message CreateUserData {
+  string email = 1;
+  string external_id = 2;
+  optional string first_name = 3;
+  optional string last_name = 4;
+  optional string display_name = 5;
+  optional string phone = 6;
+  optional string job_title = 7;
+  bool active = 8;
+}
+
+message BulkUpdateUsersRequest {
+  string realm_name = 1;
+  repeated UpdateUserData users = 2;
+}
+
+message UpdateUserData {
+  // UUID of the user to update.
+  string user_id = 1;
+  string email = 2;
+  string external_id = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  optional string display_name = 6;
+  optional string phone = 7;
+  optional string job_title = 8;
+  bool active = 9;
+}
+
+message BulkUsersResponse {
+  repeated BulkOperationResult results = 1;
+}
+
+message BulkOperationResult {
+  // User ID (set on success or if known on failure).
+  string user_id = 1;
+  // gRPC-style status code (0 = OK, 5 = NOT_FOUND, 6 = ALREADY_EXISTS, etc.).
+  int32 status = 2;
+  // Human-readable error message (empty on success).
+  string error_message = 3;
+  // The created or updated user (set on success).
+  optional User user = 4;
+}
+
+// ──────────────────── Checksum ────────────────────
+
+message GetChecksumRequest {
+  string realm_name = 1;
+}
+
+message ChecksumResponse {
+  // Deterministic SHA-256 hex string of all users in the realm.
+  string checksum = 1;
+  // Total number of users included in the checksum computation.
+  int32 user_count = 2;
+}
