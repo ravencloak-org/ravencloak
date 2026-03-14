@@ -1,14 +1,83 @@
 # Architecture
 
+This document explains the high-level architecture of the KOS Auth Backend, how the major components interact, and the design decisions that shape the system.
+
+## System Overview
+
+KOS Auth is a **multi-tenant authentication and identity management backend** that acts as a control plane for Keycloak. It provides a management API for tenants, users, clients, roles, groups, and identity providers, while Keycloak handles the runtime authentication (OAuth2/OIDC token issuance).
+
+```mermaid
+graph TB
+    subgraph "External Clients"
+        WebAdmin["Vue 3 Admin Portal<br/>(web/)"]
+        SDK["Forge SDK<br/>(Spring Boot services)"]
+        ExtApps["External Applications"]
+    end
+
+    subgraph "Auth Backend (Spring Boot 4)"
+        API["REST API Layer<br/>(WebFlux Controllers)"]
+        Security["Security Layer<br/>(OAuth2 JWT validation)"]
+        Services["Service Layer<br/>(Business Logic)"]
+        Repos["Repository Layer<br/>(R2DBC)"]
+        SCIM["SCIM 2.0 API<br/>(User Provisioning)"]
+        Audit["Audit Trail<br/>(Entity Change Tracking)"]
+        KCSync["Keycloak Sync<br/>(Bidirectional)"]
+    end
+
+    subgraph "Infrastructure"
+        PG["PostgreSQL<br/>(ParadeDB + pgvector)"]
+        KC["Keycloak<br/>(Identity Provider)"]
+    end
+
+    WebAdmin -->|"JWT Bearer"| API
+    SDK -->|"OAuth2 Client Credentials"| SCIM
+    ExtApps -->|"JWT Bearer"| API
+
+    API --> Security
+    Security --> Services
+    SCIM --> Services
+    Services --> Repos
+    Services --> Audit
+    Services --> KCSync
+
+    Repos --> PG
+    KCSync -->|"Admin REST API"| KC
+
+    KC -->|"User Storage SPI"| API
+```
+
 ## Multi-Tenant Authentication
 
-The system supports multiple Keycloak realms via dynamic JWT issuer validation:
+The system supports multiple Keycloak realms, each representing a tenant. JWT tokens from any realm are accepted, with the issuer dynamically resolved at runtime.
 
-- `JwtIssuerReactiveAuthenticationManagerResolver` validates JWTs from any realm matching `KEYCLOAK_ISSUER_PREFIX`
-- `JwtAuthorityConverter` extracts roles from Keycloak's `realm_access.roles` claim, prefixing with `ROLE_`
-- Super admin access requires tokens from the `saas-admin` realm with `ROLE_SUPER_ADMIN` authority
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AuthBackend
+    participant Keycloak
 
-## API Route Authorization
+    Client->>Keycloak: Login (realm-specific)
+    Keycloak-->>Client: JWT (issuer = realm URL)
+
+    Client->>AuthBackend: API Request + JWT
+    AuthBackend->>AuthBackend: Extract issuer from JWT
+    AuthBackend->>AuthBackend: Validate issuer matches KEYCLOAK_ISSUER_PREFIX
+    AuthBackend->>Keycloak: Fetch JWK Set for realm
+    AuthBackend->>AuthBackend: Verify JWT signature + claims
+    AuthBackend->>AuthBackend: Extract roles from realm_access.roles
+    AuthBackend-->>Client: Response
+```
+
+### Key Security Components
+
+| Component | File | Responsibility |
+|-----------|------|----------------|
+| `SecurityConfig` | `config/SecurityConfig.kt` | Defines route authorization rules and filter chain |
+| `JwtAuthorityConverter` | `config/JwtAuthorityConverter.kt` | Extracts `realm_access.roles` from JWT, prefixes with `ROLE_` |
+| `SuperAdminAuthorizationManager` | `security/SuperAdminAuthorizationManager.kt` | Validates super admin access via saas-admin realm |
+| `SecurityGuards` | `security/SecurityGuards.kt` | Utility functions for realm/role checks |
+
+### API Route Authorization
 
 | Path Pattern | Authorization |
 |--------------|---------------|
@@ -19,96 +88,159 @@ The system supports multiple Keycloak realms via dynamic JWT issuer validation:
 | `/api/scim/v2/**` | Authenticated (OAuth2 JWT) |
 | All other routes | Authenticated |
 
-## Domain Model
+## Request Lifecycle
 
-### Core Entities
+A typical authenticated API request flows through these layers:
 
-Multi-tenant SaaS structure:
-
-```
-Account (top-level tenant, owns a Keycloak realm)
-├── Institute (organizational unit)
-│   └── App (feature module, enabled per institute)
-├── User (shadow record linked to Keycloak user)
-└── Role / RoleAssignment (RBAC with account, institute, or app scope)
-```
-
-- **Account** — top-level tenant with a dedicated Keycloak realm
-- **Institute** — organizational unit within an account
-- **App** — feature module that can be enabled per institute
-- **User** — shadow record linked to Keycloak user, scoped to account
-- **Role / RoleAssignment** — RBAC with account, institute, or app scope
-
-### User Search (ParadeDB BM25)
-
-The user table has a BM25 full-text search index on: `email`, `display_name`, `first_name`, `last_name`, `bio`, `job_title`, `department`.
-
-```sql
--- Search users by name or role
-SELECT id, email, display_name, pdb.score(id) as relevance
-FROM users
-WHERE (email, display_name, first_name, last_name) ||| 'john developer'
-  AND account_id = :account_id
-ORDER BY relevance DESC;
+```mermaid
+graph LR
+    A["HTTP Request"] --> B["Spring WebFlux<br/>Netty Server"]
+    B --> C["SecurityWebFilterChain<br/>(JWT validation)"]
+    C --> D["JwtAuthorityConverter<br/>(role extraction)"]
+    D --> E["Authorization Manager<br/>(route-level checks)"]
+    E --> F["Controller<br/>(DTO mapping)"]
+    F --> G["Service<br/>(business logic)"]
+    G --> H["Repository<br/>(R2DBC queries)"]
+    H --> I["PostgreSQL"]
+    G --> J["Keycloak Admin API<br/>(when sync needed)"]
+    G --> K["AuditService<br/>(change logging)"]
 ```
 
-| Operator | Description |
-|----------|-------------|
-| `\|\|\|` | Match any term |
-| `&&&` | Match all terms |
+## Module Architecture
 
-### Keycloak Entity Mapping
+The project is organized as a multi-module Gradle build:
 
-Shadow tables for Keycloak entities enable a custom admin frontend:
+```mermaid
+graph TB
+    subgraph "Multi-Module Gradle Project"
+        Auth["auth (root)<br/>Spring Boot 4 Backend"]
+        SPI["keycloak-spi<br/>User Storage Provider"]
+        ScimCommon["scim-common<br/>Shared SCIM DTOs"]
+        Forge["forge<br/>Spring Boot Starter SDK"]
+    end
 
-| Table | Description |
-|-------|-------------|
-| `kc_realms` | Keycloak realms linked to accounts |
-| `kc_clients` | OAuth2 clients per realm |
-| `kc_client_scopes` | OAuth2 scopes |
-| `kc_client_scope_mappings` | Client-to-scope assignments (DEFAULT/OPTIONAL) |
-| `kc_groups` | Hierarchical groups (self-referencing via `parent_id`) |
-| `kc_roles` | Realm and client roles |
-| `kc_role_composites` | Composite role mappings |
-| `kc_user_groups` | User-to-group assignments |
-| `kc_user_roles` | Direct user-to-role assignments |
-| `kc_group_roles` | Group-to-role assignments |
-| `kc_identity_providers` | SSO federation providers (Google, SAML, OIDC) |
-| `kc_sync_log` | Sync status tracking between DB and Keycloak |
-| `entity_action_logs` | Audit trail for entity changes |
+    subgraph "Deployable Artifacts"
+        Docker["Docker Image<br/>(ghcr.io)"]
+        SPIJAR["Fat JAR<br/>(Shadow)"]
+        Maven["Maven Package<br/>(GitHub Packages)"]
+    end
 
-### Paired Clients
+    Auth --> Docker
+    SPI --> SPIJAR
+    Forge --> Maven
+    ScimCommon --> Maven
 
-Full-stack applications can create paired frontend/backend clients:
+    Forge -.->|"depends on"| ScimCommon
+```
 
-- `kc_clients.paired_client_id` links frontend to backend client
-- **Frontend client**: public, `-web` suffix, configured redirect URIs
-- **Backend client**: confidential, `-backend` suffix, service accounts enabled
+| Module | Technology | Purpose | Artifact |
+|--------|-----------|---------|----------|
+| `auth` (root) | Kotlin, Spring Boot 4, WebFlux, R2DBC | Main backend service | Docker image |
+| `keycloak-spi` | Kotlin, Keycloak SPI | Read-only user validation provider | Fat JAR (Shadow) |
+| `scim-common` | Kotlin | Shared SCIM 2.0 DTOs and utilities | Maven package |
+| `forge` | Kotlin, Spring Boot Starter | Client SDK for SCIM API consumption | Maven package |
 
-### Audit Trail
+## Keycloak Integration
 
-Entity action logging with before/after state (JSONB):
+The system integrates with Keycloak in two directions:
 
-| Column | Description |
-|--------|-------------|
-| `entity_type` | CLIENT, ROLE, GROUP, IDP |
-| `action` | CREATE, UPDATE, DELETE |
-| `before_state` | JSONB snapshot before change |
-| `after_state` | JSONB snapshot after change |
-| `actor_id` | Keycloak user ID from JWT `sub` claim |
-| `actor_email` | Email from JWT `email` claim |
+### 1. Auth Backend → Keycloak (Admin API)
 
-**Key Services:**
+The `KeycloakAdminClient` uses Keycloak's REST Admin API to manage realms, clients, roles, groups, users, and identity providers. Changes made through the Auth Backend API are pushed to Keycloak.
 
-- `AuditService` — logs entity actions with JWT actor info
-- `AuditQueryService` — query logs by realm, entity, actor
-- `RevertService` — restore entities to previous state (Keycloak + DB)
+### 2. Keycloak → Auth Backend (User Storage SPI)
 
-**REST Endpoints:**
+The `keycloak-spi` module deploys a read-only User Storage Provider into Keycloak. During login, Keycloak calls the Auth Backend to validate whether a user exists:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/super/realms/{realm}/audit` | List audit logs with filters |
-| `GET` | `/api/super/realms/{realm}/audit/{id}` | Get single log entry |
-| `POST` | `/api/super/realms/{realm}/audit/{id}/revert` | Revert to before state |
-| `GET` | `/api/super/my-actions` | Current user's actions across realms |
+```mermaid
+sequenceDiagram
+    participant User
+    participant Keycloak
+    participant SPI as "User Storage SPI"
+    participant Backend as "Auth Backend"
+
+    User->>Keycloak: Login (email + password)
+    Keycloak->>SPI: getUserByEmail(email)
+    SPI->>Backend: GET /api/users/{email}
+    alt User exists (200)
+        Backend-->>SPI: User data
+        SPI-->>Keycloak: ExternalUserAdapter
+        Keycloak->>Keycloak: Validate password
+        Keycloak-->>User: JWT Token
+    else User not found (404)
+        Backend-->>SPI: Not found
+        SPI-->>Keycloak: null
+        Keycloak->>Keycloak: Try next provider
+    end
+```
+
+### 3. Bidirectional Sync
+
+The `KeycloakSyncService` synchronizes state between the Auth Backend's database and Keycloak. On startup (when enabled), it pulls realms, clients, roles, groups, and users from Keycloak into shadow tables, enabling the admin UI to render Keycloak state without direct Keycloak API calls.
+
+## SCIM 2.0 Provisioning
+
+The SCIM API enables external services to manage users via a standards-based protocol:
+
+```mermaid
+graph LR
+    subgraph "Consumer Service"
+        ForgeSDK["Forge SDK"]
+        StartupSync["Startup Sync"]
+    end
+
+    subgraph "Auth Backend"
+        ScimAPI["SCIM 2.0 API"]
+        ScimService["ScimUserService"]
+        UserRepo["UserRepository"]
+    end
+
+    ForgeSDK -->|"CRUD via SCIM"| ScimAPI
+    StartupSync -->|"Checksum + Bulk"| ScimAPI
+    ScimAPI --> ScimService
+    ScimService --> UserRepo
+    UserRepo --> PG["PostgreSQL"]
+```
+
+The Forge SDK provides automatic startup sync: it checksums local users against the Auth Backend, and if there's a drift, it performs a bulk sync to reconcile differences.
+
+## Data Flow Patterns
+
+### Entity CRUD with Audit
+
+All entity modifications (clients, roles, groups, IDPs) follow this pattern:
+
+1. Controller receives request, validates DTO
+2. Service performs the operation on the database
+3. Service calls `KeycloakAdminClient` to sync the change to Keycloak
+4. `AuditService` logs the change with before/after JSONB snapshots
+5. Response returned to client
+
+### Paired Client Creation
+
+Full-stack applications create linked frontend/backend clients:
+
+1. `POST /api/super/realms/{realm}/applications` with `applicationType: FULL_STACK`
+2. Backend creates a public frontend client (`-web` suffix) with redirect URIs
+3. Backend creates a confidential backend client (`-backend` suffix) with service accounts
+4. Links them via `kc_clients.paired_client_id`
+5. Both clients are created in Keycloak
+6. Integration snippets are generated for the developer
+
+## Technology Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Language | Kotlin | 2.2 |
+| JVM | Java | 21 |
+| Framework | Spring Boot | 4.0 |
+| Reactive | Spring WebFlux | (Spring Framework 7) |
+| Database Access | R2DBC | (reactive, non-blocking) |
+| Migrations | Flyway | (JDBC, not R2DBC) |
+| Database | PostgreSQL | 17+ recommended |
+| Search | ParadeDB pg_search | BM25 full-text |
+| Vectors | pgvector | Semantic search ready |
+| Auth | Keycloak | 26.x |
+| API Docs | SpringDoc OpenAPI | 3.0 |
+| Build | Gradle | Kotlin DSL |
+| Observability | Micrometer Tracing | (trace_id, span_id) |
