@@ -1,7 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { realmsApi } from '@/api'
-import type { Realm, RealmDetails, CreateRealmRequest } from '@/types'
+import type { Realm, RealmDetails, CreateRealmRequest, ApiError } from '@/types'
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    return (err as ApiError).message
+  }
+  return err instanceof Error ? err.message : fallback
+}
 
 export const useRealmStore = defineStore('realm', () => {
   const realms = ref<Realm[]>([])
@@ -18,7 +25,7 @@ export const useRealmStore = defineStore('realm', () => {
     try {
       realms.value = await realmsApi.list()
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to fetch realms'
+      error.value = extractErrorMessage(err, 'Failed to fetch realms')
       throw err
     } finally {
       loading.value = false
@@ -32,7 +39,7 @@ export const useRealmStore = defineStore('realm', () => {
     try {
       currentRealm.value = await realmsApi.get(name)
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to fetch realm'
+      error.value = extractErrorMessage(err, 'Failed to fetch realm')
       throw err
     } finally {
       loading.value = false
@@ -48,7 +55,7 @@ export const useRealmStore = defineStore('realm', () => {
       realms.value.push(realm)
       return realm
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to create realm'
+      error.value = extractErrorMessage(err, 'Failed to create realm')
       throw err
     } finally {
       loading.value = false
@@ -69,7 +76,7 @@ export const useRealmStore = defineStore('realm', () => {
         currentRealm.value = { ...currentRealm.value, ...updated }
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to update realm'
+      error.value = extractErrorMessage(err, 'Failed to update realm')
       throw err
     } finally {
       loading.value = false
@@ -87,7 +94,7 @@ export const useRealmStore = defineStore('realm', () => {
         currentRealm.value = null
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to delete realm'
+      error.value = extractErrorMessage(err, 'Failed to delete realm')
       throw err
     } finally {
       loading.value = false
@@ -102,7 +109,7 @@ export const useRealmStore = defineStore('realm', () => {
       await realmsApi.enableSpi(name)
       await fetchRealm(name)
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to enable SPI'
+      error.value = extractErrorMessage(err, 'Failed to enable SPI')
       throw err
     } finally {
       loading.value = false
@@ -117,7 +124,7 @@ export const useRealmStore = defineStore('realm', () => {
       await realmsApi.sync(name)
       await fetchRealm(name)
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to sync realm'
+      error.value = extractErrorMessage(err, 'Failed to sync realm')
       throw err
     } finally {
       loading.value = false
@@ -131,7 +138,7 @@ export const useRealmStore = defineStore('realm', () => {
     try {
       await realmsApi.syncAll()
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to sync realms from Keycloak'
+      error.value = extractErrorMessage(err, 'Failed to sync realms from Keycloak')
       throw err
     } finally {
       loading.value = false
