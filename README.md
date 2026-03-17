@@ -1,5 +1,7 @@
 # KOS Auth Backend
 
+[![Build](https://github.com/ravencloak-org/ravencloak/actions/workflows/build.yml/badge.svg)](https://github.com/ravencloak-org/ravencloak/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/ravencloak-org/ravencloak/graph/badge.svg)](https://codecov.io/gh/ravencloak-org/ravencloak)
 [![status-badge](https://drone.keeplearningos.com/api/badges/1/status.svg?events=push%2Ctag%2Crelease%2Cpull_request%2Cpull_request_closed%2Cpull_request_metadata%2Cdeployment)](https://drone.keeplearningos.com/repos/1)
 ![Auth](https://img.shields.io/badge/auth--blue)
 ![Keycloak SPI](https://img.shields.io/badge/keycloak--spi--green)

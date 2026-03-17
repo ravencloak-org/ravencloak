@@ -7,6 +7,7 @@ plugins {
 	id("com.google.cloud.tools.jib") version "3.5.2"
 	id("com.google.protobuf") version "0.9.4"
 	id("build-cache-metrics")
+	jacoco
 }
 
 // Configure build cache metrics reporting
@@ -99,6 +100,27 @@ tasks.withType<Test> {
 		showStackTraces = true
 		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
 	}
+	finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+	dependsOn(tasks.test)
+	reports {
+		xml.required.set(true)
+		html.required.set(true)
+		csv.required.set(false)
+	}
+	// Exclude generated protobuf/gRPC classes from coverage reports
+	classDirectories.setFrom(
+		files(classDirectories.files.map {
+			fileTree(it) {
+				exclude(
+					"**/grpc/provisioning/v1/**",
+					"**/proto/**"
+				)
+			}
+		})
+	)
 }
 
 val copyOtelAgent by tasks.registering(Copy::class) {
