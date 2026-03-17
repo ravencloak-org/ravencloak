@@ -28,23 +28,25 @@ docker compose up -d        # Start PostgreSQL and Keycloak
 ```
 auth/
 ├── src/main/kotlin/com/keeplearning/auth/
-│   ├── config/             # Spring configuration classes
+│   ├── config/             # Spring configuration classes (Security, R2DBC, WebClient, OpenAPI)
 │   ├── domain/             # Domain entities and repositories
 │   │   ├── entity/         # R2DBC entities (User, KcClient, KcGroup, etc.)
 │   │   └── repository/     # Repository interfaces
+│   ├── grpc/               # gRPC service implementations and interceptors
 │   ├── realm/              # Realm management (controllers, services, DTOs)
-│   ├── client/             # Client/role management
+│   ├── client/             # Client/role management and onboarding
 │   ├── keycloak/           # Keycloak admin client, sync services
 │   ├── scim/               # SCIM 2.0 provisioning API
 │   ├── audit/              # Audit logging and revert functionality
 │   ├── security/           # Security guards, authorization managers
-│   ├── auth/               # Authentication controllers
+│   ├── auth/               # Authentication controllers (OAuth2 login)
 │   ├── public/             # Public endpoints
 │   └── exception/          # Global exception handler
+├── src/main/proto/         # Protobuf/gRPC service definitions
 ├── keycloak-spi/           # Keycloak User Storage SPI module
-├── scim-common/             # Shared SCIM 2.0 DTOs
-├── forge/                  # Client SDK for SCIM API
-└── web/                    # Vue 3 admin portal (separate repo)
+├── scim-common/            # Shared SCIM 2.0 DTOs
+├── forge/                  # Client SDK for SCIM API (deprecated, replaced by gRPC)
+└── web/                    # Vue 3 + Vite + TypeScript admin portal (in-repo)
 ```
 
 ## Code Style Guidelines
@@ -208,11 +210,13 @@ assertTrue(resource.active)
 - Super admin routes: `/api/super/**` - requires `ROLE_SUPER_ADMIN` from `saas-admin` realm
 - Account routes: `/api/account/**` - requires `ACCOUNT_ADMIN` or `INSTITUTE_ADMIN` role
 - SCIM routes: `/api/scim/v2/**` - requires authenticated JWT
+- gRPC endpoints: authenticated via `GrpcJwtAuthInterceptor` (Bearer token in `authorization` metadata)
 
 #### JWT Handling
 - Use `JwtIssuerReactiveAuthenticationManagerResolver` for multi-issuer validation
 - Extract roles via `JwtAuthorityConverter` (prefixes with `ROLE_`)
 - Get actor info from JWT claims (`sub`, `email`)
+- gRPC uses a server interceptor that validates JWT from the `authorization` metadata header
 
 ### Database
 
@@ -239,14 +243,48 @@ assertTrue(resource.active)
 - Header-based: `API-Version: 1.0`
 - SCIM API: `/api/scim/v2/...`
 
+### gRPC
+
+#### Overview
+- gRPC server runs on port `9090` (configurable via `GRPC_PORT` env var), alongside WebFlux on `8080`
+- Uses Spring gRPC starter (`spring-grpc-spring-boot-starter`) with Kotlin coroutine stubs
+- Proto definitions in `src/main/proto/keeplearning/auth/provisioning/v1/`
+
+#### Service: `UserProvisioning`
+- 8 RPCs: `CreateUser`, `GetUser`, `ListUsers`, `UpdateUser`, `DeleteUser`, `BulkCreateUsers`, `BulkUpdateUsers`, `GetChecksum`
+- Implemented in `UserProvisioningGrpcService` as a thin adapter over existing SCIM services
+- Error mapping: SCIM HTTP 404 -> gRPC `NOT_FOUND`, 409 -> `ALREADY_EXISTS`, 400 -> `INVALID_ARGUMENT`
+
+#### Authentication
+- `GrpcJwtAuthInterceptor` validates Bearer tokens from the `authorization` metadata header
+- Uses the same `KEYCLOAK_ISSUER_PREFIX`-based multi-issuer resolution as REST endpoints
+- Validated JWT is stored in gRPC `Context` for downstream access
+
+#### Patterns
+```kotlin
+@Service
+class MyGrpcService(
+    private val someService: SomeService
+) : MyServiceGrpcKt.MyServiceCoroutineImplBase() {
+
+    override suspend fun myMethod(request: MyRequest): MyResponse {
+        return handleScimErrors {
+            // delegate to existing service layer
+        }
+    }
+}
+```
+
 ### Dependencies
 
 #### Key Libraries
 - Spring Boot 4.0.1 with WebFlux (reactive)
+- Spring gRPC 1.0.2 with Kotlin coroutine stubs
 - R2DBC for reactive PostgreSQL
 - Spring Security with OAuth2/OIDC
 - Kotlin Coroutines & Reactor
 - Jackson for JSON
+- Protobuf + gRPC code generation via `com.google.protobuf` Gradle plugin
 
 #### Keycloak SPI
 - Located in `keycloak-spi/` module
