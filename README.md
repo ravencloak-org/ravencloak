@@ -1,4 +1,4 @@
-# KOS Auth Backend
+#  Auth Backend
 
 [![Build](https://github.com/ravencloak-org/ravencloak/actions/workflows/build.yml/badge.svg)](https://github.com/ravencloak-org/ravencloak/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/ravencloak-org/ravencloak/graph/badge.svg)](https://codecov.io/gh/ravencloak-org/ravencloak)
