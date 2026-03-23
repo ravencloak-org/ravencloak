@@ -47,6 +47,7 @@ This approach was chosen over incremental migration because:
 | `@headlessui/vue` | latest | Accessible interactive components (Dialog, Menu, Listbox, Combobox, Switch, Transition) |
 | `@heroicons/vue` | latest | Icon library (replaces PrimeIcons) |
 | `clsx` | latest | Conditional class joining |
+| `tailwind-merge` | latest | Merge conflicting Tailwind classes (used in `cn()` utility) |
 | `@playwright/test` | latest | End-to-end testing (devDependency) |
 
 ### Keep Unchanged
@@ -171,7 +172,8 @@ Each component wraps Tailwind Plus Application UI block patterns into reusable V
 - Two-way binding via `v-model` where appropriate (inputs, selects, switches)
 - Slots for composability (`default`, `icon`, `header`, `footer`, etc.)
 - Emit typed events
-- All components support a `class` prop for additional Tailwind overrides via `clsx`
+- All components support a `class` prop for additional Tailwind overrides via `cn()` helper (`clsx` + `tailwind-merge`)
+- A shared `cn()` utility in `src/lib/utils.ts` merges class names and resolves Tailwind conflicts
 
 ## Composables
 
@@ -237,10 +239,18 @@ No `tailwind.config.js` -- v4 uses CSS-based configuration:
 
 @theme {
   --font-sans: "Inter", sans-serif;
-  --color-primary-50: /* ... */;
-  --color-primary-500: /* ... */;
-  --color-primary-600: /* ... */;
-  /* ... full primary palette */
+  /* Primary palette — match PrimeVue Aura's indigo-based primary */
+  --color-primary-50: oklch(0.97 0.014 254);
+  --color-primary-100: oklch(0.94 0.028 254);
+  --color-primary-200: oklch(0.87 0.058 254);
+  --color-primary-300: oklch(0.78 0.094 254);
+  --color-primary-400: oklch(0.68 0.132 254);
+  --color-primary-500: oklch(0.59 0.160 254);
+  --color-primary-600: oklch(0.52 0.155 254);
+  --color-primary-700: oklch(0.46 0.135 254);
+  --color-primary-800: oklch(0.39 0.110 254);
+  --color-primary-900: oklch(0.34 0.085 254);
+  --color-primary-950: oklch(0.26 0.065 254);
 }
 ```
 
@@ -317,8 +327,8 @@ web/e2e/
 
 | Risk | Mitigation |
 |------|------------|
-| Missing PrimeVue feature with no Tailwind Plus equivalent | `AppTable` needs manual sort/filter logic; `Tree` component for groups needs custom implementation |
-| Keycloak auth in Playwright tests | Use Keycloak test realm with known credentials, or mock auth in test fixtures |
+| Missing PrimeVue feature with no Tailwind Plus equivalent | `AppTable` supports sort via `sortKey`/`sortDirection` props + `@sort` emit; groups tree is a recursive `GroupTreeItem` component. Column definitions passed as slot-based `<AppTableColumn>` children. |
+| Keycloak auth in Playwright tests | Mock auth in test fixtures: intercept Keycloak init and inject a fake token. Real Keycloak e2e tests are out of scope for this migration. |
 | Large PR size | Worktree isolation means main is safe; review section by section |
 | Headless UI Vue missing components vs React version | Check `@headlessui/vue` API -- it covers Dialog, Menu, Listbox, Combobox, Switch, Tabs, Transition. This covers all our needs. |
 
