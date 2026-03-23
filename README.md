@@ -1,4 +1,4 @@
-#  Auth Backend
+# Auth Backend
 
 [![Build](https://github.com/ravencloak-org/ravencloak/actions/workflows/build.yml/badge.svg)](https://github.com/ravencloak-org/ravencloak/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/ravencloak-org/ravencloak/graph/badge.svg)](https://codecov.io/gh/ravencloak-org/ravencloak)
@@ -6,222 +6,273 @@
 ![Auth](https://img.shields.io/badge/auth--blue)
 ![Keycloak SPI](https://img.shields.io/badge/keycloak--spi--green)
 
-A multi-tenant authentication backend with Spring Boot/Kotlin and a Keycloak User Storage SPI for federated user validation via REST API.
+Multi-tenant authentication and authorization platform built on Keycloak, Spring Boot, and Vue 3.
 
-## Setup
+## Architecture
 
-### Prerequisites
-- Java 21
-- PostgreSQL database
-- Gradle (included via wrapper)
-
-### Environment Configuration
-
-1. Copy the sample environment file:
-   ```bash
-   cp .env.sample .env
-   ```
-
-2. Update the `.env` file with your database configuration:
-   ```env
-   DB_HOST=localhost
-   DB_PORT=5433
-   DB_NAME=kos-auth
-   DB_USERNAME=postgres
-   DB_PASSWORD=your_password_here
-   ```
-
-### Database Setup
-
-Make sure you have a PostgreSQL database running on the configured host and port. The application will use Flyway to automatically run database migrations.
-
-### Running the Application
-
-1. Build the project:
-   ```bash
-   ./gradlew build
-   ```
-
-2. Run the application:
-   ```bash
-   ./gradlew bootRun
-   ```
-
-The application will start on the default Spring Boot port (8080).
-
-## Features
-
-- R2DBC reactive database connectivity
-- Flyway database migrations
-- Spring Security integration
-- OAuth2 client support
-- WebFlux reactive web framework
-
-## Speeding Up Gradle Builds
-
-This project uses several optimizations to speed up Gradle builds for both local development and CI.
-
-### Build Cache (Enabled by Default)
-
-Gradle caches task outputs locally. Subsequent builds reuse cached results when inputs haven't changed.
-
-### Remote Build Cache (Optional)
-
-Share build cache across your team and CI using S3 or S3-compatible storage (MinIO, Cloudflare R2, Backblaze B2).
-
-**Setup:**
-
-1. Create an S3 bucket (or use existing S3-compatible storage)
-
-2. Add to your `.env`:
-   ```env
-   S3_BUILD_CACHE_BUCKET=your-gradle-cache-bucket
-   S3_BUILD_CACHE_REGION=us-east-1
-   S3_BUILD_CACHE_ACCESS_KEY_ID=your_access_key
-   S3_BUILD_CACHE_SECRET_KEY=your_secret_key
-   # For MinIO/R2/etc:
-   # S3_BUILD_CACHE_ENDPOINT=https://minio.example.com:9000
-   ```
-
-3. Source the env before building:
-   ```bash
-   export $(cat .env | xargs)
-   ./gradlew build
-   ```
-
-**How it works:**
-- First build: Compiles and pushes results to S3
-- Subsequent builds: Pulls cached results from S3 (local or CI)
-- Team members share cache, so builds are faster for everyone
-
-**S3 Bucket Policy (minimum required):**
-```json
-{
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["s3:GetObject", "s3:PutObject"],
-    "Resource": "arn:aws:s3:::your-bucket/gradle-cache/*"
-  }]
-}
+```
+                      ┌──────────────────────────────────────────────┐
+                      │               Docker Compose                 │
+                      │                                              │
+  Browser ───────┬───►│  auth-frontend  (Vue 3 + Nginx)     :8090   │
+                 │    │       │                                       │
+                 │    │       ▼                                       │
+                 └───►│  auth-backend   (Spring Boot)       :8080   │
+                      │       │    │          │                       │
+                      │       │    │ gRPC     │                       │
+                      │       │    ▼ :9090    ▼                       │
+                      │       │           postgres (ParadeDB)  :5432  │
+                      │       ▼                                       │
+                      │  keycloak (+ SPI JAR)                :8088   │
+                      │                                              │
+                      │  otel-collector  (optional)    :4317/:4318   │
+                      └──────────────────────────────────────────────┘
 ```
 
-**Recommended:** Add S3 lifecycle policy to auto-delete cache entries older than 30 days.
+| Module | Description |
+|--------|-------------|
+| `auth` (root) | Spring Boot backend with WebFlux, R2DBC, gRPC user provisioning |
+| `keycloak-spi` | Read-only User Storage SPI for Keycloak — validates users against the auth backend |
+| `scim-common` | Shared SCIM 2.0 DTOs |
+| `web/` | Vue 3 + PrimeVue admin portal |
 
-### Other Optimizations
+## Prerequisites
 
-These are already configured in `gradle.properties`:
+- **Docker** and **Docker Compose** v2+
+- **Java 21** (for building from source)
+- **Bun** or **Node.js 18+** (for frontend development)
 
-| Setting | Description |
-|---------|-------------|
-| `org.gradle.parallel=true` | Build modules in parallel |
-| `org.gradle.caching=true` | Enable local build cache |
-| `org.gradle.configuration-cache=true` | Cache task graph (local dev) |
+## Quick Start (Development)
 
-### Verifying Cache Hits
-
-Run with `--info` to see cache statistics:
-```bash
-./gradlew build --info | grep -i "cache"
-```
-
-You should see output like:
-```
-> Task :compileKotlin FROM-CACHE
-S3 cache: reads: 5, hits: 4, elapsed: 120ms
-```
-
-## Modules
-
-### Main Application (`auth`)
-
-The core authentication backend service.
-
-### Keycloak User Storage SPI (`keycloak-spi`)
-
-A read-only Keycloak User Storage Provider that validates users by calling the auth backend's REST API.
-
-#### Building the SPI
+### 1. Clone and configure
 
 ```bash
+git clone <repo-url> && cd auth
+cp .env.sample .env
+# Edit .env if you need to change ports or credentials
+```
+
+### 2. Start all services
+
+```bash
+# Build from source and start everything
+docker compose up -d --build
+```
+
+This starts:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **PostgreSQL** (ParadeDB) | `5432` | Database with BM25 full-text search extensions |
+| **Keycloak** | `8088` | Admin UI at http://localhost:8088 (admin/admin) |
+| **Auth Backend** | `8080` | Spring Boot API |
+| **Auth Backend gRPC** | `9090` | gRPC user provisioning service |
+| **Auth Frontend** | `8090` | Vue 3 admin portal |
+
+### 3. (Optional) Enable OpenTelemetry
+
+```bash
+docker compose --profile otel up -d
+```
+
+This additionally starts the **OpenTelemetry Collector** which exports traces, metrics, and logs to SigNoz (or any OTLP-compatible backend). Configure `SIGNOZ_ENDPOINT` and `SIGNOZ_ACCESS_TOKEN` in `.env`.
+
+### 4. Verify
+
+```bash
+# Check all services are healthy
+docker compose ps
+
+# Backend health
+curl http://localhost:8080/actuator/health
+
+# Keycloak admin console
+open http://localhost:8088
+```
+
+## Running Without Docker (Backend Dev)
+
+If you prefer running the Spring Boot app directly:
+
+```bash
+# Start only infrastructure
+docker compose up -d postgres keycloak
+
+# Run the backend with Gradle
+./gradlew bootRun
+
+# In another terminal, run the frontend
+cd web && npm install && npm run dev
+```
+
+## Production Deployment
+
+### 1. Configure environment
+
+```bash
+cp .env.sample .env
+```
+
+Update `.env` with production values:
+
+```env
+# Point to your Keycloak domain
+KEYCLOAK_ISSUER_PREFIX=https://auth.yourdomain.com/realms/
+KEYCLOAK_SAAS_ISSUER_URI=https://auth.yourdomain.com/realms/saas-admin
+
+# Use pre-built images instead of building locally
+AUTH_BACKEND_IMAGE=ghcr.io/dsjkeeplearning/kos-auth-backend:1.0.0
+AUTH_FRONTEND_IMAGE=ghcr.io/dsjkeeplearning/kos-auth-backend-web:1.0.0
+
+# Frontend build-time variables (baked into the image)
+VITE_API_BASE_URL=https://api.yourdomain.com
+VITE_KEYCLOAK_URL=https://auth.yourdomain.com
+VITE_KEYCLOAK_REALM=saas-admin
+VITE_KEYCLOAK_CLIENT_ID=kos-admin-web
+
+# Strong passwords
+DB_PASSWORD=<strong-password>
+KEYCLOAK_ADMIN_PASSWORD=<strong-password>
+
+# Enable telemetry
+OTEL_SDK_DISABLED=false
+```
+
+### 2. Deploy
+
+```bash
+# Pull pre-built images and start
+docker compose pull
+docker compose --profile otel up -d
+```
+
+### 3. Reverse proxy
+
+Place a reverse proxy (Nginx, Caddy, or Cloudflare Tunnel) in front:
+
+| Domain | Target |
+|--------|--------|
+| `auth.yourdomain.com` | `localhost:8088` (Keycloak) |
+| `api.yourdomain.com` | `localhost:8080` (Backend) |
+| `admin.yourdomain.com` | `localhost:8090` (Frontend) |
+
+## Keycloak User Storage SPI
+
+The `keycloak-spi` module is a read-only [User Storage SPI](https://www.keycloak.org/docs/latest/server_development/#_user-storage-spi) that allows Keycloak to validate users against the auth backend's database. When a user tries to log in, Keycloak calls the SPI, which checks `GET http://auth-backend:8080/api/users/{email}`.
+
+### How the SPI JAR Gets Into Keycloak
+
+The SPI is built as a fat JAR (shadow JAR with relocated Kotlin stdlib) and mounted into Keycloak's `/opt/keycloak/providers/` directory. Here's the full pipeline:
+
+```
+  Developer pushes code
+       │
+       ▼
+  CI builds the shadow JAR ──────────────────────────────────────────
+  ./gradlew :keycloak-spi:shadowJar                                  │
+       │                                                             │
+       ▼                                                             │
+  GitHub Actions creates a Release (tag: spi-vX.Y.Z)                │
+  with the JAR attached as a release asset                           │
+       │                                                             │
+       ▼                                                             │
+  Deployment pipeline (Woodpecker CI) downloads the JAR              │
+  from the GitHub Release                                            │
+       │                                                             │
+       ▼                                                             │
+  JAR is copied to the Keycloak providers volume                     │
+  (/opt/keycloak/providers/)                                         │
+       │                                                             │
+       ▼                                                             │
+  Keycloak restarts and auto-discovers the new provider ─────────────
+```
+
+### CI Workflows
+
+**GitHub Actions** (`.github/workflows/keycloak-spi.yml`):
+- Triggered by tag `spi-v*` or manual dispatch
+- Builds the shadow JAR: `./gradlew :keycloak-spi:shadowJar -Pversion=X.Y.Z`
+- Creates a GitHub Release with the JAR as an artifact
+
+**Woodpecker CI** (`.woodpecker/keycloak-spi-release.yml`):
+- Triggered manually with `DEPLOY_TO=keycloak-spi`
+- Downloads the latest `spi-v*` release JAR from GitHub
+- Copies it to `/opt/keycloak-providers/` on the host
+- Restarts Keycloak to load the new provider
+
+**Combined Release** (`.woodpecker/release-all.yml`):
+- Triggered by tag `release-v*` or manual dispatch
+- Builds both the auth backend and SPI JAR in one pipeline
+- Deploys the SPI JAR and restarts Keycloak automatically
+
+### Building & Deploying the SPI Locally
+
+```bash
+# 1. Build the shadow JAR
 ./gradlew :keycloak-spi:shadowJar
+
+# 2. Copy into the running Keycloak container's providers volume
+docker cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar \
+  keycloak:/opt/keycloak/providers/
+
+# 3. Restart Keycloak to load the provider
+docker compose restart keycloak
 ```
 
-The fat JAR will be created at `keycloak-spi/build/libs/keycloak-user-storage-spi-0.0.1-SNAPSHOT.jar`.
+After restart, the provider appears in **Keycloak Admin > Realm Settings > User Federation** as an available provider.
 
-#### Deploying to Keycloak
-
-**Option 1: Local/Standalone Keycloak**
-
-1. Copy the JAR to Keycloak's providers directory:
-   ```bash
-   cp keycloak-spi/build/libs/keycloak-user-storage-spi-0.0.1-SNAPSHOT.jar $KEYCLOAK_HOME/providers/
-   ```
-
-2. Rebuild Keycloak (or restart):
-   ```bash
-   $KEYCLOAK_HOME/bin/kc.sh build
-   ```
-
-3. In Keycloak Admin Console, go to **User Federation** and add `kos-auth-storage` provider.
-
-**Option 2: Docker Compose with Woodpecker CI**
-
-Woodpecker CI builds the SPI on release tags and places the JAR in a shared volume accessible to Keycloak.
-
-1. Create the shared providers directory on the host:
-   ```bash
-   sudo mkdir -p /opt/keycloak-providers
-   sudo chmod 755 /opt/keycloak-providers
-   ```
-
-2. Add volume mount to your Keycloak service in docker-compose:
-   ```yaml
-   volumes:
-     - /opt/keycloak-providers:/opt/keycloak/providers:ro
-   ```
-
-3. Create a release tag to deploy (see CI/CD section below).
-
-**Option 3: Docker Compose (Local Development)**
-
-For local development without Woodpecker CI:
+### Manual Release (CLI)
 
 ```bash
-# Build the SPI first
-./gradlew :keycloak-spi:shadowJar
+# Trigger a GitHub Actions release
+gh workflow run keycloak-spi.yml -f version=1.0.1
 
-# Copy to shared providers folder
-cp keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar /opt/keycloak-providers/keycloak-user-storage-spi.jar
-
-# Start Keycloak
-docker compose up -d
+# Or trigger Woodpecker to deploy the latest release to the server
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+  --branch main --var DEPLOY_TO=keycloak-spi
 ```
 
-#### How it Works
+## Build Commands
 
-- The SPI calls `http://auth-backend:8080/api/users/{email}` to validate if a user exists
-- Returns user data (id, email, firstName, lastName) on HTTP 200
-- Returns null (user not found) on HTTP 404
-- Uses Java 11+ HttpClient for REST calls
-- Uses Keycloak's JsonSerialization for JSON parsing
+```bash
+# Build everything
+./gradlew build
+
+# Run tests
+./gradlew test
+
+# Run a single test class
+./gradlew test --tests "com.keeplearning.auth.SomeTestClass"
+
+# Build only the SPI shadow JAR
+./gradlew :keycloak-spi:shadowJar
+
+# Build the backend Docker image with Jib
+./gradlew jib -PjibTag=1.0.0
+
+# Frontend dev server
+cd web && npm run dev
+
+# Frontend production build
+cd web && npm run build
+```
 
 ## CI/CD
 
-This project uses [Woodpecker CI](https://woodpecker-ci.org/) for continuous integration and deployment.
-
-**Woodpecker Dashboard:** https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend
-
-**Full CI/CD Documentation:** [.woodpecker/README.md](.woodpecker/README.md)
+This project uses both **GitHub Actions** and **Woodpecker CI**.
 
 ### Pipelines
 
 | Pipeline | Trigger | Description |
 |----------|---------|-------------|
-| `auth.yml` | Push/PR to `src/**` | Compile, build bootJar |
-| `keycloak-spi.yml` | Push/PR to `keycloak-spi/**` | Compile, test, build JAR |
-| `auth-release.yml` | Tag `v*` | Build auth backend, GitHub release, Docker deploy |
-| `keycloak-spi-release.yml` | Tag `spi-v*` or manual | Build, test, deploy SPI, GitHub release |
-| `release-all.yml` | Tag `release-v*` or manual | Build both modules, full deploy |
+| `build.yml` (GHA) | Push/PR to main | Compile, test, coverage |
+| `build-backend.yml` (GHA) | Push to main, tag `v*` | Build & push backend Docker image |
+| `build-frontend.yml` (GHA) | Push to main, tag `v*` | Build & push frontend Docker image |
+| `keycloak-spi.yml` (GHA) | Tag `spi-v*`, manual | Build SPI, create GitHub Release |
+| `auth-release.yml` (WP) | Tag `v*` | Auth backend release + deploy |
+| `keycloak-spi-release.yml` (WP) | Manual | Deploy SPI JAR to Keycloak |
+| `release-all.yml` (WP) | Tag `release-v*`, manual | Full release: backend + SPI + frontend |
+| `deploy-docs.yml` (GHA) | Push to docs/ | MkDocs to GitHub Pages |
 
 ### Release Workflow
 
@@ -239,36 +290,121 @@ git tag release-v1.0.0 && git push origin release-v1.0.0
 
 **CLI-Based (Manual with Auto-Increment):**
 ```bash
-# Keycloak SPI release
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
+# Deploy keycloak SPI from latest GitHub Release
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+  --branch main --var DEPLOY_TO=keycloak-spi
 
-# Combined release
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=release-all
+# Combined release (auto-increments patch version)
+woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+  --branch main --var DEPLOY_TO=release-all
 ```
 
-### Caching
+## Environment Variables Reference
 
-| Cache Type | Location | Purpose |
-|------------|----------|---------|
-| Gradle Dependencies | `/var/lib/woodpecker/cache/gradle` (volume) | Instant dependency restoration |
-| S3 Build Cache | Cloudflare R2 | Shared build outputs |
-| Docker Cache | `ghcr.io/.../kos-auth-backend:cache` | Layer caching for Docker builds |
+### Database
 
-### Deployment
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_HOST` | `localhost` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `kos-auth` | Database name |
+| `DB_USERNAME` | `postgres` | Database user |
+| `DB_PASSWORD` | `postgres` | Database password |
 
-- **Auth Backend**: Docker image to GitHub Container Registry, deployed to EC2
-- **Keycloak SPI**: JAR to `/opt/keycloak-providers/`, Keycloak auto-restarted
+### Keycloak
 
-### Troubleshooting
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KEYCLOAK_PORT` | `8088` | Keycloak HTTP port |
+| `KEYCLOAK_ADMIN` | `admin` | Admin username |
+| `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Admin password |
+| `KEYCLOAK_BASE_URL` | `http://keycloak:8080` | Internal Keycloak URL (container-to-container) |
+| `KEYCLOAK_ISSUER_PREFIX` | `http://localhost:8088/realms/` | JWT issuer prefix for multi-tenant auth |
+| `KEYCLOAK_SAAS_ISSUER_URI` | `http://localhost:8088/realms/saas-admin` | Issuer URI for saas-admin realm |
+| `KEYCLOAK_ADMIN_CLIENT_ID` | `admin-console` | OAuth2 client ID |
+| `KEYCLOAK_ADMIN_CLIENT_SECRET` | | OAuth2 client secret |
+| `SAAS_ADMIN_CLIENT_SECRET` | | SaaS admin client secret |
 
-See [.woodpecker/README.md](.woodpecker/README.md#troubleshooting) for detailed troubleshooting guides
+### Backend
 
-## Configuration
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_BACKEND_PORT` | `8080` | HTTP port |
+| `GRPC_PORT` | `9090` | gRPC port |
+| `SPRING_PROFILES_ACTIVE` | `dev` | Spring profile |
+| `AUTH_BACKEND_IMAGE` | `ghcr.io/.../kos-auth-backend:latest` | Docker image override |
+| `OTEL_SDK_DISABLED` | `true` | Disable OpenTelemetry |
 
-The application uses environment variables for configuration. All database-related settings can be configured via the `.env` file:
+### Frontend
 
-- `DB_HOST`: Database host (default: localhost)
-- `DB_PORT`: Database port (default: 5432, configured as 5433 in .env)
-- `DB_NAME`: Database name (default: kos-auth)
-- `DB_USERNAME`: Database username (default: postgres)
-- `DB_PASSWORD`: Database password
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_FRONTEND_PORT` | `8090` | HTTP port |
+| `AUTH_FRONTEND_IMAGE` | `ghcr.io/.../kos-auth-backend-web:latest` | Docker image override |
+| `VITE_API_BASE_URL` | `http://localhost:8080` | Backend API URL (baked at build time) |
+| `VITE_KEYCLOAK_URL` | `http://localhost:8088` | Keycloak URL (baked at build time) |
+| `VITE_KEYCLOAK_REALM` | `saas-admin` | Keycloak realm |
+| `VITE_KEYCLOAK_CLIENT_ID` | `kos-admin-web` | Keycloak client ID |
+
+### OpenTelemetry
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SIGNOZ_ENDPOINT` | | SigNoz/OTLP ingest endpoint |
+| `SIGNOZ_ACCESS_TOKEN` | | SigNoz ingestion key |
+
+## Speeding Up Gradle Builds
+
+### Remote Build Cache (Optional)
+
+Share build cache across your team and CI using S3 or S3-compatible storage (MinIO, Cloudflare R2, Backblaze B2).
+
+Add to your `.env`:
+```env
+S3_BUILD_CACHE_BUCKET=your-gradle-cache-bucket
+S3_BUILD_CACHE_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+# For MinIO/R2/etc:
+# S3_BUILD_CACHE_ENDPOINT=https://minio.example.com:9000
+```
+
+Source the env before building:
+```bash
+export $(cat .env | xargs)
+./gradlew build
+```
+
+### Verifying Cache Hits
+
+```bash
+./gradlew build --info | grep -i "cache"
+# You should see: Task :compileKotlin FROM-CACHE
+```
+
+## Project Structure
+
+```
+auth/
+├── src/                       # Spring Boot backend (Kotlin)
+│   ├── main/
+│   │   ├── kotlin/            # Application code
+│   │   ├── proto/             # gRPC proto definitions
+│   │   └── resources/
+│   │       └── db/migration/  # Flyway SQL migrations
+│   └── test/
+├── keycloak-spi/              # Keycloak User Storage SPI module
+├── scim-common/               # Shared SCIM 2.0 DTOs
+├── web/                       # Vue 3 admin portal
+├── docker/                    # OTel collector config
+├── .github/workflows/         # GitHub Actions CI/CD
+├── .woodpecker/               # Woodpecker CI pipelines
+├── docker-compose.yml         # Full stack compose (dev + prod)
+├── Dockerfile                 # Backend Docker image
+├── DEPLOYMENT.md              # Production deployment guide
+└── .env.sample                # Environment template
+```
+
+## License
+
+Proprietary. All rights reserved.
