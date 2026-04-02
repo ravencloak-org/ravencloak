@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "85d551658cef",
+  "session_id": "31505fc3-7823-4449-9e43-09e3ff8b64c7",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-02T11:48:06.797066Z",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/pages/realms/[name]/clients/create.vue",
+    "web/src/pages/realms/[name]/groups/create.vue",
+    "web/src/pages/realms/[name]/idp/create.vue",
+    "web/src/pages/realms/[name]/roles/create.vue",
+    "web/src/pages/realms/[name]/users/create.vue",
+    "web/src/router/index.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "9e930f89-dfdc-4c7a-826a-0747a1678a39",
+  "checkpoint_transcript_start": 720,
+  "transcript_lines_at_start": 720,
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 57609,
+    "cache_read_tokens": 1913609,
+    "output_tokens": 12481,
+    "api_call_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-02T11:48:06.597568Z",
+    "agent_lines": 671,
+    "human_added": 49,
+    "human_modified": 97,
+    "human_removed": 0,
+    "total_committed": 817,
+    "agent_percentage": 82.12974296205631
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "85d551658cef",
+  "strategy": "manual-commit",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/pages/realms/[name]/clients/create.vue",
+    "web/src/pages/realms/[name]/groups/create.vue",
+    "web/src/pages/realms/[name]/idp/create.vue",
+    "web/src/pages/realms/[name]/roles/create.vue",
+    "web/src/pages/realms/[name]/users/create.vue",
+    "web/src/router/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/85/d551658cef/0/metadata.json",
+      "transcript": "/85/d551658cef/0/full.jsonl",
+      "context": "/85/d551658cef/0/context.md",
+      "content_hash": "/85/d551658cef/0/content_hash.txt",
+      "prompt": "/85/d551658cef/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 57609,
+    "cache_read_tokens": 1913609,
+    "output_tokens": 12481,
+    "api_call_count": 16
+  }
+}
