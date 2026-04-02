@@ -297,30 +297,30 @@ echo ""
 echo "To update Woodpecker secrets:"
 echo ""
 cat <<CMDS
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name keycloak_base_url --value "${KEYCLOAK_URL}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name keycloak_admin_client_id --value "${ADMIN_API_CLIENT_ID}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name keycloak_admin_client_secret --value "${ADMIN_API_SECRET}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name saas_admin_client_secret --value "${BACKEND_CLIENT_SECRET}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name keycloak_issuer_prefix --value "${KEYCLOAK_URL}/realms/"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name keycloak_saas_issuer_uri --value "${KEYCLOAK_URL}/realms/${REALM}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name vite_keycloak_url --value "${KEYCLOAK_URL}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name vite_keycloak_realm --value "${REALM}"
 
-  woodpecker-cli secret update --repository dsjkeeplearning/kos-auth-backend \\
+  woodpecker-cli secret update --repository ravencloak-org/ravencloak \\
     --name vite_keycloak_client_id --value "${FRONTEND_CLIENT_ID}"
 CMDS

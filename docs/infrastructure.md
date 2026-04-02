@@ -130,7 +130,7 @@ git tag release-v1.0.0 && git push origin release-v1.0.0  # Combined
 # Manual via CLI
 gh workflow run keycloak-spi.yml -f version=1.0.1     # SPI via GitHub Actions
 gh workflow run auth-sdk-publish.yml -f version=0.2.0  # SDK via GitHub Actions
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main --var DEPLOY_TO=keycloak-spi           # SPI deploy via Woodpecker
 ```
 

@@ -11,7 +11,7 @@ The SDK is published to **GitHub Packages**. First, add the repository, then the
     ```kotlin
     repositories {
         maven {
-            url = uri("https://maven.pkg.github.com/dsjkeeplearning/kos-auth-backend")
+            url = uri("https://maven.pkg.github.com/ravencloak-org/ravencloak")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
@@ -29,7 +29,7 @@ The SDK is published to **GitHub Packages**. First, add the repository, then the
     ```groovy
     repositories {
         maven {
-            url = uri("https://maven.pkg.github.com/dsjkeeplearning/kos-auth-backend")
+            url = uri("https://maven.pkg.github.com/ravencloak-org/ravencloak")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")

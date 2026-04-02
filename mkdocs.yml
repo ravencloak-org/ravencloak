@@ -1,7 +1,7 @@
 site_name: KOS Auth Backend
 site_description: Multi-tenant authentication backend with Spring Boot/Kotlin and Keycloak
-repo_url: https://github.com/dsjkeeplearning/kos-auth-backend
-repo_name: dsjkeeplearning/kos-auth-backend
+repo_url: https://github.com/ravencloak-org/ravencloak
+repo_name: ravencloak-org/ravencloak
 
 theme:
   name: material

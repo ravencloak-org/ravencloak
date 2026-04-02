@@ -145,35 +145,35 @@ After logging in via GitHub for the first time:
 ### Backend secrets
 
 ```bash
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name keycloak_base_url --value "https://auth.keeplearningos.com"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name keycloak_admin_client_id --value "kos-admin-api"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name keycloak_admin_client_secret --value "<kos-admin-api secret>"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name saas_admin_client_secret --value "<kos-admin-console secret>"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name keycloak_issuer_prefix --value "https://auth.keeplearningos.com/realms/"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name keycloak_saas_issuer_uri --value "https://auth.keeplearningos.com/realms/master"
 ```
 
 ### Frontend secrets (baked at Docker build time)
 
 ```bash
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name vite_keycloak_url --value "https://auth.keeplearningos.com"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name vite_keycloak_realm --value "master"
 
-woodpecker-cli repo secret add --repository dsjkeeplearning/kos-auth-backend \
+woodpecker-cli repo secret add --repository ravencloak-org/ravencloak \
   --name vite_keycloak_client_id --value "kos-admin-web"
 ```
 

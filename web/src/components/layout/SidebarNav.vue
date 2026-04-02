@@ -9,7 +9,6 @@ import {
   KeyIcon,
   UserGroupIcon,
   GlobeAltIcon,
-  ShieldCheckIcon,
   ClockIcon,
 } from '@heroicons/vue/24/outline'
 
@@ -35,7 +34,6 @@ const primaryNavItems = computed(() => [
 ])
 
 const secondaryNavItems = computed(() => [
-  { name: 'Nebula VPN', icon: ShieldCheckIcon, path: `/realms/${realmName.value}/nebula` },
   { name: 'Audit Trail', icon: ClockIcon, path: `/realms/${realmName.value}/audit` },
 ])
 

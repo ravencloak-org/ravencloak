@@ -54,9 +54,8 @@ graph TD
     D --> E[Roles]
     E --> F[Groups]
     F --> G[Identity Providers]
-    G --> H[Nebula VPN]
-    H --> I[Audit Trail]
-    I --> J[---]
+    G --> H[Audit Trail]
+    H --> I[---]
     J --> K[My Actions]
     K --> L[User Menu / Sign Out]
 ```
@@ -112,8 +111,6 @@ graph TD
         UD[UserDetail.vue]
         AT[AuditTable.vue]
         AD[AuditDiffSlideOver.vue]
-        CL[CertificateList.vue]
-        GC[GenerateCertSlideOver.vue]
     end
 
     Layout --> Primitives
@@ -190,7 +187,7 @@ Every page below is shown as an ASCII wireframe. The left sidebar is consistent 
 | Roles |  +-------------------------------------------------+    |
 | Grps  |                                                          |
 | IDP   |  Quick Actions                                           |
-| Nebula|  [+ Create Client]  [+ Add User]  [Sync Realm]          |
+|       |  [+ Create Client]  [+ Add User]  [Sync Realm]          |
 | Audit |                                                          |
 |       |                                                          |
 | ---   |                                                          |
@@ -506,56 +503,7 @@ Click row to open diff slide-over:
 - Click row -> slide-over with JSON diff (red/green highlighting)
 - Revert button with confirmation dialog
 
-### 6.12 Nebula VPN (`/realms/[name]/nebula`) — New
-
-```
-+-------+----------------------------------------------------------+
-|       |  Nebula VPN                        [+ Generate Certificate]|
-| SIDE  |----------------------------------------------------------|
-| BAR   |                                                          |
-|       |  +------+--------+----------------+----------+----------+ |
-|       |  | Node | Type   | IP Address     | Expires  | Status   | |
-|       |  +------+--------+----------------+----------+----------+ |
-|       |  | mac  | laptop | 192.168.100.142| 364 days | * Active | |
-|       |  | uat1 | ec2    | 192.168.100.10 | 340 days | * Active | |
-|       |  | old  | laptop | 192.168.100.155| -        | Revoked  | |
-|       |  +------+--------+----------------+----------+----------+ |
-|       |                                                          |
-|       |  Actions per row:  [Download Config]  [Revoke]           |
-|       |                                                          |
-+-------+----------------------------------------------------------+
-
-Generate Certificate slide-over:
-
-+-------+-----------------------------------+---------------------+
-|       |  (dimmed content)                  | Generate Certificate|
-| SIDE  |                                    |---------------------|
-| BAR   |                                    | Node Name           |
-|       |                                    | [________________]  |
-|       |                                    |                     |
-|       |                                    | Node Type           |
-|       |                                    | (x) Laptop          |
-|       |                                    | ( ) EC2             |
-|       |                                    |                     |
-|       |                                    | Device Info         |
-|       |                                    | [________________]  |
-|       |                                    | (optional)          |
-|       |                                    |                     |
-|       |                                    | Environment         |
-|       |                                    | [uat        v]      |
-|       |                                    | (EC2 only)          |
-|       |                                    |                     |
-|       |                                    | [Cancel] [Generate] |
-|       |                                    +---------------------+
-+-------+----------------------------------------------------------+
-```
-
-- Certificate table with node name, type badge, IP, expiry (amber warning if < 30 days), status
-- Download Config button generates/downloads the Nebula `config.yaml`
-- Revoke with confirmation dialog
-- Generate slide-over with conditional environment field (only for EC2)
-
-### 6.13 My Actions (`/my-actions`)
+### 6.12 My Actions (`/my-actions`)
 
 ```
 +-------+----------------------------------------------------------+
@@ -629,13 +577,12 @@ graph TD
     GROUPS --> GROUP_CREATE["/realms/[name]/groups/create"]
     REALM --> IDP["/realms/[name]/idp"]
     IDP --> IDP_CREATE["/realms/[name]/idp/create"]
-    REALM --> NEBULA["/realms/[name]/nebula"]
     REALM --> AUDIT["/realms/[name]/audit"]
     MY_ACTIONS["/my-actions"]
     ACCESS_DENIED["/access-denied"]
 ```
 
-No route changes except adding `/realms/[name]/nebula`.
+Routes mirror the existing file-based structure under `src/pages/`.
 
 ---
 
@@ -701,13 +648,10 @@ web/src/
 |   +-- users/
 |   |   +-- UserTable.vue
 |   |   +-- UserDetail.vue
-|   +-- nebula/                      # New
-|   |   +-- CertificateList.vue
-|   |   +-- GenerateCertSlideOver.vue
 +-- pages/                           # File-based routing (same structure)
 +-- api/                             # Unchanged
-+-- stores/                          # Unchanged + nebula store
-+-- types/                           # Unchanged + nebula types
++-- stores/                          # Unchanged
++-- types/                           # Unchanged
 +-- utils/                           # Unchanged
 ```
 
@@ -737,10 +681,10 @@ graph LR
         C4[Audit Trail + Diff viewer]
         C5[My Actions]
     end
-    subgraph Phase4["Phase 4: New Features"]
-        D1[Nebula VPN page]
-        D2[Dark/light toggle]
-        D3[Polish + responsive]
+    subgraph Phase4["Phase 4: Polish"]
+        D1[Dark/light toggle]
+        D2[Responsive improvements]
+        D3[Accessibility audit]
     end
     Phase1 --> Phase2 --> Phase3 --> Phase4
 ```

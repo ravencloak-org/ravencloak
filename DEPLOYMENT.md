@@ -7,7 +7,7 @@ This guide covers deploying the Auth Frontend to EC2 with Cloudflare Tunnel.
 - EC2 instance with Docker installed
 - SSH access to the EC2 instance
 - Cloudflare account with domain `keeplearningos.com`
-- GitHub account with access to `ghcr.io/dsjkeeplearning/kos-auth-backend-frontend`
+- GitHub account with access to `ghcr.io/ravencloak-org/ravencloak-web`
 
 ## Architecture
 
@@ -98,11 +98,11 @@ When a new version is released:
 
 ```bash
 # Deploy specific version
-docker pull ghcr.io/dsjkeeplearning/kos-auth-backend-frontend:1.0.12
+docker pull ghcr.io/ravencloak-org/ravencloak-web:1.0.12
 docker stop auth-frontend
 docker rm auth-frontend
 docker run -d --name auth-frontend --restart unless-stopped -p 8090:80 \
-  ghcr.io/dsjkeeplearning/kos-auth-backend-frontend:1.0.12
+  ghcr.io/ravencloak-org/ravencloak-web:1.0.12
 ```
 
 ## Troubleshooting
