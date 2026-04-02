@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "f4d8ba2e8d5c",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "SYSTEM_MAP.md",
+    "docs/adr/001-reactive-stack.md",
+    "docs/adr/002-keycloak-shadow-tables.md",
+    "docs/adr/003-uuidv7-primary-keys.md",
+    "docs/adr/004-scim-provisioning.md",
+    "docs/adr/005-paired-clients.md",
+    "docs/adr/006-paradedb-search.md",
+    "docs/adr/007-audit-trail-jsonb.md",
+    "docs/adr/index.md",
+    "docs/api-reference.md",
+    "docs/architecture.md",
+    "docs/database.md",
+    "docs/design.md",
+    "docs/infrastructure.md",
+    "mkdocs.yml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f4/d8ba2e8d5c/0/metadata.json",
+      "transcript": "/f4/d8ba2e8d5c/0/full.jsonl",
+      "context": "/f4/d8ba2e8d5c/0/context.md",
+      "content_hash": "/f4/d8ba2e8d5c/0/content_hash.txt",
+      "prompt": "/f4/d8ba2e8d5c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 75,
+    "cache_creation_tokens": 178883,
+    "cache_read_tokens": 5041488,
+    "output_tokens": 36145,
+    "api_call_count": 59
+  }
+}

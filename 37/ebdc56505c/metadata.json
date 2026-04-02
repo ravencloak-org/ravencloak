@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "37ebdc56505c",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "../auth/src/main/kotlin/com/keeplearning/auth/realm/service/UserService.kt"
+  ],
+  "sessions": [
+    {
+      "metadata": "/37/ebdc56505c/0/metadata.json",
+      "transcript": "/37/ebdc56505c/0/full.jsonl",
+      "context": "/37/ebdc56505c/0/context.md",
+      "content_hash": "/37/ebdc56505c/0/content_hash.txt",
+      "prompt": "/37/ebdc56505c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1142,
+    "cache_creation_tokens": 124188,
+    "cache_read_tokens": 13864930,
+    "output_tokens": 27282,
+    "api_call_count": 140
+  }
+}

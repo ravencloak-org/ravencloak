@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "a21becb050b1",
+  "session_id": "0dec1d80-ca41-4a70-8938-0d4304246229",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-14T14:51:07.10713Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/workflows/build.yml",
+    ".woodpecker/release-all.yml",
+    "CLAUDE.md",
+    "build.gradle.kts",
+    "docs/api/grpc.md",
+    "settings.gradle.kts",
+    "src/main/kotlin/com/keeplearning/auth/grpc/UserProvisioningGrpcService.kt",
+    "src/main/proto/keeplearning/auth/provisioning/v1/user_provisioning.proto",
+    "src/main/resources/application.yml"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 2523,
+    "cache_creation_tokens": 122466,
+    "cache_read_tokens": 7565895,
+    "output_tokens": 38016,
+    "api_call_count": 85
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-14T14:51:07.038223Z",
+    "agent_lines": 0,
+    "human_added": 811,
+    "human_modified": 143,
+    "human_removed": 0,
+    "total_committed": 811,
+    "agent_percentage": 0
+  }
+}

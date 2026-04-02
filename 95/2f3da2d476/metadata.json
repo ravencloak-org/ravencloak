@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "952f3da2d476",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "docker-compose.yml",
+    "src/main/kotlin/com/keeplearning/auth/realm/controller/RealmController.kt",
+    "src/main/kotlin/com/keeplearning/auth/realm/dto/RealmDtos.kt",
+    "src/main/kotlin/com/keeplearning/auth/realm/service/RealmService.kt",
+    "web/src/api/realms.ts",
+    "web/src/pages/realms/index.vue",
+    "web/src/stores/realm.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/95/2f3da2d476/0/metadata.json",
+      "transcript": "/95/2f3da2d476/0/full.jsonl",
+      "context": "/95/2f3da2d476/0/context.md",
+      "content_hash": "/95/2f3da2d476/0/content_hash.txt",
+      "prompt": "/95/2f3da2d476/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 970,
+    "cache_creation_tokens": 98259,
+    "cache_read_tokens": 11610524,
+    "output_tokens": 8768,
+    "api_call_count": 119
+  }
+}

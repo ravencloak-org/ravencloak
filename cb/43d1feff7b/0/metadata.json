@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "cb43d1feff7b",
+  "session_id": "f5f37e1e-0f3a-42e3-ad72-5e07b9313ead",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-14T18:23:10.317989Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/main/kotlin/com/keeplearning/auth/config/SecurityConfig.kt",
+    "web/src/services/api.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "06a4976e-916c-4946-8ffb-7e5e57297814",
+  "checkpoint_transcript_start": 6394,
+  "transcript_lines_at_start": 6394,
+  "token_usage": {
+    "input_tokens": 350,
+    "cache_creation_tokens": 53293,
+    "cache_read_tokens": 2907269,
+    "output_tokens": 5306,
+    "api_call_count": 43
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-14T18:23:09.533921Z",
+    "agent_lines": 0,
+    "human_added": 152,
+    "human_modified": 93,
+    "human_removed": 0,
+    "total_committed": 163,
+    "agent_percentage": 0
+  }
+}

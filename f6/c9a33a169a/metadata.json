@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "f6c9a33a169a",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    ".github/workflows/build-frontend.yml",
+    ".github/workflows/build.yml",
+    "docker-compose.yml",
+    "src/main/resources/db/migration/V0__setup_uuidv7.sql",
+    "web/.env",
+    "web/.env.local",
+    "web/src/api/client.ts",
+    "web/src/services/api.ts",
+    "web/src/services/keycloak.ts",
+    "web/src/stores/realm.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f6/c9a33a169a/0/metadata.json",
+      "transcript": "/f6/c9a33a169a/0/full.jsonl",
+      "context": "/f6/c9a33a169a/0/context.md",
+      "content_hash": "/f6/c9a33a169a/0/content_hash.txt",
+      "prompt": "/f6/c9a33a169a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2986,
+    "cache_creation_tokens": 562417,
+    "cache_read_tokens": 34839745,
+    "output_tokens": 31894,
+    "api_call_count": 355
+  }
+}

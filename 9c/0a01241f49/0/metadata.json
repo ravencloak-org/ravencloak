@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "9c0a01241f49",
+  "session_id": "b5280b46-cf69-428d-8d41-a1aa8a0897ed",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-13T15:02:13.999654Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docker-compose.yml",
+    "web/src/services/keycloak.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "6bea1157-979b-45e0-95a6-40019246e00e",
+  "checkpoint_transcript_start": 4287,
+  "transcript_lines_at_start": 4287,
+  "token_usage": {
+    "input_tokens": 410,
+    "cache_creation_tokens": 134755,
+    "cache_read_tokens": 5905044,
+    "output_tokens": 1639,
+    "api_call_count": 49
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-13T15:02:13.204644Z",
+    "agent_lines": 0,
+    "human_added": 496,
+    "human_modified": 221,
+    "human_removed": 0,
+    "total_committed": 497,
+    "agent_percentage": 0
+  }
+}

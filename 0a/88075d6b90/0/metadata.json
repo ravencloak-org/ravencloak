@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "0a88075d6b90",
+  "session_id": "b5280b46-cf69-428d-8d41-a1aa8a0897ed",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-14T04:07:14.664924Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/DEPLOYMENT.md",
+    ".github/workflows/deploy-production.yml",
+    ".woodpecker/auth-release-compose.yml",
+    ".woodpecker/auth-release.yml",
+    ".woodpecker/auth-release.yml.backup",
+    "auth-backend.log",
+    "docker-compose.yml",
+    "src/main/kotlin/com/keeplearning/auth/keycloak/controller/AccountUserRoleController.kt",
+    "src/main/kotlin/com/keeplearning/auth/keycloak/service/AccountUserRoleService.kt",
+    "src/main/kotlin/com/keeplearning/auth/public/controller/PublicTestController.kt",
+    "src/main/kotlin/com/keeplearning/auth/realm/controller/RealmController.kt",
+    "src/main/kotlin/com/keeplearning/auth/realm/service/RealmService.kt"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "6d638426-e0ff-4c30-a798-e5ad39b94f85",
+  "checkpoint_transcript_start": 5551,
+  "transcript_lines_at_start": 5551,
+  "token_usage": {
+    "input_tokens": 4490,
+    "cache_creation_tokens": 547855,
+    "cache_read_tokens": 60390430,
+    "output_tokens": 60338,
+    "api_call_count": 555
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-14T04:07:13.276213Z",
+    "agent_lines": 366,
+    "human_added": 0,
+    "human_modified": 313,
+    "human_removed": 369,
+    "total_committed": 679,
+    "agent_percentage": 53.90279823269514
+  }
+}
