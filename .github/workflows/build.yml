@@ -24,7 +24,25 @@ jobs:
 
       - name: Build and test all modules
         run: |
-          ./gradlew :test bootJar :keycloak-spi:shadowJar :forge:jar :scim-common:jar --no-daemon
+          ./gradlew :test :jacocoTestReport bootJar :keycloak-spi:shadowJar :scim-common:jar --no-daemon
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: build/reports/jacoco/test/jacocoTestReport.xml
+          flags: unittests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          retention-days: 30
+          path: |
+            build/reports/tests/
+            build/reports/jacoco/
 
       - name: Upload auth JARs
         uses: actions/upload-artifact@v4
@@ -35,21 +53,3 @@ jobs:
             build/libs/auth-*.jar
             keycloak-spi/build/libs/keycloak-user-storage-spi-*.jar
             !**/*-plain.jar
-
-      - name: Upload SDK JARs
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdk-jars
-          retention-days: 30
-          path: |
-            forge/build/libs/forge-*.jar
-            scim-common/build/libs/scim-common-*.jar
-            !**/*-sources.jar
-
-      - name: Trigger ECS build
-        env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-        run: |
-          # Dispatch to the default branch; falls back to explicit ref if needed
-          gh workflow run build.yml --repo dsjkeeplearning/ecs-jarvis-core --ref main || \
-            gh workflow run build.yml --repo dsjkeeplearning/ecs-jarvis-core --ref fix/local-forge-jar-support

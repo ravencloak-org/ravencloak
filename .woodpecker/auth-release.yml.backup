@@ -1,0 +1,250 @@
+# Auth Backend - Release (Tag: v*)
+# Triggered automatically when ready-release-go creates a tag after release PR merge
+when:
+  - event: tag
+    ref: refs/tags/v*
+
+steps:
+  - name: build-and-push
+    image: amazoncorretto:21
+    volumes:
+      - /var/lib/woodpecker/cache/gradle:/root/.gradle
+    environment:
+      CI: "true"
+      GRADLE_OPTS: "-Xmx128m"
+      GITHUB_TOKEN:
+        from_secret: github_token
+      S3_BUILD_CACHE_BUCKET:
+        from_secret: s3_build_cache_bucket
+      S3_BUILD_CACHE_REGION:
+        from_secret: s3_build_cache_region
+      AWS_ACCESS_KEY_ID:
+        from_secret: s3_build_cache_access_key_id
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: s3_build_cache_secret_key
+      S3_BUILD_CACHE_ENDPOINT:
+        from_secret: s3_build_cache_endpoint
+    commands:
+      - rm -rf /root/.gradle/daemon 2>/dev/null || true
+      - find /root/.gradle -name "*.lock" -type f -delete 2>/dev/null || true
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo "Building and pushing Auth Backend version $VERSION"
+        ./gradlew :bootJar :jib --no-daemon -x test -PjibTag=$VERSION -Djib.to.auth.username=dsjkeeplearning -Djib.to.auth.password=$GITHUB_TOKEN
+        mkdir -p release-assets
+        cp build/libs/*.jar release-assets/
+
+  - name: generate-changelog
+    image: alpine/git
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG}
+        PREV_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v 'spi-v' | grep -v 'release-v' | grep -v $VERSION | head -n1)
+        if [ -z "$PREV_TAG" ]; then
+          PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+        fi
+        echo "Generating changelog from $PREV_TAG to $VERSION"
+
+        echo "# Changelog for $VERSION" > release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Auth Backend Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- src/ build.gradle.kts >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Keycloak SPI Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- keycloak-spi/ >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        echo "## Other Changes" >> release-assets/CHANGELOG.md
+        git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" -- . ':!keycloak-spi/' ':!src/' >> release-assets/CHANGELOG.md || echo "- No changes" >> release-assets/CHANGELOG.md
+        echo "" >> release-assets/CHANGELOG.md
+
+        cat release-assets/CHANGELOG.md
+
+  - name: update-readme
+    image: alpine/git
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - |
+        git config --global user.email "ci@keeplearningos.com"
+        git config --global user.name "Woodpecker CI"
+        git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${CI_REPO}.git
+        git fetch origin main
+        git checkout main
+        sed -i "s|auth-v[0-9.]*-blue|auth-${CI_COMMIT_TAG}-blue|g" README.md
+        git add README.md
+        git diff --cached --quiet || git commit -m "Update auth version badge to ${CI_COMMIT_TAG}"
+        git push origin main
+
+  - name: github-release
+    image: alpine
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - apk add --no-cache github-cli
+      - |
+        if gh release view $CI_COMMIT_TAG --repo $CI_REPO > /dev/null 2>&1; then
+          echo "Release $CI_COMMIT_TAG already exists, updating notes and uploading assets..."
+          gh release edit $CI_COMMIT_TAG --repo $CI_REPO --notes-file release-assets/CHANGELOG.md
+          gh release upload $CI_COMMIT_TAG --repo $CI_REPO --clobber release-assets/*
+        else
+          gh release create $CI_COMMIT_TAG \
+            --repo $CI_REPO \
+            --title "Auth Backend $CI_COMMIT_TAG" \
+            --notes-file release-assets/CHANGELOG.md \
+            release-assets/*
+        fi
+
+  - name: deploy
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      KEYCLOAK_BASE_URL:
+        from_secret: keycloak_base_url
+      KEYCLOAK_ADMIN_CLIENT_ID:
+        from_secret: keycloak_admin_client_id
+      KEYCLOAK_ADMIN_CLIENT_SECRET:
+        from_secret: keycloak_admin_client_secret
+      KEYCLOAK_ISSUER_PREFIX:
+        from_secret: keycloak_issuer_prefix
+      KEYCLOAK_SAAS_ISSUER_URI:
+        from_secret: keycloak_saas_issuer_uri
+      SAAS_ADMIN_CLIENT_SECRET:
+        from_secret: saas_admin_client_secret
+      DB_HOST:
+        from_secret: db_host
+      DB_PORT:
+        from_secret: db_port
+      DB_NAME:
+        from_secret: db_name
+      DB_USERNAME:
+        from_secret: db_username
+      DB_PASSWORD:
+        from_secret: db_password
+      SPRING_PROFILES_ACTIVE:
+        from_secret: spring_profiles_active
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        from_secret: otel_exporter_otlp_endpoint
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker pull "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+        docker network create auth-network 2>/dev/null || true
+        docker stop auth-backend || true
+        docker rm auth-backend || true
+        echo "Deploying auth-backend version $VERSION"
+        docker run -d --name auth-backend --restart unless-stopped --network auth-network -p 8091:8080 -e KEYCLOAK_BASE_URL="$KEYCLOAK_BASE_URL" -e KEYCLOAK_ADMIN_CLIENT_ID="$KEYCLOAK_ADMIN_CLIENT_ID" -e KEYCLOAK_ADMIN_CLIENT_SECRET="$KEYCLOAK_ADMIN_CLIENT_SECRET" -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" -e SAAS_ADMIN_CLIENT_SECRET="$SAAS_ADMIN_CLIENT_SECRET" -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" -e OTEL_SERVICE_NAME=kos-auth-spring -e OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" -e OTEL_TRACES_EXPORTER=otlp -e OTEL_METRICS_EXPORTER=otlp -e OTEL_LOGS_EXPORTER=otlp "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+        docker image prune -f
+
+  - name: build-frontend
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      VITE_API_BASE_URL:
+        from_secret: vite_api_base_url
+      VITE_KEYCLOAK_URL:
+        from_secret: vite_keycloak_url
+      VITE_KEYCLOAK_REALM:
+        from_secret: vite_keycloak_realm
+      VITE_KEYCLOAK_CLIENT_ID:
+        from_secret: vite_keycloak_client_id
+      VITE_OTEL_COLLECTOR_URL:
+        from_secret: vite_otel_collector_url
+      VITE_OTEL_ENABLED:
+        from_secret: vite_otel_enabled
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker build -t "ghcr.io/dsjkeeplearning/kos-auth-admin:$VERSION" \
+          --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL" \
+          --build-arg VITE_KEYCLOAK_URL="$VITE_KEYCLOAK_URL" \
+          --build-arg VITE_KEYCLOAK_REALM="$VITE_KEYCLOAK_REALM" \
+          --build-arg VITE_KEYCLOAK_CLIENT_ID="$VITE_KEYCLOAK_CLIENT_ID" \
+          --build-arg VITE_OTEL_COLLECTOR_URL="$VITE_OTEL_COLLECTOR_URL" \
+          --build-arg VITE_OTEL_ENABLED="$VITE_OTEL_ENABLED" \
+          web/
+        docker tag "ghcr.io/dsjkeeplearning/kos-auth-admin:$VERSION" "ghcr.io/dsjkeeplearning/kos-auth-admin:latest"
+        docker push "ghcr.io/dsjkeeplearning/kos-auth-admin:$VERSION"
+        docker push "ghcr.io/dsjkeeplearning/kos-auth-admin:latest"
+
+  - name: deploy-frontend
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker pull "ghcr.io/dsjkeeplearning/kos-auth-admin:$VERSION"
+        docker stop auth-frontend || true
+        docker rm auth-frontend || true
+        echo "Deploying auth-frontend version $VERSION"
+        docker run -d --name auth-frontend --restart unless-stopped --network auth-network -p 8090:80 "ghcr.io/dsjkeeplearning/kos-auth-admin:$VERSION"
+        docker image prune -f
+
+  - name: build-nebula-sidecar
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker build -t "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:$VERSION" go-nebula-sidecar/
+        docker tag "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:$VERSION" "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:latest"
+        docker push "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:$VERSION"
+        docker push "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:latest"
+
+  - name: deploy-nebula-sidecar
+    image: docker:cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/nebula-ca:/host/nebula-ca:ro
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      DB_HOST:
+        from_secret: db_host
+      DB_PORT:
+        from_secret: db_port
+      DB_NAME:
+        from_secret: db_name
+      DB_USERNAME:
+        from_secret: db_username
+      DB_PASSWORD:
+        from_secret: db_password
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        from_secret: otel_exporter_otlp_endpoint
+      NEBULA_LIGHTHOUSE_EXTERNAL_IP:
+        from_secret: nebula_lighthouse_external_ip
+    commands:
+      - |
+        VERSION=${CI_COMMIT_TAG#v}
+        OTEL_GRPC_ENDPOINT=$(echo "$OTEL_EXPORTER_OTLP_ENDPOINT" | sed 's/:4318/:4317/')
+        echo $GITHUB_TOKEN | docker login ghcr.io -u dsjkeeplearning --password-stdin
+        docker pull "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:$VERSION"
+        docker stop nebula-sidecar || true
+        docker rm nebula-sidecar || true
+        echo "Deploying nebula-sidecar version $VERSION"
+        docker run -d --name nebula-sidecar --restart unless-stopped --network auth-network -e AUTH_BACKEND_URL=http://auth-backend:8080 -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_NAME="$DB_NAME" -e DB_USERNAME="$DB_USERNAME" -e DB_PASSWORD="$DB_PASSWORD" -e NEBULA_LIGHTHOUSE_IP=192.168.100.1 -e NEBULA_LIGHTHOUSE_EXTERNAL_IP="$NEBULA_LIGHTHOUSE_EXTERNAL_IP" -e NEBULA_LIGHTHOUSE_PORT=4242 -e NEBULA_CA_CERT_PATH=/etc/nebula/ca.crt -e NEBULA_CA_KEY_PATH=/etc/nebula/ca.key -e SERVICE_PORT=8081 -e OTEL_SERVICE_NAME=kos-auth-go-gin -e OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_GRPC_ENDPOINT" -v /opt/nebula-ca:/etc/nebula:ro "ghcr.io/dsjkeeplearning/kos-nebula-sidecar:$VERSION"
+        docker image prune -f

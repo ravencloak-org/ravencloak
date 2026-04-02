@@ -9,7 +9,6 @@ rootProject.name = "auth"
 
 include("keycloak-spi")
 include("scim-common")
-include("forge")
 
 // S3 Build Cache Configuration
 // Set these environment variables in .env or shell:

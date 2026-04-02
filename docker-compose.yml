@@ -1,28 +1,137 @@
 services:
-  auth-backend:
-    image: ghcr.io/ravencloak-org/ravencloak:latest
-    container_name: auth-backend
+  # ─── PostgreSQL ───────────────────────────────────────────────
+  postgres:
+    image: paradedb/paradedb:latest
+    container_name: auth-postgres
     ports:
-      - "8091:8080"
+      - "${DB_PORT:-5432}:5432"
     environment:
-      # Production database (update these with your actual values)
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME:-kos-auth}
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      # Production Keycloak
-      - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-https://auth.keeplearningos.com}
-      - KEYCLOAK_ISSUER_PREFIX=${KEYCLOAK_ISSUER_PREFIX:-https://auth.keeplearningos.com/realms/}
-      - KEYCLOAK_SAAS_ISSUER_URI=${KEYCLOAK_SAAS_ISSUER_URI:-https://auth.keeplearningos.com/realms/saas-admin}
-      - SAAS_ADMIN_CLIENT_SECRET=${SAAS_ADMIN_CLIENT_SECRET}
-      # Disable OTEL for now
-      - OTEL_SDK_DISABLED=true
+      POSTGRES_DB: ${DB_NAME:-kos-auth}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-kos-auth}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
-  auth-frontend:
-    image: ghcr.io/ravencloak-org/ravencloak-web:latest
-    container_name: auth-frontend
+  # ─── Keycloak ─────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.2
+    container_name: keycloak
+    command: start-dev
     ports:
-      - "8090:80"
+      - "${KEYCLOAK_PORT:-8088}:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-kos-auth}
+      KC_DB_USERNAME: ${DB_USERNAME:-postgres}
+      KC_DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_RELATIVE_PATH: /
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      # Mount SPI provider JARs — the CI pipeline places the built JAR here
+      - keycloak_providers:/opt/keycloak/providers:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
+
+  # ─── Auth Backend (Spring Boot) ──────────────────────────────
+  auth-backend:
+<<<<<<< feat/nebula-sidecar-polish-and-frontend-spec
+    image: ghcr.io/ravencloak-org/ravencloak:latest
+=======
+    image: ${AUTH_BACKEND_IMAGE:-ghcr.io/dsjkeeplearning/kos-auth-backend:latest}
+>>>>>>> main
+    container_name: auth-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${AUTH_BACKEND_PORT:-8080}:8080"
+      - "${GRPC_PORT:-9090}:9090"
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-kos-auth}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # Keycloak
+      KEYCLOAK_BASE_URL: ${KEYCLOAK_BASE_URL:-http://keycloak:8080}
+      KEYCLOAK_ISSUER_PREFIX: ${KEYCLOAK_ISSUER_PREFIX:-http://localhost:8088/realms/}
+      KEYCLOAK_SAAS_ISSUER_URI: ${KEYCLOAK_SAAS_ISSUER_URI:-http://localhost:8088/realms/saas-admin}
+      KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-admin-console}
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
+      SAAS_ADMIN_CLIENT_SECRET: ${SAAS_ADMIN_CLIENT_SECRET:-}
+      # OAuth2 redirect
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_MASTER_REDIRECT_URI: ${OAUTH2_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/master}
+      # Server
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # OpenTelemetry
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: kos-auth-spring
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Auth Frontend (Vue 3 + Nginx) ──────────────────────────
+  auth-frontend:
+<<<<<<< feat/nebula-sidecar-polish-and-frontend-spec
+    image: ghcr.io/ravencloak-org/ravencloak-web:latest
+=======
+    image: ${AUTH_FRONTEND_IMAGE:-ghcr.io/dsjkeeplearning/kos-auth-backend-web:latest}
+>>>>>>> main
+    container_name: auth-frontend
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8088}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-saas-admin}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-kos-admin-web}
+        VITE_OTEL_COLLECTOR_URL: ${VITE_OTEL_COLLECTOR_URL:-http://localhost:4318}
+        VITE_OTEL_ENABLED: ${VITE_OTEL_ENABLED:-false}
+    ports:
+      - "${AUTH_FRONTEND_PORT:-8090}:80"
+    depends_on:
+      - auth-backend
+    restart: unless-stopped
+
+  # ─── OpenTelemetry Collector ─────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    profiles:
+      - otel
+    ports:
+      - "4317:4317"   # gRPC receiver
+      - "4318:4318"   # HTTP receiver
+    environment:
+      SIGNOZ_ENDPOINT: ${SIGNOZ_ENDPOINT:-}
+      SIGNOZ_ACCESS_TOKEN: ${SIGNOZ_ACCESS_TOKEN:-}
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  keycloak_providers:

@@ -31,7 +31,10 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Architecture: architecture.md
+  - Design: design.md
+  - Database: database.md
   - API:
+      - API Reference: api-reference.md
       - OpenAPI Spec: api/openapi.md
       - SCIM 2.0: api/scim.md
   - SDK Integration:
@@ -42,9 +45,19 @@ nav:
       - Startup Sync: sdk/startup-sync.md
   - Modules:
       - Keycloak SPI: modules/keycloak-spi.md
+  - Infrastructure: infrastructure.md
   - Deployment:
       - CI/CD: deployment/ci-cd.md
       - Docker: deployment/docker.md
+  - ADR:
+      - Overview: adr/index.md
+      - "001: Reactive Stack": adr/001-reactive-stack.md
+      - "002: Shadow Tables": adr/002-keycloak-shadow-tables.md
+      - "003: UUIDv7": adr/003-uuidv7-primary-keys.md
+      - "004: SCIM Provisioning": adr/004-scim-provisioning.md
+      - "005: Paired Clients": adr/005-paired-clients.md
+      - "006: ParadeDB Search": adr/006-paradedb-search.md
+      - "007: Audit Trail": adr/007-audit-trail-jsonb.md
 
 plugins:
   - search
@@ -55,7 +68,11 @@ plugins:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:

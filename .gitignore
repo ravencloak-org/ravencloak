@@ -55,3 +55,8 @@ web/.vite/
 web/*.local
 web/*.tsbuildinfo
 cloudflared-config.yml
+
+### Misc ###
+node_modules/
+output.pdf
+.infisical.json

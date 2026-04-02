@@ -42,10 +42,9 @@ This is a multi-module Gradle project:
 
 | Module | Description |
 |--------|-------------|
-| `auth` (root) | Main Spring Boot authentication backend |
+| `auth` (root) | Main Spring Boot authentication backend (includes gRPC user provisioning server) |
 | `keycloak-spi` | Keycloak User Storage SPI for external user validation |
-| `scim-common` | Shared SCIM 2.0 DTOs (ScimUserResource, ScimListResponse, ScimBulkRequest/Response, ScimChecksumUtil, etc.) |
-| `forge` | Spring Boot Starter client SDK wrapping the SCIM API (`com.keeplearning.forge`) — includes bulk operations, checksum, and startup sync |
+| `scim-common` | Internal SCIM 2.0 DTOs (ScimUserResource, ScimListResponse, ScimBulkRequest/Response, ScimChecksumUtil, etc.) |
 | `scim/` | SCIM 2.0 provisioning API docs (see [scim/README.md](scim/README.md)) |
 
 ## Architecture
@@ -53,6 +52,7 @@ This is a multi-module Gradle project:
 ### Tech Stack
 - Kotlin 2.2.21 / Java 21
 - Spring Boot 4.0.1 with WebFlux (reactive)
+- Spring gRPC 1.0.2 (user provisioning API on port 9090)
 - R2DBC for reactive PostgreSQL connectivity
 - Flyway for database migrations (uses JDBC, not R2DBC)
 - Spring Security with OAuth2/OIDC (Keycloak)
@@ -85,7 +85,6 @@ A read-only User Storage Provider that validates users against the auth backend 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
 | `keycloak-spi.yml` | Push to `keycloak-spi/**`, tag `spi-v*`, manual | Build, test & release SPI JAR |
-| `auth-sdk-publish.yml` | Push to `forge/**`/`scim-common/**`, tag `sdk-v*`, manual | Build, test & publish Forge SDK |
 | `deploy-docs.yml` | Push to `docs/**`/`mkdocs.yml`, release published, manual | Build & deploy MkDocs to GitHub Pages |
 
 ### Manual Release (CLI)
@@ -93,9 +92,6 @@ A read-only User Storage Provider that validates users against the auth backend 
 ```bash
 # Keycloak SPI release
 gh workflow run keycloak-spi.yml -f version=1.0.1
-
-# Forge SDK release
-gh workflow run auth-sdk-publish.yml -f version=0.2.0
 ```
 
 ### GitHub Actions Secrets
@@ -146,9 +142,8 @@ woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --
 
 ### Deployment Flow
 
-- **Auth Backend**: Docker image pushed to ghcr.io, container restarted on EC2
+- **Auth Backend**: Docker image pushed to ghcr.io, container restarted on EC2 (exposes HTTP :8080 + gRPC :9090)
 - **Keycloak SPI**: GH Action builds & creates GitHub Release → Woodpecker downloads JAR & deploys to `/opt/keycloak-providers/`
-- **Forge SDK**: GH Action publishes to GitHub Packages (Maven)
 
 ### Multi-Tenant Authentication
 
@@ -347,33 +342,34 @@ Header-based API versioning via Spring Framework 7 (`API-Version: 1.0`). See [sc
 | `ScimFilterTranslator` | SCIM filter → R2DBC SQL translation |
 | `ScimExceptionHandler` | RFC 7644 §3.12 error responses |
 
-### Forge SDK (`forge/`)
+### gRPC User Provisioning API
 
-Client SDK for SCIM 2.0 user provisioning. Uses Spring WebFlux + OAuth2 client credentials.
+Replaces the former Forge REST SDK with a strongly typed gRPC service. Third-party apps generate clients from the proto file — no separate SDK to maintain. See [docs/api/grpc.md](docs/api/grpc.md) for full documentation.
 
-**Key Types (all renamed from `Forge*` to `Auth*` — old names kept as `@Deprecated` typealiases):**
+**Proto file:** `src/main/proto/keeplearning/auth/provisioning/v1/user_provisioning.proto`
+**Port:** `9090` (configurable via `GRPC_PORT` env var)
+**Package:** `keeplearning.auth.provisioning.v1`
+
+**Service: `UserProvisioning`**
+
+| RPC | Description |
+|-----|-------------|
+| `CreateUser` | Create a single user in a realm |
+| `GetUser` | Get user by ID |
+| `ListUsers` | Paginated listing with optional SCIM-style filter |
+| `UpdateUser` | Full replacement of user fields |
+| `DeleteUser` | Remove a user |
+| `BulkCreateUsers` | Batch create (per-operation error handling) |
+| `BulkUpdateUsers` | Batch update (per-operation error handling) |
+| `GetChecksum` | SHA-256 checksum for sync verification |
+
+**Key Implementation:**
 
 | Class | Purpose |
 |-------|---------|
-| `AuthUser` | Abstract base class for user domain entities (extend to add custom fields) |
-| `AuthRepository<T>` | Generic repository interface with CRUD + `createAll`/`updateAll` bulk ops |
-| `DefaultAuthRepository<T>` | Default implementation mapping `AuthUser` ↔ `ScimUserResource` |
-| `ScimClient` | Low-level SCIM HTTP client (`listUsers`, `getUser`, `createUser`, `replaceUser`, `patchUser`, `deleteUser`, `bulkRequest`, `getChecksum`) |
-| `AuthProperties` | Configuration: `forge.base-url`, `forge.realm-name`, `forge.client-registration-id`, `forge.api-version`, `forge.startup-sync.enabled` |
-| `AuthAutoConfiguration` | Auto-configures `forgeWebClient`, `scimClient`, and conditionally `startupSyncRunner` |
-| `AuthException` | Exception thrown on SCIM API errors (wraps HTTP status + `ScimErrorResponse`) |
-| `EnableAuth` | Optional annotation for explicit SDK opt-in |
+| `UserProvisioningGrpcService` | gRPC service implementation, delegates to `ScimUserService` / `ScimChecksumService` |
 
-**Startup Sync (`forge/src/main/kotlin/.../sync/`):**
-
-| Class | Purpose |
-|-------|---------|
-| `AuthStartupSync<T>` | Abstract class clients extend — provides `fetchAllLocalUsers()` and `mapToAuthUser()` |
-| `StartupSyncRunner<T>` | `ApplicationRunner` that checksums local vs remote users and bulk-syncs differences on startup |
-
-Sync algorithm: compute local checksum → compare with `GET /Users/checksum` → if different, fetch all remote, diff by email → bulk POST creates + bulk PUT updates. Remote-only users ignored. Failures non-fatal.
-
-`StartupSyncRunner` is registered only when an `AuthStartupSync` bean exists AND `forge.startup-sync.enabled=true` (default).
+**Error Mapping:** SCIM HTTP errors → gRPC status codes (404→NOT_FOUND, 409→ALREADY_EXISTS, 400→INVALID_ARGUMENT)
 
 ### ParadeDB Setup (Required for V2+ migrations)
 
