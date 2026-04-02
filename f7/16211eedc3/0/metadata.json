@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "f716211eedc3",
+  "session_id": "31505fc3-7823-4449-9e43-09e3ff8b64c7",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-02T15:24:09.905891Z",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".env.local.docker",
+    "docker-compose.yml",
+    "scripts/assign-super-admin.sh"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "e8dbb955-bcaf-4f79-8169-022238eceb9f",
+  "checkpoint_transcript_start": 792,
+  "transcript_lines_at_start": 792,
+  "token_usage": {
+    "input_tokens": 39,
+    "cache_creation_tokens": 155220,
+    "cache_read_tokens": 4448160,
+    "output_tokens": 9890,
+    "api_call_count": 29
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-02T15:24:09.703405Z",
+    "agent_lines": 0,
+    "human_added": 58,
+    "human_modified": 187,
+    "human_removed": 0,
+    "total_committed": 122,
+    "agent_percentage": 0
+  }
+}
