@@ -2,7 +2,7 @@
 # Downloads the SPI JAR from GitHub Release and deploys to Keycloak.
 # Build & release is handled by GitHub Actions (.github/workflows/keycloak-spi.yml).
 #
-# Trigger: woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
+# Trigger: woodpecker-cli pipeline create ravencloak-org/ravencloak --branch main --var DEPLOY_TO=keycloak-spi
 when:
   - event: manual
     evaluate: 'CI_PIPELINE_DEPLOY_TO == "keycloak-spi"'

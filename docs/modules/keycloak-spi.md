@@ -115,7 +115,7 @@ git tag spi-v1.0.0 && git push origin spi-v1.0.0
 ### Via Woodpecker CLI
 
 ```bash
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main --var DEPLOY_TO=keycloak-spi
 ```
 

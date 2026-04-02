@@ -11,6 +11,8 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@headlessui/vue": "^1.7.23",
+    "@heroicons/vue": "^2.2.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/context-zone": "^2.5.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
@@ -22,19 +24,21 @@
     "@opentelemetry/sdk-trace-base": "^2.5.0",
     "@opentelemetry/sdk-trace-web": "^2.5.0",
     "@opentelemetry/semantic-conventions": "^1.39.0",
+    "@tailwindcss/vite": "^4.2.2",
     "axios": "^1.7.9",
+    "clsx": "^2.1.1",
     "keycloak-js": "^26.0.7",
     "pinia": "^2.3.0",
     "pinia-plugin-persistedstate": "3",
-    "primeicons": "^7.0.0",
-    "primevue": "^4.2.5",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.2",
     "unplugin-vue-router": "^0.19.2",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
-    "@primevue/themes": "^4.2.5",
     "@tsconfig/node22": "^22.0.0",
+    "@types/bun": "latest",
     "@types/node": "^22.10.5",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/eslint-config-typescript": "^14.2.0",
@@ -43,7 +47,6 @@
     "eslint-plugin-vue": "^9.32.0",
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
-    "vue-tsc": "^2.2.0",
-    "@types/bun": "latest"
+    "vue-tsc": "^2.2.0"
   }
 }

@@ -58,8 +58,8 @@ Docker builds use buildx with registry-based caching:
 
 ```yaml
 docker buildx build \
-  --cache-from type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache \
-  --cache-to type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache,mode=max \
+  --cache-from type=registry,ref=ghcr.io/ravencloak-org/ravencloak:cache \
+  --cache-to type=registry,ref=ghcr.io/ravencloak-org/ravencloak:cache,mode=max \
   ...
 ```
 
@@ -93,17 +93,17 @@ export WOODPECKER_SERVER=https://drone.keeplearningos.com
 export WOODPECKER_TOKEN=<your-token>
 
 # Keycloak SPI release (auto-increments patch version)
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main \
   --var DEPLOY_TO=keycloak-spi
 
 # Combined release (auto-increments patch version)
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main \
   --var DEPLOY_TO=release-all
 
 # Deploy only (uses latest release)
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main \
   --var DEPLOY_TO=deploy
 ```
@@ -147,7 +147,7 @@ docker run -d --name auth-backend \
   -e KEYCLOAK_ISSUER_PREFIX="$KEYCLOAK_ISSUER_PREFIX" \
   -e KEYCLOAK_SAAS_ISSUER_URI="$KEYCLOAK_SAAS_ISSUER_URI" \
   ... \
-  "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+  "ghcr.io/ravencloak-org/ravencloak:$VERSION"
 ```
 
 ### Keycloak SPI (JAR)
@@ -214,7 +214,7 @@ volumes:
 
 # Or manually
 woodpecker-cli secret add \
-  --repository dsjkeeplearning/kos-auth-backend \
+  --repository ravencloak-org/ravencloak \
   --name github_token \
   --value "<token>"
 ```

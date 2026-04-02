@@ -120,17 +120,17 @@ gh workflow run keycloak-spi.yml -f version=1.0.1
 
 ```bash
 # Deploy latest keycloak-spi release to Keycloak
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=keycloak-spi
+woodpecker-cli pipeline create ravencloak-org/ravencloak --branch main --var DEPLOY_TO=keycloak-spi
 
 # Combined release (auto-increments version)
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend --branch main --var DEPLOY_TO=release-all
+woodpecker-cli pipeline create ravencloak-org/ravencloak --branch main --var DEPLOY_TO=release-all
 ```
 
 ### Caching
 
 - **Gradle dependencies**: Volume mount at `/var/lib/woodpecker/cache/gradle:/root/.gradle`
 - **S3 build cache**: Cloudflare R2 via `com.github.burrunan.s3-build-cache` plugin
-- **Docker cache**: Registry-based cache at `ghcr.io/dsjkeeplearning/kos-auth-backend:cache`
+- **Docker cache**: Registry-based cache at `ghcr.io/ravencloak-org/ravencloak:cache`
 
 ### Woodpecker Secrets
 

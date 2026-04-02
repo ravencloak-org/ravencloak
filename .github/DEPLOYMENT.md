@@ -115,8 +115,8 @@ ssh insight-service.jobin.wtf
 cd /home/ubuntu
 
 # Edit docker-compose.yml to use specific version tag
-# Change: image: ghcr.io/dsjkeeplearning/kos-auth-backend:latest
-# To:     image: ghcr.io/dsjkeeplearning/kos-auth-backend:1.0.19
+# Change: image: ghcr.io/ravencloak-org/ravencloak:latest
+# To:     image: ghcr.io/ravencloak-org/ravencloak:1.0.19
 
 docker-compose pull auth-backend
 docker-compose up -d auth-backend

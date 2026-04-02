@@ -2,35 +2,38 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRealmStore } from '@/stores/realm'
-import { useToast } from 'primevue/usetoast'
-import { useConfirm } from 'primevue/useconfirm'
-import Button from 'primevue/button'
-import Card from 'primevue/card'
-import Tag from 'primevue/tag'
-import ProgressSpinner from 'primevue/progressspinner'
-import Message from 'primevue/message'
-import TabView from 'primevue/tabview'
-import TabPanel from 'primevue/tabpanel'
-import ClientList from '@/components/ClientList.vue'
-import RoleList from '@/components/RoleList.vue'
-import GroupList from '@/components/GroupList.vue'
-import UserList from '@/components/UserList.vue'
+import { useToast } from '@/composables/useToast'
+import { auditApi, type AuditLog } from '@/api/audit'
+import SidebarLayout from '@/components/layout/SidebarLayout.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
+import {
+  RectangleStackIcon,
+  UsersIcon,
+  KeyIcon,
+  UserGroupIcon,
+  ArrowPathIcon,
+  PlusIcon,
+  UserPlusIcon,
+} from '@heroicons/vue/24/outline'
 
 defineOptions({
-  name: 'RealmDashboardPage'
+  name: 'RealmDashboardPage',
 })
 
 const route = useRoute()
 const router = useRouter()
 const realmStore = useRealmStore()
 const toast = useToast()
-const confirm = useConfirm()
 
 const realmName = computed(() => route.params.name as string)
 
 const loading = ref(true)
 const syncing = ref(false)
 const error = ref<string | null>(null)
+
+const recentAudit = ref<AuditLog[]>([])
+const auditLoading = ref(false)
 
 onMounted(async () => {
   await loadRealm()
@@ -46,369 +49,262 @@ async function loadRealm(): Promise<void> {
 
   try {
     await realmStore.fetchRealm(realmName.value)
+    // Fetch recent audit in parallel (non-blocking)
+    fetchRecentAudit()
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load realm'
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: error.value,
-      life: 5000
-    })
+    toast.error('Error', error.value)
   } finally {
     loading.value = false
   }
 }
 
+async function fetchRecentAudit(): Promise<void> {
+  auditLoading.value = true
+  try {
+    const response = await auditApi.getRealmAudit(realmName.value, 0, 5)
+    recentAudit.value = response.content
+  } catch {
+    // Silent fail for audit -- non-critical
+    recentAudit.value = []
+  } finally {
+    auditLoading.value = false
+  }
+}
+
 async function handleSync(): Promise<void> {
   syncing.value = true
-
   try {
     await realmStore.syncRealm(realmName.value)
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: 'Realm synchronized successfully',
-      life: 3000
-    })
+    toast.success('Synced', 'Realm synchronized successfully')
   } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Sync Failed',
-      detail: err instanceof Error ? err.message : 'Failed to sync realm',
-      life: 5000
-    })
+    toast.error('Sync Failed', err instanceof Error ? err.message : 'Failed to sync realm')
   } finally {
     syncing.value = false
   }
 }
 
-async function handleEnableSpi(): Promise<void> {
-  try {
-    await realmStore.enableSpi(realmName.value)
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: 'User Storage SPI enabled',
-      life: 3000
-    })
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: err instanceof Error ? err.message : 'Failed to enable SPI',
-      life: 5000
-    })
+const totalClients = computed(() => realmStore.currentRealm?.clients?.length ?? 0)
+const totalRoles = computed(() => realmStore.currentRealm?.roles?.length ?? 0)
+const totalGroups = computed(() => realmStore.currentRealm?.groups?.length ?? 0)
+// Users are not in RealmDetails, so we show a placeholder or rely on realm metadata
+const totalUsers = computed(() => 0)
+
+const statCards = computed(() => [
+  {
+    name: 'Clients',
+    value: totalClients.value,
+    icon: RectangleStackIcon,
+    href: `/realms/${realmName.value}/clients`,
+  },
+  {
+    name: 'Users',
+    value: totalUsers.value,
+    icon: UsersIcon,
+    href: `/realms/${realmName.value}/users`,
+  },
+  {
+    name: 'Roles',
+    value: totalRoles.value,
+    icon: KeyIcon,
+    href: `/realms/${realmName.value}/roles`,
+  },
+  {
+    name: 'Groups',
+    value: totalGroups.value,
+    icon: UserGroupIcon,
+    href: `/realms/${realmName.value}/groups`,
+  },
+])
+
+function actionTypeColor(actionType: string): 'success' | 'warning' | 'danger' | 'info' {
+  switch (actionType) {
+    case 'CREATE':
+      return 'success'
+    case 'UPDATE':
+      return 'warning'
+    case 'DELETE':
+      return 'danger'
+    default:
+      return 'info'
   }
 }
 
-function handleDelete(): void {
-  confirm.require({
-    message: `Are you sure you want to delete the realm "${realmName.value}"? This action cannot be undone.`,
-    header: 'Delete Realm',
-    icon: 'pi pi-exclamation-triangle',
-    rejectLabel: 'Cancel',
-    acceptLabel: 'Delete',
-    acceptClass: 'p-button-danger',
-    accept: async () => {
-      try {
-        await realmStore.deleteRealm(realmName.value)
-        toast.add({
-          severity: 'success',
-          summary: 'Success',
-          detail: 'Realm deleted successfully',
-          life: 3000
-        })
-        router.push('/realms')
-      } catch (err) {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: err instanceof Error ? err.message : 'Failed to delete realm',
-          life: 5000
-        })
-      }
-    }
-  })
-}
+function relativeTime(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHr = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHr / 24)
 
-function navigateBack(): void {
-  router.push('/realms')
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHr < 24) return `${diffHr}h ago`
+  if (diffDay < 30) return `${diffDay}d ago`
+  return date.toLocaleDateString()
 }
 </script>
 
 <template>
-  <div class="realm-dashboard">
-    <div v-if="loading" class="loading-container">
-      <ProgressSpinner />
-      <p>Loading realm...</p>
-    </div>
-
-    <Message
-      v-else-if="error"
-      severity="error"
-      :closable="false"
-    >
-      {{ error }}
-      <template #icon>
-        <i class="pi pi-exclamation-triangle" />
-      </template>
-    </Message>
-
-    <template v-else-if="realmStore.currentRealm">
-      <div class="page-header">
-        <Button
-          icon="pi pi-arrow-left"
-          text
-          rounded
-          @click="navigateBack"
-        />
-        <div class="header-content">
-          <div class="header-title">
-            <h1>{{ realmStore.currentRealm.displayName || realmStore.currentRealm.realmName }}</h1>
-            <Tag
-              :value="realmStore.currentRealm.enabled ? 'Enabled' : 'Disabled'"
-              :severity="realmStore.currentRealm.enabled ? 'success' : 'danger'"
-            />
-          </div>
-          <p>{{ realmStore.currentRealm.realmName }}</p>
-        </div>
-        <div class="header-actions">
-          <Button
-            label="Sync"
-            icon="pi pi-sync"
-            severity="secondary"
-            :loading="syncing"
-            @click="handleSync"
-          />
-          <Button
-            label="Delete"
-            icon="pi pi-trash"
-            severity="danger"
-            outlined
-            @click="handleDelete"
-          />
-        </div>
+  <SidebarLayout>
+    <div class="mx-auto max-w-7xl">
+      <!-- Loading -->
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <svg
+          class="h-8 w-8 animate-spin text-zinc-400"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
       </div>
 
-      <div class="dashboard-content">
-        <Card class="info-card">
-          <template #title>Realm Information</template>
-          <template #content>
-            <div class="info-grid">
-              <div class="info-item">
-                <span class="info-label">Name</span>
-                <span class="info-value">{{ realmStore.currentRealm.realmName }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Display Name</span>
-                <span class="info-value">{{ realmStore.currentRealm.displayName || '-' }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Status</span>
-                <Tag
-                  :value="realmStore.currentRealm.enabled ? 'Enabled' : 'Disabled'"
-                  :severity="realmStore.currentRealm.enabled ? 'success' : 'danger'"
-                />
-              </div>
-              <div class="info-item">
-                <span class="info-label">User Storage SPI</span>
-                <div class="spi-status">
-                  <Tag
-                    :value="realmStore.currentRealm.spiEnabled ? 'Enabled' : 'Disabled'"
-                    :severity="realmStore.currentRealm.spiEnabled ? 'success' : 'warn'"
-                  />
-                  <Button
-                    v-if="!realmStore.currentRealm.spiEnabled"
-                    label="Enable"
-                    size="small"
-                    text
-                    @click="handleEnableSpi"
-                  />
-                </div>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Created</span>
-                <span class="info-value">{{ formatDate(realmStore.currentRealm.createdAt) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Last Synced</span>
-                <span class="info-value">{{ formatDate(realmStore.currentRealm.syncedAt) }}</span>
-              </div>
+      <!-- Error -->
+      <div
+        v-else-if="error"
+        class="rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+      >
+        {{ error }}
+      </div>
+
+      <!-- Dashboard content -->
+      <template v-else-if="realmStore.currentRealm">
+        <!-- Page header -->
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-3">
+              <h1 class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                {{ realmStore.currentRealm.displayName || realmStore.currentRealm.realmName }}
+              </h1>
+              <AppBadge :variant="realmStore.currentRealm.enabled ? 'success' : 'danger'" dot>
+                {{ realmStore.currentRealm.enabled ? 'Enabled' : 'Disabled' }}
+              </AppBadge>
             </div>
-          </template>
-        </Card>
+            <p class="mt-1 font-mono text-sm text-zinc-500 dark:text-zinc-400">
+              {{ realmStore.currentRealm.realmName }}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <AppButton variant="secondary" :loading="syncing" @click="handleSync">
+              <ArrowPathIcon class="h-4 w-4" />
+              Sync
+            </AppButton>
+          </div>
+        </div>
 
-        <TabView class="entity-tabs">
-          <TabPanel value="clients">
-            <template #header>
-              <span class="tab-header">
-                <i class="pi pi-desktop" />
-                <span>Clients</span>
-                <Tag
-                  :value="String(realmStore.currentRealm.clients?.length || 0)"
-                  severity="secondary"
-                  rounded
-                />
-              </span>
-            </template>
-            <ClientList :clients="realmStore.currentRealm.clients || []" :realm-name="realmName" />
-          </TabPanel>
+        <!-- Stat cards -->
+        <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <button
+            v-for="stat in statCards"
+            :key="stat.name"
+            class="flex items-center gap-4 rounded-lg bg-white p-5 text-left ring-1 ring-zinc-200 transition-all hover:ring-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:ring-zinc-700"
+            @click="router.push(stat.href)"
+          >
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
+              <component :is="stat.icon" class="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
+            </div>
+            <div>
+              <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                {{ stat.value }}
+              </p>
+              <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                {{ stat.name }}
+              </p>
+            </div>
+          </button>
+        </div>
 
-          <TabPanel value="roles">
-            <template #header>
-              <span class="tab-header">
-                <i class="pi pi-shield" />
-                <span>Roles</span>
-                <Tag
-                  :value="String(realmStore.currentRealm.roles?.length || 0)"
-                  severity="secondary"
-                  rounded
-                />
-              </span>
-            </template>
-            <RoleList :roles="realmStore.currentRealm.roles || []" :realm-name="realmName" />
-          </TabPanel>
+        <!-- Recent audit activity -->
+        <div class="mt-8">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Recent Activity
+          </h2>
+          <div class="mt-3 rounded-lg bg-white ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+            <!-- Audit loading -->
+            <div v-if="auditLoading" class="flex items-center justify-center py-8">
+              <svg
+                class="h-5 w-5 animate-spin text-zinc-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
 
-          <TabPanel value="groups">
-            <template #header>
-              <span class="tab-header">
-                <i class="pi pi-sitemap" />
-                <span>Groups</span>
-                <Tag
-                  :value="String(realmStore.currentRealm.groups?.length || 0)"
-                  severity="secondary"
-                  rounded
-                />
-              </span>
-            </template>
-            <GroupList :groups="realmStore.currentRealm.groups || []" :realm-name="realmName" />
-          </TabPanel>
+            <!-- Empty audit -->
+            <div
+              v-else-if="recentAudit.length === 0"
+              class="px-5 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
+            >
+              No recent activity
+            </div>
 
-          <TabPanel value="users">
-            <template #header>
-              <span class="tab-header">
-                <i class="pi pi-users" />
-                <span>Users</span>
-              </span>
-            </template>
-            <UserList :realm-name="realmName" />
-          </TabPanel>
-        </TabView>
-      </div>
-    </template>
-  </div>
+            <!-- Audit timeline -->
+            <ul v-else class="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <li
+                v-for="log in recentAudit"
+                :key="log.id"
+                class="flex items-center gap-4 px-5 py-3"
+              >
+                <div class="shrink-0">
+                  <AppBadge :variant="actionTypeColor(log.actionType)">
+                    {{ log.actionType }}
+                  </AppBadge>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm text-zinc-900 dark:text-zinc-100">
+                    <span class="font-medium">{{ log.entityType }}</span>
+                    <span class="text-zinc-500 dark:text-zinc-400"> &middot; {{ log.entityName }}</span>
+                  </p>
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ log.actorEmail || log.actorKeycloakId }}
+                  </p>
+                </div>
+                <span class="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+                  {{ relativeTime(log.createdAt) }}
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="mt-8">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Quick Actions
+          </h2>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <AppButton
+              variant="secondary"
+              @click="router.push(`/realms/${realmName}/clients/create`)"
+            >
+              <PlusIcon class="h-4 w-4" />
+              Create Client
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              @click="router.push(`/realms/${realmName}/users/create`)"
+            >
+              <UserPlusIcon class="h-4 w-4" />
+              Add User
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              :loading="syncing"
+              @click="handleSync"
+            >
+              <ArrowPathIcon class="h-4 w-4" />
+              Sync Realm
+            </AppButton>
+          </div>
+        </div>
+      </template>
+    </div>
+  </SidebarLayout>
 </template>
-
-<style scoped>
-.realm-dashboard {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem;
-  gap: 1rem;
-}
-
-.loading-container p {
-  color: var(--p-text-muted-color);
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-content {
-  flex: 1;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.header-content h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--p-text-color);
-}
-
-.header-content p {
-  margin: 0.25rem 0 0;
-  color: var(--p-text-muted-color);
-  font-family: monospace;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.dashboard-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.info-card {
-  background-color: var(--p-surface-card);
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1.5rem;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-label {
-  font-size: 0.875rem;
-  color: var(--p-text-muted-color);
-}
-
-.info-value {
-  font-weight: 500;
-  color: var(--p-text-color);
-}
-
-.spi-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.entity-tabs {
-  background-color: var(--p-surface-card);
-  border-radius: var(--p-border-radius);
-}
-
-.tab-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-</style>
