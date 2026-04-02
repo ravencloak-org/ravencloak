@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "a5175775a7da",
+  "strategy": "manual-commit",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".gitignore",
+    ".woodpecker/deploy.yml",
+    ".woodpecker/release-all.yml",
+    "SYSTEM_MAP.md",
+    "docker-compose.yml",
+    "docs/superpowers/specs/2026-04-02-frontend-redesign-design.md",
+    "go-nebula-sidecar/Dockerfile",
+    "go-nebula-sidecar/cmd/healthcheck/main.go",
+    "go-nebula-sidecar/db/db.go",
+    "go-nebula-sidecar/db/repository_integration_test.go",
+    "scripts/add-woodpecker-secrets.sh",
+    "web/src/App.vue",
+    "web/src/assets/styles/app.css",
+    "web/src/components/layout/SidebarNav.vue",
+    "web/src/components/ui/AppDialogActions.vue",
+    "web/src/components/ui/AppDialogBody.vue",
+    "web/src/components/ui/AppDialogDescription.vue",
+    "web/src/components/ui/AppDialogTitle.vue",
+    "web/src/components/ui/AppDropdownButton.vue",
+    "web/src/components/ui/AppDropdownDescription.vue",
+    "web/src/components/ui/AppDropdownDivider.vue",
+    "web/src/components/ui/AppDropdownHeader.vue",
+    "web/src/components/ui/AppDropdownItem.vue",
+    "web/src/components/ui/AppDropdownLabel.vue",
+    "web/src/components/ui/AppDropdownMenu.vue",
+    "web/src/components/ui/AppTableCell.vue",
+    "web/src/composables/useConfirm.ts",
+    "web/src/composables/useDarkMode.ts",
+    "web/src/composables/useToast.ts",
+    "web/src/lib/utils.ts",
+    "web/src/main.ts",
+    "web/src/pages/realms/[name]/nebula/index.vue",
+    "web/vite.config.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a5/175775a7da/0/metadata.json",
+      "transcript": "/a5/175775a7da/0/full.jsonl",
+      "context": "/a5/175775a7da/0/context.md",
+      "content_hash": "/a5/175775a7da/0/content_hash.txt",
+      "prompt": "/a5/175775a7da/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2621,
+    "cache_creation_tokens": 408656,
+    "cache_read_tokens": 4326493,
+    "output_tokens": 18692,
+    "api_call_count": 63
+  }
+}
