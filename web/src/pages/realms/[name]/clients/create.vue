@@ -1,22 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
+import { useToast } from '@/composables/useToast'
 import { clientsApi } from '@/api'
-import Card from 'primevue/card'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Checkbox from 'primevue/checkbox'
-import Button from 'primevue/button'
-import Chips from 'primevue/chips'
-import Message from 'primevue/message'
-import SelectButton from 'primevue/selectbutton'
+import SidebarLayout from '@/components/layout/SidebarLayout.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import { ArrowLeftIcon, CubeIcon, GlobeAltIcon, ServerIcon } from '@heroicons/vue/24/outline'
 import { transformToRedirectUri, transformToWebOrigin } from '@/utils/urlTransform'
 import type { CreateClientRequest, CreateApplicationRequest, ApplicationType } from '@/types'
 
-defineOptions({
-  name: 'CreateClientPage'
-})
+defineOptions({ name: 'CreateClientPage' })
 
 const route = useRoute()
 const router = useRouter()
@@ -24,28 +18,10 @@ const toast = useToast()
 
 const realmName = computed(() => route.params.name as string)
 
-// Creation mode: 'application' for paired clients, 'custom' for manual configuration
 type CreationMode = 'application' | 'custom'
 const creationMode = ref<CreationMode>('application')
-
-const creationModeOptions = [
-  { label: 'Application', value: 'application', icon: 'pi pi-box' },
-  { label: 'Custom Client', value: 'custom', icon: 'pi pi-cog' }
-]
-
-// Application type selection (only visible in application mode)
 const applicationType = ref<ApplicationType>('FULL_STACK')
-
-const applicationTypeOptions: Array<{ label: string; value: ApplicationType; description: string }> = [
-  { label: 'Full-Stack', value: 'FULL_STACK', description: 'Creates both frontend and backend clients' },
-  { label: 'Frontend Only', value: 'FRONTEND_ONLY', description: 'Public client for browser apps' },
-  { label: 'Backend Only', value: 'BACKEND_ONLY', description: 'Confidential client for APIs' }
-]
-
-// Application name (used in application mode)
 const applicationName = ref('')
-
-// Custom client fields
 const clientId = ref('')
 const name = ref('')
 const description = ref('')
@@ -55,98 +31,83 @@ const directAccessGrantsEnabled = ref(false)
 const serviceAccountsEnabled = ref(false)
 const rootUrl = ref('')
 const baseUrl = ref('')
-const redirectUris = ref<string[]>([])
-const webOrigins = ref<string[]>([])
+// Stored as newline-separated strings; transformed on submit
+const redirectUrisRaw = ref('')
+const webOriginsRaw = ref('')
 
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-// Sync application name to display name
-watch(applicationName, (newName) => {
-  if (creationMode.value === 'application') {
-    name.value = newName
-  }
+watch(applicationName, (val) => {
+  if (creationMode.value === 'application') name.value = val
 })
 
-// Transform redirect URIs when they're added
-function handleRedirectUriAdd(event: { value: string[] }): void {
-  const transformed = event.value.map(uri => transformToRedirectUri(uri))
-  // Only update if values changed
-  if (JSON.stringify(transformed) !== JSON.stringify(redirectUris.value)) {
-    redirectUris.value = transformed
-    toast.add({
-      severity: 'info',
-      summary: 'URL Formatted',
-      detail: 'Redirect URIs have been auto-formatted for Keycloak',
-      life: 2000
-    })
-  }
-}
+const appTypeOptions: Array<{
+  value: ApplicationType
+  label: string
+  description: string
+  icon: object
+}> = [
+  {
+    value: 'FULL_STACK',
+    label: 'Full-Stack',
+    description: 'Creates frontend + backend clients',
+    icon: CubeIcon,
+  },
+  {
+    value: 'FRONTEND_ONLY',
+    label: 'Frontend Only',
+    description: 'Public client for browser apps',
+    icon: GlobeAltIcon,
+  },
+  {
+    value: 'BACKEND_ONLY',
+    label: 'Backend Only',
+    description: 'Confidential client for APIs',
+    icon: ServerIcon,
+  },
+]
 
-// Transform web origins when they're added
-function handleWebOriginAdd(event: { value: string[] }): void {
-  const transformed = event.value.map(origin => transformToWebOrigin(origin))
-  // Only update if values changed
-  if (JSON.stringify(transformed) !== JSON.stringify(webOrigins.value)) {
-    webOrigins.value = transformed
-    toast.add({
-      severity: 'info',
-      summary: 'URL Formatted',
-      detail: 'Web origins have been auto-formatted for Keycloak',
-      life: 2000
-    })
-  }
-}
-
-// Transform root URL on blur
-function handleRootUrlBlur(): void {
-  if (rootUrl.value && !rootUrl.value.startsWith('http')) {
-    const isLocal = rootUrl.value.includes('localhost') || rootUrl.value.includes('127.0.0.1')
-    rootUrl.value = (isLocal ? 'http://' : 'https://') + rootUrl.value
-  }
-}
-
-const isValidClientId = computed(() => {
-  return /^[a-z][a-z0-9_-]*$/.test(clientId.value) && clientId.value.length >= 2
-})
-
-const isValidApplicationName = computed(() => {
-  return /^[a-z][a-z0-9_-]*$/.test(applicationName.value) && applicationName.value.length >= 2
-})
-
+const isValidAppName = computed(
+  () => /^[a-z][a-z0-9_-]*$/.test(applicationName.value) && applicationName.value.length >= 2,
+)
+const isValidClientId = computed(
+  () => /^[a-z][a-z0-9_-]*$/.test(clientId.value) && clientId.value.length >= 2,
+)
 const canSubmit = computed(() => {
   if (loading.value) return false
-  if (creationMode.value === 'application') {
-    return isValidApplicationName.value
-  }
-  return isValidClientId.value
+  return creationMode.value === 'application' ? isValidAppName.value : isValidClientId.value
 })
 
-// Computed preview of client names that will be created
 const clientNamePreview = computed(() => {
-  if (creationMode.value !== 'application' || !applicationName.value) return null
-  const baseName = applicationName.value
+  if (creationMode.value !== 'application' || !applicationName.value) return []
   switch (applicationType.value) {
     case 'FRONTEND_ONLY':
-      return [`${baseName}-web`]
+      return [`${applicationName.value}-web`]
     case 'BACKEND_ONLY':
-      return [`${baseName}-backend`]
+      return [`${applicationName.value}-backend`]
     case 'FULL_STACK':
-      return [`${baseName}-web`, `${baseName}-backend`]
+      return [`${applicationName.value}-web`, `${applicationName.value}-backend`]
     default:
-      return null
+      return []
   }
 })
+
+function parseUrls(raw: string, transformer: (s: string) => string): string[] {
+  return raw
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(transformer)
+}
 
 async function handleSubmit(): Promise<void> {
   if (!canSubmit.value) return
-
   loading.value = true
   error.value = null
 
   try {
     if (creationMode.value === 'application') {
-      // Create application (paired clients)
       const request: CreateApplicationRequest = {
         applicationName: applicationName.value,
         displayName: name.value || undefined,
@@ -154,23 +115,21 @@ async function handleSubmit(): Promise<void> {
         applicationType: applicationType.value,
         rootUrl: rootUrl.value || undefined,
         baseUrl: baseUrl.value || undefined,
-        redirectUris: redirectUris.value.length > 0 ? redirectUris.value : undefined,
-        webOrigins: webOrigins.value.length > 0 ? webOrigins.value : undefined
+        redirectUris:
+          redirectUrisRaw.value.trim()
+            ? parseUrls(redirectUrisRaw.value, transformToRedirectUri)
+            : undefined,
+        webOrigins:
+          webOriginsRaw.value.trim()
+            ? parseUrls(webOriginsRaw.value, transformToWebOrigin)
+            : undefined,
       }
-
       const response = await clientsApi.createApplication(realmName.value, request)
-      const createdClients: string[] = []
-      if (response.frontendClient) createdClients.push(response.frontendClient.clientId)
-      if (response.backendClient) createdClients.push(response.backendClient.clientId)
-
-      toast.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: `Created: ${createdClients.join(', ')}`,
-        life: 4000
-      })
+      const created: string[] = []
+      if (response.frontendClient) created.push(response.frontendClient.clientId)
+      if (response.backendClient) created.push(response.backendClient.clientId)
+      toast.success('Application created', `Created: ${created.join(', ')}`)
     } else {
-      // Create single custom client
       const request: CreateClientRequest = {
         clientId: clientId.value,
         name: name.value || undefined,
@@ -181,515 +140,304 @@ async function handleSubmit(): Promise<void> {
         serviceAccountsEnabled: serviceAccountsEnabled.value,
         rootUrl: rootUrl.value || undefined,
         baseUrl: baseUrl.value || undefined,
-        redirectUris: redirectUris.value.length > 0 ? redirectUris.value : undefined,
-        webOrigins: webOrigins.value.length > 0 ? webOrigins.value : undefined
+        redirectUris:
+          redirectUrisRaw.value.trim()
+            ? parseUrls(redirectUrisRaw.value, transformToRedirectUri)
+            : undefined,
+        webOrigins:
+          webOriginsRaw.value.trim()
+            ? parseUrls(webOriginsRaw.value, transformToWebOrigin)
+            : undefined,
       }
-
       await clientsApi.create(realmName.value, request)
-      toast.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: `Client "${clientId.value}" created successfully`,
-        life: 3000
-      })
+      toast.success('Client created', `"${clientId.value}" created successfully`)
     }
-    router.push(`/realms/${realmName.value}`)
+    router.push(`/realms/${realmName.value}/clients`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create client'
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: error.value,
-      life: 5000
-    })
+    toast.error('Error', error.value ?? undefined)
   } finally {
     loading.value = false
   }
 }
-
-function handleCancel(): void {
-  router.push(`/realms/${realmName.value}`)
-}
 </script>
 
 <template>
-  <div class="create-client-page">
-    <div class="page-header">
-      <Button
-        icon="pi pi-arrow-left"
-        text
-        rounded
-        @click="handleCancel"
-      />
-      <div class="header-content">
-        <h1>Create Client</h1>
-        <p>{{ realmName }}</p>
+  <SidebarLayout>
+    <div class="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <div class="mb-6 flex items-center gap-3">
+        <button
+          class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          @click="router.push(`/realms/${realmName}/clients`)"
+        >
+          <ArrowLeftIcon class="h-5 w-5" />
+        </button>
+        <div>
+          <h1 class="text-xl font-semibold text-white">Create Client</h1>
+          <p class="font-mono text-sm text-zinc-400">{{ realmName }}</p>
+        </div>
       </div>
-    </div>
 
-    <Card class="form-card">
-      <template #content>
-        <Message
+      <form class="space-y-6" @submit.prevent="handleSubmit">
+        <div
           v-if="error"
-          severity="error"
-          :closable="true"
-          class="form-error"
-          @close="error = null"
+          class="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400"
         >
           {{ error }}
-        </Message>
+        </div>
 
-        <form @submit.prevent="handleSubmit" class="form">
-          <!-- Creation Mode Selection -->
-          <div class="form-section">
-            <h3>Creation Mode</h3>
-            <div class="form-field">
-              <SelectButton
-                v-model="creationMode"
-                :options="creationModeOptions"
-                optionLabel="label"
-                optionValue="value"
-                class="creation-mode-select"
+        <!-- Mode selector -->
+        <div class="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+            Creation Mode
+          </h2>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              :class="[
+                'rounded-lg border px-4 py-3 text-left text-sm transition-colors',
+                creationMode === 'application'
+                  ? 'border-indigo-500/50 bg-indigo-500/10 text-white'
+                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-white',
+              ]"
+              @click="creationMode = 'application'"
+            >
+              <p class="font-semibold">Application</p>
+              <p class="mt-0.5 text-xs opacity-70">Auto-configures paired clients</p>
+            </button>
+            <button
+              type="button"
+              :class="[
+                'rounded-lg border px-4 py-3 text-left text-sm transition-colors',
+                creationMode === 'custom'
+                  ? 'border-indigo-500/50 bg-indigo-500/10 text-white'
+                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-white',
+              ]"
+              @click="creationMode = 'custom'"
+            >
+              <p class="font-semibold">Custom Client</p>
+              <p class="mt-0.5 text-xs opacity-70">Full control over configuration</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- Application type cards (application mode only) -->
+        <div v-if="creationMode === 'application'" class="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+            Application Type
+          </h2>
+          <div class="grid grid-cols-3 gap-3">
+            <button
+              v-for="opt in appTypeOptions"
+              :key="opt.value"
+              type="button"
+              :class="[
+                'flex flex-col items-center rounded-lg border px-3 py-4 text-center text-sm transition-colors',
+                applicationType === opt.value
+                  ? 'border-indigo-500/50 bg-indigo-500/10 text-white'
+                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-white',
+              ]"
+              @click="applicationType = opt.value"
+            >
+              <component
+                :is="opt.icon"
+                class="mb-2 h-6 w-6"
+                :class="applicationType === opt.value ? 'text-indigo-400' : ''"
               />
-              <small class="field-help">
-                {{ creationMode === 'application'
-                  ? 'Application mode automatically configures paired frontend/backend clients.'
-                  : 'Custom mode gives you full control over client configuration.' }}
-              </small>
-            </div>
+              <span class="font-semibold">{{ opt.label }}</span>
+              <span class="mt-1 text-xs opacity-70">{{ opt.description }}</span>
+            </button>
           </div>
+        </div>
 
-          <!-- Application Type Selection (only in application mode) -->
-          <div v-if="creationMode === 'application'" class="form-section">
-            <h3>Application Type</h3>
-            <div class="app-type-cards">
-              <div
-                v-for="option in applicationTypeOptions"
-                :key="option.value"
-                :class="['app-type-card', { selected: applicationType === option.value }]"
-                @click="applicationType = option.value"
-              >
-                <div class="app-type-icon">
-                  <i :class="option.value === 'FULL_STACK' ? 'pi pi-sitemap' : option.value === 'FRONTEND_ONLY' ? 'pi pi-desktop' : 'pi pi-server'" />
-                </div>
-                <div class="app-type-content">
-                  <span class="app-type-label">{{ option.label }}</span>
-                  <small class="app-type-desc">{{ option.description }}</small>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <h3>Basic Information</h3>
-
-            <!-- Application Name (application mode) -->
-            <div v-if="creationMode === 'application'" class="form-field">
-              <label for="applicationName">Application Name *</label>
-              <InputText
+        <!-- Basic info -->
+        <div class="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+            Basic Information
+          </h2>
+          <div class="space-y-4">
+            <!-- Application name or Client ID -->
+            <div v-if="creationMode === 'application'" class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="applicationName">
+                Application Name <span class="text-red-400">*</span>
+              </label>
+              <AppInput
                 id="applicationName"
                 v-model="applicationName"
                 placeholder="my-app"
-                :invalid="applicationName.length > 0 && !isValidApplicationName"
-                class="w-full"
+                :invalid="applicationName.length > 0 && !isValidAppName"
               />
-              <small class="field-help">
-                Must start with a letter and contain only lowercase letters, numbers, underscores, and hyphens.
-              </small>
-              <div v-if="clientNamePreview" class="client-preview">
-                <span class="preview-label">Will create:</span>
-                <span v-for="clientName in clientNamePreview" :key="clientName" class="preview-chip">
-                  {{ clientName }}
-                </span>
+              <p
+                v-if="applicationName.length > 0 && !isValidAppName"
+                class="text-xs text-red-400"
+              >
+                Lowercase letters, numbers, underscores and hyphens. Must start with a letter.
+              </p>
+              <div v-if="clientNamePreview.length" class="flex flex-wrap items-center gap-2 pt-1">
+                <span class="text-xs text-zinc-500">Will create:</span>
+                <code
+                  v-for="n in clientNamePreview"
+                  :key="n"
+                  class="rounded bg-indigo-500/10 px-2 py-0.5 font-mono text-xs text-indigo-300"
+                >
+                  {{ n }}
+                </code>
               </div>
             </div>
 
-            <!-- Client ID (custom mode) -->
-            <div v-else class="form-field">
-              <label for="clientId">Client ID *</label>
-              <InputText
+            <div v-else class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="clientId">
+                Client ID <span class="text-red-400">*</span>
+              </label>
+              <AppInput
                 id="clientId"
                 v-model="clientId"
                 placeholder="my-client"
                 :invalid="clientId.length > 0 && !isValidClientId"
-                class="w-full"
               />
-              <small class="field-help">
-                Must start with a letter and contain only lowercase letters, numbers, underscores, and hyphens.
-              </small>
+              <p v-if="clientId.length > 0 && !isValidClientId" class="text-xs text-red-400">
+                Lowercase letters, numbers, underscores and hyphens. Must start with a letter.
+              </p>
             </div>
 
-            <div class="form-field">
-              <label for="name">Display Name</label>
-              <InputText
-                id="name"
-                v-model="name"
-                placeholder="My Application"
-                class="w-full"
-              />
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="name">
+                Display Name
+              </label>
+              <AppInput id="name" v-model="name" placeholder="My Application" />
             </div>
 
-            <div class="form-field">
-              <label for="description">Description</label>
-              <Textarea
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="description">
+                Description
+              </label>
+              <textarea
                 id="description"
                 v-model="description"
-                rows="3"
-                class="w-full"
+                rows="2"
+                placeholder="Optional description"
+                class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-zinc-500 hover:border-white/20 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
+        </div>
 
-          <!-- Client Type (only in custom mode) -->
-          <div v-if="creationMode === 'custom'" class="form-section">
-            <h3>Client Type</h3>
-
-            <div class="form-field checkbox-field">
-              <Checkbox
-                id="publicClient"
+        <!-- Client type (custom mode only) -->
+        <div v-if="creationMode === 'custom'" class="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+            Client Type &amp; Flows
+          </h2>
+          <div class="space-y-4">
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
                 v-model="publicClient"
-                :binary="true"
+                type="checkbox"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-indigo-500 focus:ring-indigo-500"
               />
-              <label for="publicClient" class="checkbox-label">
-                <span>Public Client</span>
-                <small>Public clients don't require a client secret. Use for browser-based apps.</small>
-              </label>
-            </div>
-          </div>
-
-          <!-- Authentication Flows (only in custom mode) -->
-          <div v-if="creationMode === 'custom'" class="form-section">
-            <h3>Authentication Flows</h3>
-
-            <div class="form-field checkbox-field">
-              <Checkbox
-                id="standardFlowEnabled"
+              <div>
+                <p class="text-sm font-medium text-zinc-300">Public Client</p>
+                <p class="text-xs text-zinc-500">No client secret required. Use for browser-based apps.</p>
+              </div>
+            </label>
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
                 v-model="standardFlowEnabled"
-                :binary="true"
+                type="checkbox"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-indigo-500 focus:ring-indigo-500"
               />
-              <label for="standardFlowEnabled" class="checkbox-label">
-                <span>Standard Flow (Authorization Code)</span>
-                <small>Enable for web applications with server-side rendering.</small>
-              </label>
-            </div>
-
-            <div class="form-field checkbox-field">
-              <Checkbox
-                id="directAccessGrantsEnabled"
+              <div>
+                <p class="text-sm font-medium text-zinc-300">Standard Flow (Authorization Code)</p>
+                <p class="text-xs text-zinc-500">Recommended for web applications.</p>
+              </div>
+            </label>
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
                 v-model="directAccessGrantsEnabled"
-                :binary="true"
+                type="checkbox"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-indigo-500 focus:ring-indigo-500"
               />
-              <label for="directAccessGrantsEnabled" class="checkbox-label">
-                <span>Direct Access Grants (Resource Owner Password)</span>
-                <small>Allow direct username/password authentication. Use only for trusted clients.</small>
-              </label>
-            </div>
-
-            <div class="form-field checkbox-field">
-              <Checkbox
-                id="serviceAccountsEnabled"
+              <div>
+                <p class="text-sm font-medium text-zinc-300">Direct Access Grants (Resource Owner Password)</p>
+                <p class="text-xs text-zinc-500">Only for trusted internal clients.</p>
+              </div>
+            </label>
+            <label
+              class="flex cursor-pointer items-start gap-3"
+              :class="publicClient ? 'opacity-40' : ''"
+            >
+              <input
                 v-model="serviceAccountsEnabled"
-                :binary="true"
+                type="checkbox"
                 :disabled="publicClient"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-indigo-500 focus:ring-indigo-500"
               />
-              <label for="serviceAccountsEnabled" class="checkbox-label">
-                <span>Service Accounts (Client Credentials)</span>
-                <small>Allow client to authenticate as itself. Only for confidential clients.</small>
+              <div>
+                <p class="text-sm font-medium text-zinc-300">Service Accounts (Client Credentials)</p>
+                <p class="text-xs text-zinc-500">Confidential clients only.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- URLs (shown unless backend-only application) -->
+        <div
+          v-if="creationMode === 'custom' || applicationType !== 'BACKEND_ONLY'"
+          class="rounded-xl border border-zinc-800 bg-zinc-900 p-6"
+        >
+          <h2 class="mb-1 text-sm font-semibold uppercase tracking-wider text-zinc-500">URLs</h2>
+          <p v-if="creationMode === 'application'" class="mb-4 text-xs text-zinc-500">
+            Applied to the frontend client.
+          </p>
+          <div v-else class="mb-4" />
+          <div class="space-y-4">
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="rootUrl">Root URL</label>
+              <AppInput id="rootUrl" v-model="rootUrl" placeholder="https://myapp.example.com" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="baseUrl">Base URL</label>
+              <AppInput id="baseUrl" v-model="baseUrl" placeholder="/app" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="redirectUris">
+                Valid Redirect URIs
               </label>
-            </div>
-          </div>
-
-          <!-- URLs section (shown for frontend apps or custom clients) -->
-          <div v-if="creationMode === 'custom' || applicationType !== 'BACKEND_ONLY'" class="form-section">
-            <h3>URLs</h3>
-            <small v-if="creationMode === 'application'" class="section-hint">
-              These URLs will be applied to the frontend client.
-            </small>
-
-            <div class="form-field">
-              <label for="rootUrl">Root URL</label>
-              <InputText
-                id="rootUrl"
-                v-model="rootUrl"
-                placeholder="https://myapp.example.com"
-                class="w-full"
-                @blur="handleRootUrlBlur"
-              />
-              <small class="field-help">
-                Enter a URL like "localhost:3000" or "example.com" - scheme will be auto-added.
-              </small>
-            </div>
-
-            <div class="form-field">
-              <label for="baseUrl">Base URL</label>
-              <InputText
-                id="baseUrl"
-                v-model="baseUrl"
-                placeholder="/app"
-                class="w-full"
-              />
-            </div>
-
-            <div class="form-field">
-              <label for="redirectUris">Valid Redirect URIs</label>
-              <Chips
+              <textarea
                 id="redirectUris"
-                v-model="redirectUris"
-                separator=","
-                class="w-full"
-                @add="handleRedirectUriAdd"
+                v-model="redirectUrisRaw"
+                rows="3"
+                placeholder="localhost:5173&#10;example.com/app"
+                class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-zinc-500 hover:border-white/20 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
-              <small class="field-help">
-                Enter URLs like "localhost:5173" → auto-converts to "http://localhost:5173/*"
-              </small>
+              <p class="text-xs text-zinc-500">
+                One URL per line. Schemes and wildcards are added automatically.
+              </p>
             </div>
-
-            <div class="form-field">
-              <label for="webOrigins">Web Origins</label>
-              <Chips
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-zinc-300" for="webOrigins">
+                Web Origins
+              </label>
+              <textarea
                 id="webOrigins"
-                v-model="webOrigins"
-                separator=","
-                class="w-full"
-                @add="handleWebOriginAdd"
+                v-model="webOriginsRaw"
+                rows="2"
+                placeholder="localhost:5173&#10;example.com"
+                class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-zinc-500 hover:border-white/20 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
-              <small class="field-help">
-                Enter URLs like "example.com" → auto-converts to "https://example.com". Use + for all redirect URIs.
-              </small>
+              <p class="text-xs text-zinc-500">One origin per line. Use + to allow all redirect URI origins.</p>
             </div>
           </div>
+        </div>
 
-          <div class="form-actions">
-            <Button
-              type="button"
-              label="Cancel"
-              severity="secondary"
-              @click="handleCancel"
-            />
-            <Button
-              type="submit"
-              :label="creationMode === 'application' ? 'Create Application' : 'Create Client'"
-              icon="pi pi-check"
-              :loading="loading"
-              :disabled="!canSubmit"
-            />
-          </div>
-        </form>
-      </template>
-    </Card>
-  </div>
+        <div class="flex justify-end gap-3">
+          <AppButton outline type="button" @click="router.push(`/realms/${realmName}/clients`)">
+            Cancel
+          </AppButton>
+          <AppButton color="indigo" type="submit" :loading="loading" :disabled="!canSubmit">
+            {{ creationMode === 'application' ? 'Create Application' : 'Create Client' }}
+          </AppButton>
+        </div>
+      </form>
+    </div>
+  </SidebarLayout>
 </template>
-
-<style scoped>
-.create-client-page {
-  max-width: 700px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-content h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.header-content p {
-  margin: 0;
-  color: var(--p-text-muted-color);
-  font-family: monospace;
-}
-
-.form-card {
-  background-color: var(--p-surface-card);
-}
-
-.form-error {
-  margin-bottom: 1.5rem;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.form-section h3 {
-  margin: 0 0 1rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--p-text-color);
-  border-bottom: 1px solid var(--p-surface-border);
-  padding-bottom: 0.5rem;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.form-field:last-child {
-  margin-bottom: 0;
-}
-
-.form-field label {
-  font-weight: 500;
-  color: var(--p-text-color);
-}
-
-.field-help {
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-}
-
-.checkbox-field {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.checkbox-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  cursor: pointer;
-}
-
-.checkbox-label span {
-  font-weight: 500;
-  color: var(--p-text-color);
-}
-
-.checkbox-label small {
-  color: var(--p-text-muted-color);
-  font-weight: 400;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--p-surface-border);
-}
-
-.w-full {
-  width: 100%;
-}
-
-.creation-mode-select {
-  width: 100%;
-}
-
-.creation-mode-select :deep(.p-selectbutton) {
-  display: flex;
-}
-
-.creation-mode-select :deep(.p-selectbutton .p-button) {
-  flex: 1;
-  justify-content: center;
-}
-
-.app-type-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
-}
-
-.app-type-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-  border: 2px solid var(--p-surface-border);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: var(--p-surface-ground);
-}
-
-.app-type-card:hover {
-  border-color: var(--p-primary-color);
-  background-color: var(--p-surface-hover);
-}
-
-.app-type-card.selected {
-  border-color: var(--p-primary-color);
-  background-color: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
-}
-
-.app-type-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background-color: var(--p-surface-200);
-  margin-bottom: 0.75rem;
-}
-
-.app-type-card.selected .app-type-icon {
-  background-color: var(--p-primary-color);
-  color: var(--p-primary-contrast-color);
-}
-
-.app-type-icon i {
-  font-size: 1.25rem;
-}
-
-.app-type-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.25rem;
-}
-
-.app-type-label {
-  font-weight: 600;
-  color: var(--p-text-color);
-}
-
-.app-type-desc {
-  color: var(--p-text-muted-color);
-  font-size: 0.75rem;
-}
-
-.client-preview {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.preview-label {
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-}
-
-.preview-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.625rem;
-  background-color: var(--p-primary-100);
-  color: var(--p-primary-700);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-family: monospace;
-}
-
-.section-hint {
-  display: block;
-  color: var(--p-text-muted-color);
-  margin-bottom: 1rem;
-}
-</style>
