@@ -2,17 +2,11 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRealmStore } from '@/stores/realm'
-import { useToast } from 'primevue/usetoast'
-import Card from 'primevue/card'
-import InputText from 'primevue/inputtext'
-import Checkbox from 'primevue/checkbox'
-import Button from 'primevue/button'
-import Message from 'primevue/message'
+import { useToast } from '@/composables/useToast'
+import SidebarLayout from '@/components/layout/SidebarLayout.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppInput from '@/components/ui/AppInput.vue'
 import type { CreateRealmRequest } from '@/types'
-
-defineOptions({
-  name: 'CreateRealmPage'
-})
 
 const router = useRouter()
 const realmStore = useRealmStore()
@@ -28,6 +22,14 @@ const isValidName = computed(() => {
   return /^[a-z][a-z0-9-]*$/.test(realmName.value) && realmName.value.length >= 2
 })
 
+const nameError = computed(() => {
+  if (realmName.value.length === 0) return undefined
+  if (!isValidName.value) {
+    return 'Must start with a letter and contain only lowercase letters, numbers, and hyphens (min 2 chars).'
+  }
+  return undefined
+})
+
 const canSubmit = computed(() => {
   return isValidName.value && !loading.value
 })
@@ -41,26 +43,16 @@ async function handleSubmit(): Promise<void> {
   const request: CreateRealmRequest = {
     realmName: realmName.value,
     displayName: displayName.value || undefined,
-    enableUserStorageSpi: enableSpi.value
+    enableUserStorageSpi: enableSpi.value,
   }
 
   try {
     await realmStore.createRealm(request)
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: `Realm "${realmName.value}" created successfully`,
-      life: 3000
-    })
+    toast.success('Realm created', `"${realmName.value}" has been created successfully`)
     router.push(`/realms/${realmName.value}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create realm'
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: error.value,
-      life: 5000
-    })
+    toast.error('Failed to create realm', error.value)
   } finally {
     loading.value = false
   }
@@ -72,180 +64,109 @@ function handleCancel(): void {
 </script>
 
 <template>
-  <div class="create-realm-view">
-    <div class="page-header">
-      <Button
-        icon="pi pi-arrow-left"
-        text
-        rounded
-        @click="handleCancel"
-      />
-      <div class="header-content">
-        <h1>Create Realm</h1>
-        <p>Set up a new authentication realm</p>
+  <SidebarLayout>
+    <div class="max-w-lg mx-auto">
+      <!-- Page header -->
+      <div class="mb-8">
+        <h1 class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Create Realm</h1>
+        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Set up a new authentication realm in Keycloak
+        </p>
       </div>
-    </div>
 
-    <Card class="form-card">
-      <template #content>
-        <Message
+      <!-- Form card -->
+      <div class="bg-white dark:bg-zinc-900 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-800 p-6">
+        <!-- Error banner -->
+        <div
           v-if="error"
-          severity="error"
-          :closable="true"
-          class="form-error"
-          @close="error = null"
+          class="mb-6 rounded-lg bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400 flex items-start gap-2"
         >
-          {{ error }}
-        </Message>
+          <svg class="h-5 w-5 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+          <span>{{ error }}</span>
+        </div>
 
-        <form @submit.prevent="handleSubmit" class="form">
-          <div class="form-field">
-            <label for="realmName">Realm Name *</label>
-            <InputText
-              id="realmName"
+        <form
+          class="flex flex-col gap-5"
+          @submit.prevent="handleSubmit"
+        >
+          <!-- Realm name -->
+          <div>
+            <AppInput
               v-model="realmName"
+              label="Realm Name"
               placeholder="my-realm"
-              :invalid="realmName.length > 0 && !isValidName"
-              class="w-full"
+              :error="nameError"
             />
-            <small class="field-help">
+            <p
+              v-if="!nameError"
+              class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400"
+            >
               Must start with a letter and contain only lowercase letters, numbers, and hyphens.
-            </small>
+            </p>
           </div>
 
-          <div class="form-field">
-            <label for="displayName">Display Name</label>
-            <InputText
-              id="displayName"
+          <!-- Display name -->
+          <div>
+            <AppInput
               v-model="displayName"
+              label="Display Name"
               placeholder="My Realm"
-              class="w-full"
             />
-            <small class="field-help">
+            <p class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
               A friendly name shown to users. Defaults to the realm name if not provided.
-            </small>
+            </p>
           </div>
 
-          <div class="form-field checkbox-field">
-            <Checkbox
-              id="enableSpi"
-              v-model="enableSpi"
-              :binary="true"
-            />
-            <label for="enableSpi" class="checkbox-label">
-              <span>Enable User Storage SPI</span>
-              <small>Allow this realm to validate users against the external user database.</small>
-            </label>
-          </div>
-
-          <div class="form-actions">
-            <Button
+          <!-- Enable SPI toggle -->
+          <div class="flex items-start gap-3 pt-2">
+            <button
               type="button"
-              label="Cancel"
-              severity="secondary"
+              role="switch"
+              :aria-checked="enableSpi"
+              :class="[
+                enableSpi ? 'bg-primary-600' : 'bg-zinc-200 dark:bg-zinc-700',
+                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 mt-0.5',
+              ]"
+              @click="enableSpi = !enableSpi"
+            >
+              <span
+                :class="[
+                  enableSpi ? 'translate-x-4' : 'translate-x-0.5',
+                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5',
+                ]"
+              />
+            </button>
+            <div>
+              <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                Enable User Storage SPI
+              </p>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Allow this realm to validate users against the external user database.
+              </p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex justify-end gap-3 pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <AppButton
+              variant="secondary"
+              type="button"
               @click="handleCancel"
-            />
-            <Button
+            >
+              Cancel
+            </AppButton>
+            <AppButton
               type="submit"
-              label="Create Realm"
-              icon="pi pi-check"
               :loading="loading"
               :disabled="!canSubmit"
-            />
+            >
+              Create Realm
+            </AppButton>
           </div>
         </form>
-      </template>
-    </Card>
-  </div>
+      </div>
+    </div>
+  </SidebarLayout>
 </template>
-
-<style scoped>
-.create-realm-view {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-content h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--p-text-color);
-}
-
-.header-content p {
-  margin: 0;
-  color: var(--p-text-muted-color);
-}
-
-.form-card {
-  background-color: var(--p-surface-card);
-}
-
-.form-error {
-  margin-bottom: 1.5rem;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-field label {
-  font-weight: 500;
-  color: var(--p-text-color);
-}
-
-.field-help {
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-}
-
-.checkbox-field {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.checkbox-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  cursor: pointer;
-}
-
-.checkbox-label span {
-  font-weight: 500;
-  color: var(--p-text-color);
-}
-
-.checkbox-label small {
-  color: var(--p-text-muted-color);
-  font-weight: 400;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--p-surface-border);
-}
-
-.w-full {
-  width: 100%;
-}
-</style>
