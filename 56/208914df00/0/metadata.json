@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "56208914df00",
+  "session_id": "31505fc3-7823-4449-9e43-09e3ff8b64c7",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-02T15:31:04.478044Z",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "scripts/assign-super-admin.sh"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "fb007ed4-b1cd-4250-8bdb-042e3cd569c9",
+  "checkpoint_transcript_start": 884,
+  "transcript_lines_at_start": 884,
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 3430,
+    "cache_read_tokens": 669741,
+    "output_tokens": 2355,
+    "api_call_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-02T15:31:04.259793Z",
+    "agent_lines": 0,
+    "human_added": 32,
+    "human_modified": 93,
+    "human_removed": 0,
+    "total_committed": 82,
+    "agent_percentage": 0
+  }
+}
