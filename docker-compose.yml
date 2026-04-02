@@ -50,7 +50,11 @@ services:
 
   # ─── Auth Backend (Spring Boot) ──────────────────────────────
   auth-backend:
+<<<<<<< feat/nebula-sidecar-polish-and-frontend-spec
+    image: ghcr.io/ravencloak-org/ravencloak:latest
+=======
     image: ${AUTH_BACKEND_IMAGE:-ghcr.io/dsjkeeplearning/kos-auth-backend:latest}
+>>>>>>> main
     container_name: auth-backend
     build:
       context: .
@@ -90,7 +94,11 @@ services:
 
   # ─── Auth Frontend (Vue 3 + Nginx) ──────────────────────────
   auth-frontend:
+<<<<<<< feat/nebula-sidecar-polish-and-frontend-spec
+    image: ghcr.io/ravencloak-org/ravencloak-web:latest
+=======
     image: ${AUTH_FRONTEND_IMAGE:-ghcr.io/dsjkeeplearning/kos-auth-backend-web:latest}
+>>>>>>> main
     container_name: auth-frontend
     build:
       context: ./web
