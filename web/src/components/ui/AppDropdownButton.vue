@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Menu, MenuButton, MenuItems, MenuItem, MenuSeparator } from '@headlessui/vue'
+import { MenuButton } from '@headlessui/vue'
 import { cn } from '@/lib/utils'
 import { useAttrs } from 'vue'
 
@@ -11,7 +11,7 @@ const attrs = useAttrs()
 </script>
 
 <template>
-  <Menu as="div" class="relative" v-bind="attrs">
+  <MenuButton as="template" v-bind="attrs">
     <slot />
-  </Menu>
+  </MenuButton>
 </template>

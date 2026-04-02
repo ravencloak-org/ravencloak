@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Menu, MenuButton, MenuItems, MenuItem, MenuSeparator } from '@headlessui/vue'
 import { cn } from '@/lib/utils'
 import { useAttrs } from 'vue'
 
@@ -11,7 +10,15 @@ const attrs = useAttrs()
 </script>
 
 <template>
-  <Menu as="div" class="relative" v-bind="attrs">
+  <div
+    :class="
+      cn(
+        props.class,
+        'mt-8 flex flex-col-reverse items-center justify-end gap-3 *:w-full sm:flex-row sm:*:w-auto',
+      )
+    "
+    v-bind="attrs"
+  >
     <slot />
-  </Menu>
+  </div>
 </template>
