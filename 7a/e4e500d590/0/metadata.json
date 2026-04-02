@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "7ae4e500d590",
+  "session_id": "31505fc3-7823-4449-9e43-09e3ff8b64c7",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-02T09:43:45.148271Z",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".gitignore",
+    "docs/superpowers/specs/2026-04-02-frontend-redesign-design.md",
+    "go-nebula-sidecar/Dockerfile",
+    "go-nebula-sidecar/cmd/healthcheck/main.go",
+    "go-nebula-sidecar/db/db.go",
+    "go-nebula-sidecar/db/repository_integration_test.go",
+    "web/src/App.vue",
+    "web/src/assets/styles/app.css",
+    "web/src/composables/useConfirm.ts",
+    "web/src/composables/useDarkMode.ts",
+    "web/src/composables/useToast.ts",
+    "web/src/lib/utils.ts",
+    "web/src/main.ts",
+    "web/src/pages/realms/[name]/nebula/index.vue",
+    "web/vite.config.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "769f777c-f3d0-42eb-a5ab-a5f477ebba09",
+  "checkpoint_transcript_start": 404,
+  "transcript_lines_at_start": 404,
+  "token_usage": {
+    "input_tokens": 27,
+    "cache_creation_tokens": 27990,
+    "cache_read_tokens": 2952997,
+    "output_tokens": 10720,
+    "api_call_count": 19
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-02T09:43:45.056417Z",
+    "agent_lines": 0,
+    "human_added": 2620,
+    "human_modified": 1147,
+    "human_removed": 0,
+    "total_committed": 2620,
+    "agent_percentage": 0
+  }
+}
