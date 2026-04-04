@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "42c03505f6b7",
+  "session_id": "bf94df2a-b46a-4b03-a28d-d0b909fae942",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T14:50:10.024469Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".github/workflows/deploy-cloudflare-pages.yml"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "4247a5fe-630d-4bac-b672-7938d779120c",
+  "checkpoint_transcript_start": 232,
+  "transcript_lines_at_start": 232,
+  "token_usage": {
+    "input_tokens": 35,
+    "cache_creation_tokens": 70192,
+    "cache_read_tokens": 1320929,
+    "output_tokens": 3289,
+    "api_call_count": 18
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T14:50:09.972355Z",
+    "agent_lines": 0,
+    "human_added": 93,
+    "human_modified": 186,
+    "human_removed": 0,
+    "total_committed": 98,
+    "agent_percentage": 0
+  }
+}

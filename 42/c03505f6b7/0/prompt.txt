@@ -1,0 +1,45 @@
+what's the status?
+
+---
+
+what are those Unstash changes, commit those, and also let's deploy the frontend code and the backend code, the whole of it. Let's deploy the frontend to Claude fair pages and the backend to the SSH EC2 instance.
+
+---
+
+Add it where?
+
+---
+
+You have GHCLI; use that.
+
+---
+
+What are those inlined ones?
+
+---
+
+Sure, you can inline those?
+
+---
+
+And why is hot reload disabled? Enable otel as well
+
+---
+
+i was talking about enabling otel
+
+---
+
+Do not use Cloudflare CLI to create those. Use ravencloak.org.
+
+---
+
+2
+
+---
+
+account id - 4112a97db0506e8956febcb8e2d682f7 token = REDACTED project = raven-frontend
+
+---
+
+continue
