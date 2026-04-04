@@ -163,33 +163,33 @@ function relativeTime(dateString: string): string {
         </svg>
       </div>
 
-      <!-- Error -->
+      <!-- Error banner (non-blocking) -->
       <div
-        v-else-if="error"
-        class="rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+        v-if="error"
+        class="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
       >
         {{ error }}
       </div>
 
       <!-- Dashboard content -->
-      <template v-else-if="realmStore.currentRealm">
+      <template v-if="!loading">
         <!-- Page header -->
         <div class="flex items-start justify-between">
           <div>
             <div class="flex items-center gap-3">
               <h1 class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-                {{ realmStore.currentRealm.displayName || realmStore.currentRealm.realmName }}
+                {{ realmStore.currentRealm?.displayName || realmStore.currentRealm?.realmName || realmName }}
               </h1>
-              <AppBadge :variant="realmStore.currentRealm.enabled ? 'success' : 'danger'" dot>
+              <AppBadge v-if="realmStore.currentRealm" :variant="realmStore.currentRealm.enabled ? 'success' : 'danger'" dot>
                 {{ realmStore.currentRealm.enabled ? 'Enabled' : 'Disabled' }}
               </AppBadge>
             </div>
             <p class="mt-1 font-mono text-sm text-zinc-500 dark:text-zinc-400">
-              {{ realmStore.currentRealm.realmName }}
+              {{ realmName }}
             </p>
           </div>
           <div class="flex gap-2">
-            <AppButton variant="secondary" :loading="syncing" @click="handleSync">
+            <AppButton outline :loading="syncing" @click="handleSync">
               <ArrowPathIcon class="h-4 w-4" />
               Sync
             </AppButton>
@@ -281,21 +281,21 @@ function relativeTime(dateString: string): string {
           </h2>
           <div class="mt-3 flex flex-wrap gap-3">
             <AppButton
-              variant="secondary"
+              outline
               @click="router.push(`/realms/${realmName}/clients/create`)"
             >
               <PlusIcon class="h-4 w-4" />
               Create Client
             </AppButton>
             <AppButton
-              variant="secondary"
+              outline
               @click="router.push(`/realms/${realmName}/users/create`)"
             >
               <UserPlusIcon class="h-4 w-4" />
               Add User
             </AppButton>
             <AppButton
-              variant="secondary"
+              outline
               :loading="syncing"
               @click="handleSync"
             >

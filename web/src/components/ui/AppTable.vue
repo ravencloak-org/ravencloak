@@ -1,29 +1,29 @@
-<script setup lang="ts">
-import { provide, inject, computed, ref, type InjectionKey, useAttrs } from 'vue'
-import { cn } from '@/lib/utils'
+<script lang="ts">
+import type { InjectionKey } from 'vue'
 
 // --- Table Context ---
-interface TableContext {
+export interface TableContext {
   bleed: boolean
   dense: boolean
   grid: boolean
   striped: boolean
 }
 
-const tableContextKey: InjectionKey<TableContext> = Symbol('tableContext')
+export const tableContextKey: InjectionKey<TableContext> = Symbol('tableContext')
 
 // --- Table Row Context ---
-interface TableRowContext {
+export interface TableRowContext {
   href?: string
   target?: string
   title?: string
 }
 
-const tableRowContextKey: InjectionKey<TableRowContext> = Symbol('tableRowContext')
+export const tableRowContextKey: InjectionKey<TableRowContext> = Symbol('tableRowContext')
+</script>
 
-// Export keys for sub-components
-export { tableContextKey, tableRowContextKey }
-export type { TableContext, TableRowContext }
+<script setup lang="ts">
+import { provide, useAttrs } from 'vue'
+import { cn } from '@/lib/utils'
 
 const props = withDefaults(
   defineProps<{
