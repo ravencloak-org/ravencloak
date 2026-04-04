@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { MenuSeparator } from '@headlessui/vue'
 import { cn } from '@/lib/utils'
 
-defineProps<{
+const props = defineProps<{
   class?: string
 }>()
 </script>
 
 <template>
-  <MenuSeparator
+  <div
+    role="separator"
     :class="
       cn(
         props.class,

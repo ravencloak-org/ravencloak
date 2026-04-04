@@ -7,7 +7,7 @@ import {
   XCircleIcon,
   InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
-import { TransitionGroup, type Component } from 'vue'
+import { type Component } from 'vue'
 import { cn } from '@/lib/utils'
 
 const { toasts, remove } = useToast()

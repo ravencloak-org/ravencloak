@@ -3,7 +3,7 @@ import { DialogTitle } from '@headlessui/vue'
 import { cn } from '@/lib/utils'
 import { useAttrs } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   class?: string
 }>()
 

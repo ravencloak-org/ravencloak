@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { auditApi, type AuditLog, type AuditPageResponse } from '@/api/audit'
+import { auditApi, type AuditLog } from '@/api/audit'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import SidebarLayout from '@/components/layout/SidebarLayout.vue'

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { tableContextKey, tableRowContextKey } from './AppTable.vue'
 import type { TableContext, TableRowContext } from './AppTable.vue'
 
-defineProps<{
+const props = defineProps<{
   class?: string
 }>()
 

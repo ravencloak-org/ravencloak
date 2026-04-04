@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
+import { TabGroup, TabList, Tab, TabPanels } from '@headlessui/vue'
 import { cn } from '@/lib/utils'
 
 defineProps<{

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { Menu, MenuButton, MenuItems, MenuItem, MenuSeparator } from '@headlessui/vue'
-import { cn } from '@/lib/utils'
+import { Menu } from '@headlessui/vue'
 import { useAttrs } from 'vue'
 
 defineProps<{

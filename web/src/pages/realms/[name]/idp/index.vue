@@ -13,7 +13,6 @@ import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import {
   LinkIcon,
   PlusIcon,
-  CheckCircleIcon,
   ShieldCheckIcon,
 } from '@heroicons/vue/24/outline'
 import type { IdentityProvider, CreateIdpRequest } from '@/types'

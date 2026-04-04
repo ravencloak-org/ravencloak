@@ -173,7 +173,7 @@ async function handleCreateGroup(): Promise<void> {
           class="bg-white dark:bg-zinc-900 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800"
         >
           <div
-            v-for="({ group, depth, hasChildren }, index) in flatGroupList"
+            v-for="({ group, depth, hasChildren }) in flatGroupList"
             :key="group.id"
             class="flex items-center gap-2 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
             :style="{ paddingLeft: `${depth * 24 + 16}px` }"

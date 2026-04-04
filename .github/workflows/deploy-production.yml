@@ -13,7 +13,7 @@ jobs:
   deploy:
     name: Deploy Auth Backend
     runs-on: self-hosted
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout repository
