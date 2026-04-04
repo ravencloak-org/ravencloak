@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
-import Button from 'primevue/button'
+import { ShieldExclamationIcon } from '@heroicons/vue/24/outline'
 
 defineOptions({
-  name: 'AccessDeniedPage'
+  name: 'AccessDeniedPage',
 })
 
 const authStore = useAuthStore()
@@ -14,33 +14,42 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="access-denied-page">
-    <div class="gandalf">
-      <div class="fireball"></div>
-      <div class="skirt"></div>
-      <div class="sleeves"></div>
-      <div class="shoulders">
-        <div class="hand left"></div>
-        <div class="hand right"></div>
+  <div class="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
+    <div
+      class="w-full max-w-md rounded-xl bg-zinc-900 p-8 text-center ring-1 ring-zinc-800 shadow-2xl"
+    >
+      <!-- Shield icon -->
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/20">
+        <ShieldExclamationIcon class="h-8 w-8 text-red-400" />
       </div>
-      <div class="head">
-        <div class="hair"></div>
-        <div class="beard"></div>
-      </div>
-    </div>
-    <div class="message">
-      <h1>You Shall Not Pass</h1>
-      <p>
-        Your account <strong>{{ authStore.user?.email }}</strong> does not have the required permissions to access this console.<br />
-        Please contact your administrator to get the <strong>SUPER_ADMIN</strong> role assigned.
+
+      <!-- Heading -->
+      <h1 class="mt-6 text-2xl font-semibold text-white">Access Denied</h1>
+
+      <!-- Message -->
+      <p class="mt-3 text-sm leading-6 text-zinc-400">
+        You need the <span class="font-medium text-zinc-300">SUPER_ADMIN</span> role to access this app.
       </p>
-      <Button
-        label="Sign out"
-        icon="pi pi-sign-out"
-        severity="secondary"
-        class="mt-4"
-        @click="handleLogout"
-      />
+
+      <!-- Signed-in user info -->
+      <div
+        v-if="authStore.user?.email"
+        class="mt-4 rounded-lg bg-zinc-800/50 px-4 py-2.5 text-sm text-zinc-400"
+      >
+        Signed in as
+        <span class="font-medium text-zinc-300">{{ authStore.user.email }}</span>
+      </div>
+
+      <!-- Sign out button -->
+      <div class="mt-6">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          @click="handleLogout"
+        >
+          Sign Out
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -49,282 +58,3 @@ async function handleLogout() {
 meta:
   requiresAuth: false
 </route>
-
-<style scoped>
-.access-denied-page {
-  min-height: 100vh;
-  background-color: var(--p-surface-950);
-  color: var(--p-surface-0);
-  text-align: center;
-  font-family: 'Open Sans', sans-serif;
-  padding-top: 2rem;
-  overflow: hidden;
-}
-
-.message {
-  max-width: 700px;
-  margin: 3rem auto 0 auto;
-  padding: 0 1rem;
-}
-
-.message h1 {
-  font-size: 2.5rem;
-  background: linear-gradient(90deg, var(--p-primary-400), var(--p-primary-200));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 1rem;
-}
-
-.message p {
-  font-size: 1.1rem;
-  color: var(--p-surface-400);
-  line-height: 1.7;
-}
-
-@keyframes floating {
-  to {
-    top: 1.5rem;
-  }
-}
-
-.gandalf {
-  position: relative;
-  width: 400px;
-  height: 400px;
-  margin: 0 auto;
-  top: 1rem;
-  animation: floating 1s infinite alternate ease-in-out;
-}
-
-.gandalf div {
-  position: absolute;
-}
-
-.gandalf::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 400px;
-  height: 400px;
-  background-color: var(--p-surface-900);
-  border-radius: 50%;
-}
-
-.fireball {
-  bottom: -10px;
-  left: 50px;
-  width: 300px;
-  height: 100px;
-  border-radius: 50%;
-  background: radial-gradient(#efac41, #de8531, #6c1305, black);
-  border: 5px solid var(--p-surface-950);
-}
-
-.skirt {
-  bottom: 50px;
-  left: 100px;
-  border-bottom: 230px solid #ededed;
-  border-left: 100px solid transparent;
-  border-right: 100px solid transparent;
-  filter: drop-shadow(0 0 6px #d4d4d4);
-}
-
-.skirt::before {
-  content: '';
-  position: absolute;
-  background-color: #ededed;
-  width: 100px;
-  height: 21px;
-  top: 230px;
-  left: 0px;
-  border-bottom-right-radius: 180%;
-  border-bottom-left-radius: 100%;
-}
-
-.skirt::after {
-  content: '';
-  position: absolute;
-  background-color: #ededed;
-  width: 100px;
-  height: 28px;
-  top: 230px;
-  left: -100px;
-  border-bottom-right-radius: 80%;
-  border-bottom-left-radius: 180%;
-}
-
-.sleeves::before,
-.sleeves::after {
-  content: '';
-  position: absolute;
-  border-bottom: 70px solid #ededed;
-  filter: drop-shadow(0 0 6px #d4d4d4);
-}
-
-.sleeves::before {
-  top: 130px;
-  left: 191px;
-  border-left: 100px solid transparent;
-  border-right: 40px solid transparent;
-  transform: rotate(-34deg);
-}
-
-.sleeves::after {
-  top: 127px;
-  left: 70px;
-  border-left: 40px solid transparent;
-  border-right: 100px solid transparent;
-  transform: rotate(41deg);
-}
-
-.shoulders {
-  background-color: #ededed;
-  border-radius: 50%;
-  width: 100px;
-  height: 130px;
-  left: 150px;
-  top: 120px;
-}
-
-.hand {
-  width: 33px;
-  height: 26px;
-  border-radius: 50%;
-  background-color: #ffd8ad;
-  top: -6px;
-}
-
-.hand.left {
-  left: -70px;
-  transform: rotate(-20deg);
-}
-
-.hand.left::after {
-  content: '';
-  position: absolute;
-  background-color: #e6e6e6;
-  width: 126px;
-  height: 8px;
-  border-radius: 4px;
-  transform: rotate(-105deg);
-  transform-origin: bottom;
-  top: -48px;
-  left: -56px;
-}
-
-.hand.right {
-  right: -70px;
-  transform: rotate(20deg);
-}
-
-.hand.right::after {
-  content: '';
-  position: absolute;
-  background-color: #bf5507;
-  width: 250px;
-  height: 5px;
-  border-radius: 2.5px;
-  transform: rotate(-78deg);
-  transform-origin: left;
-  bottom: -100px;
-  left: 0;
-}
-
-.head {
-  width: 80px;
-  height: 90px;
-  top: 80px;
-  left: 160px;
-  background-color: #ffd8ad;
-  border-radius: 50%;
-}
-
-.head::before,
-.head::after {
-  content: '';
-  position: absolute;
-  background-color: #000;
-}
-
-.head::before {
-  width: 13px;
-  height: 5px;
-  border-radius: 3px;
-  top: 42px;
-  left: 22px;
-  transform: rotate(19deg);
-}
-
-.head::after {
-  width: 13px;
-  height: 5px;
-  border-radius: 3px;
-  top: 42px;
-  right: 22px;
-  transform: rotate(-19deg);
-}
-
-.hair {
-  width: 70px;
-  height: 30px;
-  background-color: #c2beb5;
-  border-radius: 50%;
-  top: 0px;
-  left: 5px;
-}
-
-.hair::before,
-.hair::after {
-  content: '';
-  position: absolute;
-  background-color: #c2beb5;
-  filter: drop-shadow(2px 5px 0 #aeaaa1);
-}
-
-.hair::before {
-  top: 13px;
-  left: -16px;
-  width: 25px;
-  height: 100px;
-  border-top-left-radius: 34px;
-  border-top-right-radius: 15px;
-  border-bottom-left-radius: 100px;
-  border-bottom-right-radius: 20px;
-  transform: rotate(8deg);
-}
-
-.hair::after {
-  top: 13px;
-  right: -16px;
-  width: 25px;
-  height: 100px;
-  border-top-left-radius: 15px;
-  border-top-right-radius: 34px;
-  border-bottom-left-radius: 20px;
-  border-bottom-right-radius: 100px;
-  transform: rotate(-10deg);
-}
-
-.beard {
-  top: 64px;
-  left: 5px;
-  border-top: 80px solid #c2beb5;
-  border-left: 35px solid transparent;
-  border-right: 35px solid transparent;
-  border-radius: 30px;
-  filter: drop-shadow(2px 5px 0 #aeaaa1);
-}
-
-.beard::before {
-  content: '';
-  position: absolute;
-  background-color: pink;
-  width: 20px;
-  height: 5px;
-  border-radius: 40%;
-  top: -70px;
-  left: -9px;
-}
-</style>

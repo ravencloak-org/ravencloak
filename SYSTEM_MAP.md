@@ -11,7 +11,6 @@ auth/                          # Project root
 ├── scim-common/               # Shared SCIM 2.0 DTOs (library)
 ├── forge/                     # Spring Boot Starter SDK for SCIM (library)
 ├── web/                       # Vue 3 Admin Portal
-├── go-nebula-sidecar/         # Go sidecar service
 ├── scim/                      # SCIM documentation (README)
 ├── docs/                      # MkDocs documentation site
 ├── docker/                    # Docker init scripts (init-db.sql)

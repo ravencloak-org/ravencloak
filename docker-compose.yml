@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-kos-auth}"]
       interval: 5s
@@ -50,11 +50,7 @@ services:
 
   # ─── Auth Backend (Spring Boot) ──────────────────────────────
   auth-backend:
-<<<<<<< feat/nebula-sidecar-polish-and-frontend-spec
-    image: ghcr.io/ravencloak-org/ravencloak:latest
-=======
-    image: ${AUTH_BACKEND_IMAGE:-ghcr.io/dsjkeeplearning/kos-auth-backend:latest}
->>>>>>> main
+    image: ${AUTH_BACKEND_IMAGE:-ghcr.io/ravencloak-org/ravencloak:latest}
     container_name: auth-backend
     build:
       context: .
@@ -94,11 +90,7 @@ services:
 
   # ─── Auth Frontend (Vue 3 + Nginx) ──────────────────────────
   auth-frontend:
-<<<<<<< feat/nebula-sidecar-polish-and-frontend-spec
-    image: ghcr.io/ravencloak-org/ravencloak-web:latest
-=======
-    image: ${AUTH_FRONTEND_IMAGE:-ghcr.io/dsjkeeplearning/kos-auth-backend-web:latest}
->>>>>>> main
+    image: ${AUTH_FRONTEND_IMAGE:-ghcr.io/ravencloak-org/ravencloak-web:latest}
     container_name: auth-frontend
     build:
       context: ./web

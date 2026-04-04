@@ -1,30 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
-import { useConfirm } from 'primevue/useconfirm'
 import { usersApi } from '@/api/users'
-import { clientsApi } from '@/api'
-import Card from 'primevue/card'
-import Button from 'primevue/button'
-import Tag from 'primevue/tag'
-import Avatar from 'primevue/avatar'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import Dialog from 'primevue/dialog'
-import MultiSelect from 'primevue/multiselect'
-import ProgressSpinner from 'primevue/progressspinner'
-import Message from 'primevue/message'
-import type { RealmUserDetail, Client } from '@/types'
+import { useRealmStore } from '@/stores/realm'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import SidebarLayout from '@/components/layout/SidebarLayout.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
+import type { RealmUserDetail } from '@/types'
 
 defineOptions({
-  name: 'UserDetailPage'
+  name: 'UserDetailPage',
 })
 
 const route = useRoute()
 const router = useRouter()
+const realmStore = useRealmStore()
 const toast = useToast()
-const confirm = useConfirm()
+const { confirm } = useConfirm()
 
 const realmName = computed(() => route.params.name as string)
 const userId = computed(() => route.params.userId as string)
@@ -33,14 +27,11 @@ const user = ref<RealmUserDetail | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
-// Client assignment dialog
-const showAssignDialog = ref(false)
-const availableClients = ref<Client[]>([])
-const selectedClients = ref<string[]>([])
-const loadingClients = ref(false)
-const assigning = ref(false)
-
 onMounted(async () => {
+  // Ensure realm is loaded for sidebar
+  if (!realmStore.currentRealm || realmStore.currentRealm.realmName !== realmName.value) {
+    realmStore.fetchRealm(realmName.value).catch(() => {})
+  }
   await loadUser()
 })
 
@@ -52,117 +43,10 @@ async function loadUser(): Promise<void> {
     user.value = await usersApi.get(realmName.value, userId.value)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load user'
+    toast.error('Error', error.value)
   } finally {
     loading.value = false
   }
-}
-
-async function openAssignDialog(): Promise<void> {
-  loadingClients.value = true
-  showAssignDialog.value = true
-  selectedClients.value = []
-
-  try {
-    const allClients = await clientsApi.list(realmName.value)
-    // Filter out already assigned clients and only show public (frontend) clients
-    const assignedIds = new Set(user.value?.authorizedClients.map(c => c.clientId) || [])
-    availableClients.value = allClients.filter(c => c.publicClient && !assignedIds.has(c.id))
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load clients',
-      life: 5000
-    })
-  } finally {
-    loadingClients.value = false
-  }
-}
-
-async function assignClients(): Promise<void> {
-  if (selectedClients.value.length === 0) return
-
-  assigning.value = true
-
-  try {
-    user.value = await usersApi.assignClients(realmName.value, userId.value, {
-      clientIds: selectedClients.value
-    })
-    showAssignDialog.value = false
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: 'Clients assigned successfully',
-      life: 3000
-    })
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to assign clients',
-      life: 5000
-    })
-  } finally {
-    assigning.value = false
-  }
-}
-
-function removeFromClient(clientId: string, clientName: string): void {
-  confirm.require({
-    message: `Remove user from client "${clientName}"?`,
-    header: 'Remove Access',
-    icon: 'pi pi-exclamation-triangle',
-    accept: async () => {
-      try {
-        user.value = await usersApi.removeFromClient(realmName.value, userId.value, clientId)
-        toast.add({
-          severity: 'success',
-          summary: 'Success',
-          detail: 'User removed from client',
-          life: 3000
-        })
-      } catch (err) {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Failed to remove user from client',
-          life: 5000
-        })
-      }
-    }
-  })
-}
-
-function handleDelete(): void {
-  confirm.require({
-    message: `Are you sure you want to delete user "${user.value?.email}"?`,
-    header: 'Delete User',
-    icon: 'pi pi-exclamation-triangle',
-    acceptClass: 'p-button-danger',
-    accept: async () => {
-      try {
-        await usersApi.delete(realmName.value, userId.value)
-        toast.add({
-          severity: 'success',
-          summary: 'Success',
-          detail: 'User deleted successfully',
-          life: 3000
-        })
-        router.push(`/realms/${realmName.value}/users`)
-      } catch (err) {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Failed to delete user',
-          life: 5000
-        })
-      }
-    }
-  })
-}
-
-function navigateBack(): void {
-  router.push(`/realms/${realmName.value}/users`)
 }
 
 function getInitials(): string {
@@ -184,389 +68,247 @@ function getDisplayName(): string {
   return user.value.email
 }
 
-function getStatusSeverity(status: string): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" | undefined {
+function statusVariant(status: string): 'success' | 'danger' | 'neutral' | 'warning' {
   switch (status) {
-    case 'ACTIVE': return 'success'
-    case 'INACTIVE': return 'secondary'
-    case 'SUSPENDED': return 'danger'
-    default: return 'info'
+    case 'ACTIVE':
+      return 'success'
+    case 'SUSPENDED':
+      return 'danger'
+    case 'INACTIVE':
+      return 'neutral'
+    default:
+      return 'warning'
+  }
+}
+
+async function removeFromClient(clientId: string, clientName: string): Promise<void> {
+  const confirmed = await confirm({
+    title: 'Remove Client Access',
+    message: `Remove user from client "${clientName}"?`,
+    confirmLabel: 'Remove',
+    destructive: true,
+  })
+  if (!confirmed) return
+
+  try {
+    user.value = await usersApi.removeFromClient(realmName.value, userId.value, clientId)
+    toast.success('Removed', 'User removed from client')
+  } catch {
+    toast.error('Error', 'Failed to remove user from client')
+  }
+}
+
+async function handleDelete(): Promise<void> {
+  const confirmed = await confirm({
+    title: 'Delete User',
+    message: `Are you sure you want to delete "${user.value?.email}"? This action cannot be undone.`,
+    confirmLabel: 'Delete',
+    destructive: true,
+  })
+  if (!confirmed) return
+
+  try {
+    await usersApi.delete(realmName.value, userId.value)
+    toast.success('Deleted', 'User deleted successfully')
+    router.push(`/realms/${realmName.value}/users`)
+  } catch {
+    toast.error('Error', 'Failed to delete user')
   }
 }
 
 function formatDate(dateString?: string): string {
   if (!dateString) return 'Never'
-  return new Date(dateString).toLocaleString()
+  return new Date(dateString).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
+
+const profileFields = computed(() => {
+  if (!user.value) return []
+  const fields: { label: string; value: string }[] = []
+
+  fields.push({ label: 'Email', value: user.value.email })
+  if (user.value.firstName || user.value.lastName) {
+    fields.push({ label: 'Name', value: [user.value.firstName, user.value.lastName].filter(Boolean).join(' ') })
+  }
+  if (user.value.phone) {
+    fields.push({ label: 'Phone', value: user.value.phone })
+  }
+  if (user.value.jobTitle) {
+    fields.push({ label: 'Job Title', value: user.value.jobTitle })
+  }
+  if (user.value.department) {
+    fields.push({ label: 'Department', value: user.value.department })
+  }
+  if (user.value.bio) {
+    fields.push({ label: 'Bio', value: user.value.bio })
+  }
+  if (user.value.keycloakUserId) {
+    fields.push({ label: 'Keycloak ID', value: user.value.keycloakUserId })
+  }
+  fields.push({ label: 'Last Login', value: formatDate(user.value.lastLoginAt) })
+  fields.push({ label: 'Created', value: formatDate(user.value.createdAt) })
+  if (user.value.updatedAt) {
+    fields.push({ label: 'Updated', value: formatDate(user.value.updatedAt) })
+  }
+
+  return fields
+})
 </script>
 
 <template>
-  <div class="user-detail-page">
-    <div v-if="loading" class="loading-container">
-      <ProgressSpinner />
-    </div>
+  <SidebarLayout>
+    <div class="mx-auto max-w-4xl">
+      <!-- Loading -->
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <svg
+          class="h-8 w-8 animate-spin text-zinc-400"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+      </div>
 
-    <Message v-else-if="error" severity="error" :closable="false">
-      {{ error }}
-    </Message>
+      <!-- Error -->
+      <div
+        v-else-if="error"
+        class="rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+      >
+        {{ error }}
+      </div>
 
-    <template v-else-if="user">
-      <div class="page-header">
-        <Button
-          icon="pi pi-arrow-left"
-          text
-          rounded
-          @click="navigateBack"
-        />
-        <div class="header-content">
-          <div class="header-title">
-            <Avatar
-              v-if="user.avatarUrl"
-              :image="user.avatarUrl"
-              shape="circle"
-              size="large"
-            />
-            <Avatar
-              v-else
-              :label="getInitials()"
-              shape="circle"
-              size="large"
-              class="user-avatar"
-            />
-            <div>
-              <h1>{{ getDisplayName() }}</h1>
-              <p>{{ user.email }}</p>
+      <template v-else-if="user">
+        <!-- Back link -->
+        <button
+          class="mb-4 inline-flex items-center gap-1 text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          @click="router.push(`/realms/${realmName}/users`)"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
+          </svg>
+          Users
+        </button>
+
+        <!-- Heading -->
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-4">
+            <!-- Avatar -->
+            <div
+              class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-lg font-semibold text-white"
+            >
+              {{ getInitials() }}
             </div>
-            <Tag
-              :value="user.status"
-              :severity="getStatusSeverity(user.status)"
-            />
+            <div>
+              <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                  {{ getDisplayName() }}
+                </h1>
+                <AppBadge :variant="statusVariant(user.status)" dot>
+                  {{ user.status }}
+                </AppBadge>
+              </div>
+              <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                {{ user.email }}
+              </p>
+            </div>
+          </div>
+          <AppButton variant="danger" @click="handleDelete">
+            Delete
+          </AppButton>
+        </div>
+
+        <!-- Profile details -->
+        <div class="mt-8">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Profile</h2>
+          <div class="mt-3 rounded-lg bg-white ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+            <dl class="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <div
+                v-for="field in profileFields"
+                :key="field.label"
+                class="px-5 py-4 sm:grid sm:grid-cols-3 sm:gap-4"
+              >
+                <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                  {{ field.label }}
+                </dt>
+                <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                  <code
+                    v-if="field.label === 'Keycloak ID'"
+                    class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800 dark:text-zinc-300"
+                  >
+                    {{ field.value }}
+                  </code>
+                  <template v-else>{{ field.value }}</template>
+                </dd>
+              </div>
+            </dl>
           </div>
         </div>
-        <div class="header-actions">
-          <Button
-            label="Delete"
-            icon="pi pi-trash"
-            severity="danger"
-            outlined
-            @click="handleDelete"
-          />
-        </div>
-      </div>
 
-      <div class="content-grid">
-        <Card class="info-card">
-          <template #title>Profile</template>
-          <template #content>
-            <div class="info-list">
-              <div class="info-item">
-                <span class="info-label">Email</span>
-                <span class="info-value">{{ user.email }}</span>
-              </div>
-              <div class="info-item" v-if="user.firstName || user.lastName">
-                <span class="info-label">Name</span>
-                <span class="info-value">{{ user.firstName }} {{ user.lastName }}</span>
-              </div>
-              <div class="info-item" v-if="user.phone">
-                <span class="info-label">Phone</span>
-                <span class="info-value">{{ user.phone }}</span>
-              </div>
-              <div class="info-item" v-if="user.jobTitle">
-                <span class="info-label">Job Title</span>
-                <span class="info-value">{{ user.jobTitle }}</span>
-              </div>
-              <div class="info-item" v-if="user.department">
-                <span class="info-label">Department</span>
-                <span class="info-value">{{ user.department }}</span>
-              </div>
-              <div class="info-item" v-if="user.bio">
-                <span class="info-label">Bio</span>
-                <span class="info-value">{{ user.bio }}</span>
-              </div>
-            </div>
-          </template>
-        </Card>
+        <!-- Authorized Clients -->
+        <div class="mt-8">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Authorized Clients</h2>
 
-        <Card class="info-card">
-          <template #title>Activity</template>
-          <template #content>
-            <div class="info-list">
-              <div class="info-item">
-                <span class="info-label">Keycloak ID</span>
-                <code v-if="user.keycloakUserId">{{ user.keycloakUserId }}</code>
-                <span v-else class="empty-value">Not linked (user hasn't logged in yet)</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Last Login</span>
-                <span class="info-value">{{ formatDate(user.lastLoginAt) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Created</span>
-                <span class="info-value">{{ formatDate(user.createdAt) }}</span>
-              </div>
-              <div class="info-item" v-if="user.updatedAt">
-                <span class="info-label">Last Updated</span>
-                <span class="info-value">{{ formatDate(user.updatedAt) }}</span>
-              </div>
-            </div>
-          </template>
-        </Card>
+          <!-- No clients -->
+          <div
+            v-if="user.authorizedClients.length === 0"
+            class="mt-3 rounded-lg bg-white px-5 py-8 text-center ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800"
+          >
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">No clients assigned</p>
+            <p class="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              This user has realm-wide access or hasn't been assigned to specific clients.
+            </p>
+          </div>
 
-        <Card class="info-card clients-card">
-          <template #title>
-            <div class="card-title-row">
-              <span>Authorized Clients</span>
-              <Button
-                label="Add Client"
-                icon="pi pi-plus"
-                size="small"
-                text
-                @click="openAssignDialog"
-              />
-            </div>
-          </template>
-          <template #content>
-            <DataTable
-              v-if="user.authorizedClients.length > 0"
-              :value="user.authorizedClients"
-              class="clients-table"
+          <!-- Client list -->
+          <ul v-else class="mt-3 divide-y divide-zinc-100 rounded-lg bg-white ring-1 ring-zinc-200 dark:divide-zinc-800 dark:bg-zinc-900 dark:ring-zinc-800">
+            <li
+              v-for="ac in user.authorizedClients"
+              :key="ac.clientId"
+              class="flex items-center justify-between px-5 py-3"
             >
-              <Column header="Client" style="min-width: 200px">
-                <template #body="{ data }">
-                  <div class="client-cell">
-                    <span class="client-name">{{ data.clientDisplayName || data.clientIdName }}</span>
-                    <code class="client-id">{{ data.clientIdName }}</code>
-                  </div>
-                </template>
-              </Column>
-              <Column header="Type" style="width: 120px">
-                <template #body="{ data }">
-                  <Tag
-                    :value="data.publicClient ? 'Public' : 'Confidential'"
-                    :severity="data.publicClient ? 'info' : 'warn'"
-                  />
-                </template>
-              </Column>
-              <Column header="Assigned" style="width: 150px">
-                <template #body="{ data }">
-                  {{ formatDate(data.assignedAt) }}
-                </template>
-              </Column>
-              <Column header="" style="width: 60px">
-                <template #body="{ data }">
-                  <Button
-                    icon="pi pi-times"
-                    text
-                    rounded
-                    size="small"
-                    severity="danger"
-                    @click="removeFromClient(data.clientId, data.clientDisplayName || data.clientIdName)"
-                  />
-                </template>
-              </Column>
-            </DataTable>
-            <div v-else class="empty-clients">
-              <i class="pi pi-inbox" />
-              <p>No clients assigned</p>
-              <small>This user has realm-wide access or hasn't been assigned to specific clients.</small>
-            </div>
-          </template>
-        </Card>
-      </div>
-    </template>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {{ ac.clientDisplayName || ac.clientIdName }}
+                </p>
+                <p class="mt-0.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                  {{ ac.clientIdName }}
+                </p>
+              </div>
+              <div class="flex items-center gap-3">
+                <AppBadge :variant="ac.publicClient ? 'info' : 'warning'">
+                  {{ ac.publicClient ? 'Public' : 'Confidential' }}
+                </AppBadge>
+                <button
+                  class="rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800 dark:hover:text-red-400"
+                  title="Remove"
+                  @click="removeFromClient(ac.clientId, ac.clientDisplayName || ac.clientIdName)"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                  </svg>
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
 
-    <!-- Assign Clients Dialog -->
-    <Dialog
-      v-model:visible="showAssignDialog"
-      header="Assign Clients"
-      :style="{ width: '450px' }"
-      modal
-    >
-      <div class="dialog-content">
-        <p>Select clients to grant access to this user:</p>
-        <MultiSelect
-          v-model="selectedClients"
-          :options="availableClients"
-          optionLabel="clientId"
-          optionValue="id"
-          placeholder="Select clients"
-          :loading="loadingClients"
-          class="w-full"
-          display="chip"
-        >
-          <template #option="{ option }">
-            <div class="client-option">
-              <span>{{ option.name || option.clientId }}</span>
-            </div>
-          </template>
-        </MultiSelect>
-      </div>
-      <template #footer>
-        <Button
-          label="Cancel"
-          severity="secondary"
-          @click="showAssignDialog = false"
-        />
-        <Button
-          label="Assign"
-          icon="pi pi-check"
-          :loading="assigning"
-          :disabled="selectedClients.length === 0"
-          @click="assignClients"
-        />
+        <!-- Role Assignments placeholder -->
+        <div class="mt-8">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Role Assignments</h2>
+          <div class="mt-3 rounded-lg bg-white px-5 py-8 text-center ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+              Role assignments are managed via Keycloak groups and realm roles.
+            </p>
+          </div>
+        </div>
       </template>
-    </Dialog>
-  </div>
+    </div>
+  </SidebarLayout>
 </template>
-
-<style scoped>
-.user-detail-page {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  padding: 4rem;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-content {
-  flex: 1;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.user-avatar {
-  background-color: var(--p-primary-color);
-  color: var(--p-primary-contrast-color);
-}
-
-.header-title h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.header-title p {
-  margin: 0.25rem 0 0;
-  color: var(--p-text-muted-color);
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 1.5rem;
-}
-
-.clients-card {
-  grid-column: 1 / -1;
-}
-
-.card-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.info-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-label {
-  font-size: 0.875rem;
-  color: var(--p-text-muted-color);
-}
-
-.info-value {
-  color: var(--p-text-color);
-}
-
-.empty-value {
-  color: var(--p-text-muted-color);
-  font-style: italic;
-}
-
-code {
-  background-color: var(--p-surface-100);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 0.875rem;
-}
-
-.client-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.client-name {
-  font-weight: 500;
-}
-
-.client-id {
-  font-size: 0.75rem;
-  padding: 0.125rem 0.25rem;
-}
-
-.empty-clients {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
-  text-align: center;
-}
-
-.empty-clients i {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.empty-clients p {
-  margin: 0 0 0.25rem;
-}
-
-.empty-clients small {
-  font-size: 0.875rem;
-}
-
-.dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.dialog-content p {
-  margin: 0;
-  color: var(--p-text-muted-color);
-}
-
-.w-full {
-  width: 100%;
-}
-</style>

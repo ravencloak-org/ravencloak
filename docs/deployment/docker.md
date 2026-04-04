@@ -8,7 +8,7 @@ The project provides a `docker-compose.yml` for local development with all requi
 |---------|-------|------|-------------|
 | `paradedb` | `paradedb/paradedb:latest` | `5234` → `5432` | PostgreSQL with ParadeDB extensions |
 | `keycloak` | `quay.io/keycloak/keycloak:26.5.0` | `8088` → `8080` | Identity provider |
-| `auth-backend` | `ghcr.io/dsjkeeplearning/kos-auth-backend:latest` | `8080` → `8080` | Auth backend service |
+| `auth-backend` | `ghcr.io/ravencloak-org/ravencloak:latest` | `8080` → `8080` | Auth backend service |
 
 ## Quick Start
 
@@ -110,7 +110,7 @@ docker run -d --name auth-backend \
   -e DB_NAME="$DB_NAME" \
   -e DB_USERNAME="$DB_USERNAME" \
   -e DB_PASSWORD="$DB_PASSWORD" \
-  "ghcr.io/dsjkeeplearning/kos-auth-backend:$VERSION"
+  "ghcr.io/ravencloak-org/ravencloak:$VERSION"
 ```
 
 See [CI/CD](ci-cd.md) for the automated deployment pipeline.

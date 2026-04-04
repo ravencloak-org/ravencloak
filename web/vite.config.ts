@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import VueRouter from 'unplugin-vue-router/vite'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [
@@ -10,7 +11,8 @@ export default defineConfig({
       dts: 'src/typed-router.d.ts',
       extensions: ['.vue']
     }),
-    vue()
+    vue(),
+    tailwindcss()
   ],
   resolve: {
     alias: {

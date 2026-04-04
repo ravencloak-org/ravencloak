@@ -1,28 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
-import { useConfirm } from 'primevue/useconfirm'
 import { usersApi } from '@/api/users'
-import Card from 'primevue/card'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Tag from 'primevue/tag'
-import InputText from 'primevue/inputtext'
-import Avatar from 'primevue/avatar'
-import ProgressSpinner from 'primevue/progressspinner'
-import Message from 'primevue/message'
+import { useRealmStore } from '@/stores/realm'
+import { useToast } from '@/composables/useToast'
+import SidebarLayout from '@/components/layout/SidebarLayout.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
 import type { RealmUser } from '@/types'
 
 defineOptions({
-  name: 'RealmUsersPage'
+  name: 'RealmUsersPage',
 })
 
 const route = useRoute()
 const router = useRouter()
+const realmStore = useRealmStore()
 const toast = useToast()
-const confirm = useConfirm()
 
 const realmName = computed(() => route.params.name as string)
 
@@ -31,18 +25,15 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const searchQuery = ref('')
 
-const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value
-  const query = searchQuery.value.toLowerCase()
-  return users.value.filter(user =>
-    user.email.toLowerCase().includes(query) ||
-    user.displayName?.toLowerCase().includes(query) ||
-    user.firstName?.toLowerCase().includes(query) ||
-    user.lastName?.toLowerCase().includes(query)
-  )
-})
+// Pagination
+const currentPage = ref(1)
+const pageSize = 10
 
 onMounted(async () => {
+  // Ensure realm is loaded for sidebar
+  if (!realmStore.currentRealm || realmStore.currentRealm.realmName !== realmName.value) {
+    realmStore.fetchRealm(realmName.value).catch(() => {})
+  }
   await loadUsers()
 })
 
@@ -54,16 +45,29 @@ async function loadUsers(): Promise<void> {
     users.value = await usersApi.list(realmName.value)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load users'
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: error.value,
-      life: 5000
-    })
+    toast.error('Error', error.value)
   } finally {
     loading.value = false
   }
 }
+
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return users.value
+  const query = searchQuery.value.toLowerCase()
+  return users.value.filter(
+    (user) =>
+      user.email.toLowerCase().includes(query) ||
+      user.displayName?.toLowerCase().includes(query) ||
+      user.firstName?.toLowerCase().includes(query) ||
+      user.lastName?.toLowerCase().includes(query),
+  )
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize)))
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredUsers.value.slice(start, start + pageSize)
+})
 
 function navigateToUser(user: RealmUser): void {
   router.push(`/realms/${realmName.value}/users/${user.id}`)
@@ -71,38 +75,6 @@ function navigateToUser(user: RealmUser): void {
 
 function navigateToCreate(): void {
   router.push(`/realms/${realmName.value}/users/create`)
-}
-
-function navigateBack(): void {
-  router.push(`/realms/${realmName.value}`)
-}
-
-function handleDelete(user: RealmUser): void {
-  confirm.require({
-    message: `Are you sure you want to delete user "${user.email}"?`,
-    header: 'Delete User',
-    icon: 'pi pi-exclamation-triangle',
-    acceptClass: 'p-button-danger',
-    accept: async () => {
-      try {
-        await usersApi.delete(realmName.value, user.id)
-        toast.add({
-          severity: 'success',
-          summary: 'Success',
-          detail: 'User deleted successfully',
-          life: 3000
-        })
-        await loadUsers()
-      } catch (err) {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Failed to delete user',
-          life: 5000
-        })
-      }
-    }
-  })
 }
 
 function getInitials(user: RealmUser): string {
@@ -122,311 +94,209 @@ function getDisplayName(user: RealmUser): string {
   return user.email
 }
 
-function getStatusSeverity(status: string): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" | undefined {
+function statusVariant(status: string): 'success' | 'danger' | 'neutral' | 'warning' {
   switch (status) {
-    case 'ACTIVE': return 'success'
-    case 'INACTIVE': return 'secondary'
-    case 'SUSPENDED': return 'danger'
-    default: return 'info'
+    case 'ACTIVE':
+      return 'success'
+    case 'SUSPENDED':
+      return 'danger'
+    case 'INACTIVE':
+      return 'neutral'
+    default:
+      return 'warning'
   }
 }
 
-function formatDate(dateString?: string): string {
+function relativeTime(dateString?: string): string {
   if (!dateString) return 'Never'
-  return new Date(dateString).toLocaleDateString()
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHr = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHr / 24)
+
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHr < 24) return `${diffHr}h ago`
+  if (diffDay < 30) return `${diffDay}d ago`
+  return date.toLocaleDateString()
 }
 </script>
 
 <template>
-  <div class="users-page">
-    <div class="page-header">
-      <Button
-        icon="pi pi-arrow-left"
-        text
-        rounded
-        @click="navigateBack"
-      />
-      <div class="header-content">
-        <h1>Users</h1>
-        <p>{{ realmName }}</p>
+  <SidebarLayout>
+    <div class="mx-auto max-w-7xl">
+      <!-- Page header -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+            Users
+          </h1>
+          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Manage users in {{ realmName }}
+          </p>
+        </div>
+        <AppButton @click="navigateToCreate">
+          Add User
+        </AppButton>
       </div>
-      <div class="header-actions">
-        <Button
-          label="Add User"
-          icon="pi pi-plus"
-          @click="navigateToCreate"
-        />
-      </div>
-    </div>
 
-    <Card class="users-card">
-      <template #content>
-        <div v-if="loading" class="loading-container">
-          <ProgressSpinner />
+      <!-- Loading -->
+      <div v-if="loading" class="mt-12 flex items-center justify-center">
+        <svg
+          class="h-8 w-8 animate-spin text-zinc-400"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+      </div>
+
+      <!-- Error -->
+      <div
+        v-else-if="error"
+        class="mt-8 rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+      >
+        {{ error }}
+      </div>
+
+      <template v-else>
+        <!-- Search bar -->
+        <div class="mt-6 flex items-center justify-between gap-4">
+          <div class="relative max-w-sm flex-1">
+            <svg
+              class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search users..."
+              class="w-full rounded-lg border-0 bg-white py-2 pl-10 pr-3 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-500 dark:focus:ring-indigo-500"
+              @input="currentPage = 1"
+            />
+          </div>
+          <span class="text-sm text-zinc-500 dark:text-zinc-400">
+            {{ filteredUsers.length }} {{ filteredUsers.length === 1 ? 'user' : 'users' }}
+          </span>
         </div>
 
-        <Message v-else-if="error" severity="error" :closable="false">
-          {{ error }}
-        </Message>
-
-        <template v-else>
-          <div class="toolbar">
-            <span class="p-input-icon-left search-input">
-              <i class="pi pi-search" />
-              <InputText
-                v-model="searchQuery"
-                placeholder="Search users..."
-              />
-            </span>
-            <span class="user-count">{{ filteredUsers.length }} users</span>
+        <!-- Empty state -->
+        <div
+          v-if="filteredUsers.length === 0 && !searchQuery"
+          class="mt-8 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 px-6 py-16 text-center dark:border-zinc-700"
+        >
+          <svg class="h-12 w-12 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+          </svg>
+          <h3 class="mt-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">No users yet</h3>
+          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Get started by adding a user.
+          </p>
+          <div class="mt-6">
+            <AppButton @click="navigateToCreate">
+              Add User
+            </AppButton>
           </div>
+        </div>
 
-          <DataTable
-            :value="filteredUsers"
-            :paginator="filteredUsers.length > 10"
-            :rows="10"
-            stripedRows
-            class="users-table"
-            @row-click="(e) => navigateToUser(e.data)"
-          >
-            <Column header="User" style="min-width: 250px">
-              <template #body="{ data }">
-                <div class="user-cell">
-                  <Avatar
-                    v-if="data.avatarUrl"
-                    :image="data.avatarUrl"
-                    shape="circle"
-                    size="normal"
-                  />
-                  <Avatar
-                    v-else
-                    :label="getInitials(data)"
-                    shape="circle"
-                    size="normal"
-                    class="user-avatar"
-                  />
-                  <div class="user-info">
-                    <span class="user-name">{{ getDisplayName(data) }}</span>
-                    <span class="user-email">{{ data.email }}</span>
+        <!-- No search results -->
+        <div
+          v-else-if="filteredUsers.length === 0 && searchQuery"
+          class="mt-8 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
+        >
+          No users matching "{{ searchQuery }}"
+        </div>
+
+        <!-- Users table -->
+        <div v-else class="mt-4 overflow-hidden rounded-lg bg-white ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+          <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+            <thead>
+              <tr>
+                <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  User
+                </th>
+                <th class="hidden px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400 sm:table-cell">
+                  Status
+                </th>
+                <th class="hidden px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400 md:table-cell">
+                  Last Login
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tr
+                v-for="user in paginatedUsers"
+                :key="user.id"
+                class="cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                @click="navigateToUser(user)"
+              >
+                <td class="px-5 py-3">
+                  <div class="flex items-center gap-3">
+                    <!-- Avatar (initials) -->
+                    <div
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-medium text-white"
+                    >
+                      {{ getInitials(user) }}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {{ getDisplayName(user) }}
+                      </p>
+                      <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ user.email }}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </template>
-            </Column>
+                </td>
+                <td class="hidden px-5 py-3 sm:table-cell">
+                  <AppBadge :variant="statusVariant(user.status)" dot>
+                    {{ user.status }}
+                  </AppBadge>
+                </td>
+                <td class="hidden px-5 py-3 text-sm text-zinc-500 dark:text-zinc-400 md:table-cell">
+                  {{ relativeTime(user.lastLoginAt) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-            <Column header="Status" style="width: 120px">
-              <template #body="{ data }">
-                <Tag
-                  :value="data.status"
-                  :severity="getStatusSeverity(data.status)"
-                />
-              </template>
-            </Column>
-
-            <Column header="Authorized Clients" style="width: 200px">
-              <template #body="{ data }">
-                <div class="client-tags">
-                  <Tag
-                    v-for="client in data.authorizedClients.slice(0, 2)"
-                    :key="client.clientId"
-                    :value="client.clientName"
-                    severity="info"
-                    class="client-tag"
-                  />
-                  <Tag
-                    v-if="data.authorizedClients.length > 2"
-                    :value="`+${data.authorizedClients.length - 2}`"
-                    severity="secondary"
-                  />
-                  <span v-if="data.authorizedClients.length === 0" class="no-clients">
-                    No clients
-                  </span>
-                </div>
-              </template>
-            </Column>
-
-            <Column header="Last Login" style="width: 120px">
-              <template #body="{ data }">
-                {{ formatDate(data.lastLoginAt) }}
-              </template>
-            </Column>
-
-            <Column header="Actions" style="width: 100px">
-              <template #body="{ data }">
-                <div class="action-buttons">
-                  <Button
-                    icon="pi pi-pencil"
-                    text
-                    rounded
-                    size="small"
-                    @click.stop="navigateToUser(data)"
-                  />
-                  <Button
-                    icon="pi pi-trash"
-                    text
-                    rounded
-                    size="small"
-                    severity="danger"
-                    @click.stop="handleDelete(data)"
-                  />
-                </div>
-              </template>
-            </Column>
-
-            <template #empty>
-              <div class="empty-state">
-                <i class="pi pi-users" />
-                <p>No users found</p>
-                <Button
-                  label="Add First User"
-                  icon="pi pi-plus"
-                  @click="navigateToCreate"
-                />
-              </div>
-            </template>
-          </DataTable>
-        </template>
+          <!-- Pagination -->
+          <div
+            v-if="totalPages > 1"
+            class="flex items-center justify-between border-t border-zinc-200 px-5 py-3 dark:border-zinc-800"
+          >
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+              Page {{ currentPage }} of {{ totalPages }}
+            </p>
+            <div class="flex gap-2">
+              <button
+                :disabled="currentPage <= 1"
+                class="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 ring-1 ring-inset ring-zinc-300 transition-colors hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+                @click="currentPage--"
+              >
+                Previous
+              </button>
+              <button
+                :disabled="currentPage >= totalPages"
+                class="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-700 ring-1 ring-inset ring-zinc-300 transition-colors hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+                @click="currentPage++"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
       </template>
-    </Card>
-  </div>
+    </div>
+  </SidebarLayout>
 </template>
-
-<style scoped>
-.users-page {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-content {
-  flex: 1;
-}
-
-.header-content h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.header-content p {
-  margin: 0;
-  color: var(--p-text-muted-color);
-  font-family: monospace;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  padding: 3rem;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.search-input {
-  position: relative;
-}
-
-.search-input i {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--p-text-muted-color);
-}
-
-.search-input :deep(input) {
-  padding-left: 2.5rem;
-  width: 300px;
-}
-
-.user-count {
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-}
-
-.users-table :deep(.p-datatable-tbody > tr) {
-  cursor: pointer;
-}
-
-.users-table :deep(.p-datatable-tbody > tr:hover) {
-  background-color: var(--p-surface-hover);
-}
-
-.user-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.user-avatar {
-  background-color: var(--p-primary-color);
-  color: var(--p-primary-contrast-color);
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.user-name {
-  font-weight: 500;
-}
-
-.user-email {
-  font-size: 0.875rem;
-  color: var(--p-text-muted-color);
-}
-
-.client-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.client-tag {
-  font-size: 0.75rem;
-}
-
-.no-clients {
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-  font-style: italic;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 3rem;
-  color: var(--p-text-muted-color);
-}
-
-.empty-state i {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.empty-state p {
-  margin-bottom: 1rem;
-}
-</style>

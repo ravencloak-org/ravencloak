@@ -121,8 +121,8 @@ KEYCLOAK_ISSUER_PREFIX=https://auth.yourdomain.com/realms/
 KEYCLOAK_SAAS_ISSUER_URI=https://auth.yourdomain.com/realms/saas-admin
 
 # Use pre-built images instead of building locally
-AUTH_BACKEND_IMAGE=ghcr.io/dsjkeeplearning/kos-auth-backend:1.0.0
-AUTH_FRONTEND_IMAGE=ghcr.io/dsjkeeplearning/kos-auth-backend-web:1.0.0
+AUTH_BACKEND_IMAGE=ghcr.io/ravencloak-org/ravencloak:1.0.0
+AUTH_FRONTEND_IMAGE=ghcr.io/ravencloak-org/ravencloak-web:1.0.0
 
 # Frontend build-time variables (baked into the image)
 VITE_API_BASE_URL=https://api.yourdomain.com
@@ -228,7 +228,7 @@ After restart, the provider appears in **Keycloak Admin > Realm Settings > User 
 gh workflow run keycloak-spi.yml -f version=1.0.1
 
 # Or trigger Woodpecker to deploy the latest release to the server
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main --var DEPLOY_TO=keycloak-spi
 ```
 
@@ -291,11 +291,11 @@ git tag release-v1.0.0 && git push origin release-v1.0.0
 **CLI-Based (Manual with Auto-Increment):**
 ```bash
 # Deploy keycloak SPI from latest GitHub Release
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main --var DEPLOY_TO=keycloak-spi
 
 # Combined release (auto-increments patch version)
-woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+woodpecker-cli pipeline create ravencloak-org/ravencloak \
   --branch main --var DEPLOY_TO=release-all
 ```
 

@@ -4,7 +4,7 @@ set -e
 echo "🚀 Deploying Auth Frontend to Production"
 
 # Configuration
-IMAGE_TAG="ghcr.io/dsjkeeplearning/kos-auth-backend-frontend:1.0.13"
+IMAGE_TAG="ghcr.io/ravencloak-org/ravencloak-web:1.0.13"
 CONTAINER_NAME="auth-frontend"
 PORT="8090"
 

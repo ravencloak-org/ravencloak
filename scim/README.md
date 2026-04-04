@@ -159,7 +159,7 @@ A Spring Boot Starter that wraps the SCIM API for client applications. Package: 
 ```kotlin
 repositories {
     maven {
-        url = uri("https://maven.pkg.github.com/dsjkeeplearning/kos-auth-backend")
+        url = uri("https://maven.pkg.github.com/ravencloak-org/ravencloak")
         credentials {
             username = System.getenv("GITHUB_ACTOR")
             password = System.getenv("GITHUB_TOKEN")

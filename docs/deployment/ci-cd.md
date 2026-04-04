@@ -14,7 +14,7 @@ The project uses **Woodpecker CI** for the auth backend and **GitHub Actions** f
 | Combined Release | `release-all.yml` | Tag `release-v*` or manual | Release both modules together |
 | Deploy | `deploy.yml` | Manual only | Deploy existing release |
 
-**Dashboard:** [drone.keeplearningos.com](https://drone.keeplearningos.com/dsjkeeplearning/kos-auth-backend)
+**Dashboard:** [drone.keeplearningos.com](https://drone.keeplearningos.com/ravencloak-org/ravencloak)
 
 ### GitHub Actions
 
@@ -44,15 +44,15 @@ git tag release-v1.0.0 && git push origin release-v1.0.0
 
     ```bash
     # Keycloak SPI release (auto-increments patch version)
-    woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+    woodpecker-cli pipeline create ravencloak-org/ravencloak \
       --branch main --var DEPLOY_TO=keycloak-spi
 
     # Combined release
-    woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+    woodpecker-cli pipeline create ravencloak-org/ravencloak \
       --branch main --var DEPLOY_TO=release-all
 
     # Deploy only (uses latest release)
-    woodpecker-cli pipeline create dsjkeeplearning/kos-auth-backend \
+    woodpecker-cli pipeline create ravencloak-org/ravencloak \
       --branch main --var DEPLOY_TO=deploy
     ```
 
@@ -105,8 +105,8 @@ Docker builds use `buildx` with registry-based caching:
 
 ```bash
 docker buildx build \
-  --cache-from type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache \
-  --cache-to type=registry,ref=ghcr.io/dsjkeeplearning/kos-auth-backend:cache,mode=max \
+  --cache-from type=registry,ref=ghcr.io/ravencloak-org/ravencloak:cache \
+  --cache-to type=registry,ref=ghcr.io/ravencloak-org/ravencloak:cache,mode=max \
   ...
 ```
 

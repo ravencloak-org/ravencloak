@@ -12,7 +12,7 @@ ENV_FILE="${1:-.env}"
 
 # Configuration
 WOODPECKER_SERVER="https://drone.keeplearningos.com"
-REPO="${WOODPECKER_REPO:-dsjkeeplearning/kos-auth-backend}"
+REPO="${WOODPECKER_REPO:-ravencloak-org/ravencloak}"
 
 # Check if env file exists
 if [ ! -f "$ENV_FILE" ]; then
@@ -45,7 +45,7 @@ while IFS='=' read -r key value; do
     value="${value%\'}"
     value="${value#\'}"
     # Export S3 cache and app variables
-    if [[ "$key" == S3_BUILD_CACHE_* ]] || [[ "$key" == KEYCLOAK_* ]] || [[ "$key" == SAAS_* ]] || [[ "$key" == DB_* ]] || [[ "$key" == SPRING_* ]] || [[ "$key" == OTEL_* ]] || [[ "$key" == NEBULA_* ]] || [[ "$key" == VITE_* ]]; then
+    if [[ "$key" == S3_BUILD_CACHE_* ]] || [[ "$key" == KEYCLOAK_* ]] || [[ "$key" == SAAS_* ]] || [[ "$key" == DB_* ]] || [[ "$key" == SPRING_* ]] || [[ "$key" == OTEL_* ]] || [[ "$key" == VITE_* ]]; then
         export "$key=$value"
         echo "  Loaded: $key"
     fi
@@ -61,7 +61,7 @@ s3_vars=("S3_BUILD_CACHE_BUCKET" "S3_BUILD_CACHE_REGION" "S3_BUILD_CACHE_ACCESS_
 app_vars=("KEYCLOAK_ISSUER_PREFIX" "KEYCLOAK_SAAS_ISSUER_URI" "SAAS_ADMIN_CLIENT_SECRET" "DB_HOST" "DB_PORT" "DB_NAME" "DB_USERNAME" "SPRING_PROFILES_ACTIVE")
 # DB_PASSWORD can be empty
 # Infrastructure variables
-infra_vars=("OTEL_EXPORTER_OTLP_ENDPOINT" "NEBULA_LIGHTHOUSE_EXTERNAL_IP")
+infra_vars=("OTEL_EXPORTER_OTLP_ENDPOINT")
 # Frontend variables
 frontend_vars=("VITE_API_BASE_URL" "VITE_KEYCLOAK_URL" "VITE_KEYCLOAK_REALM" "VITE_KEYCLOAK_CLIENT_ID" "VITE_OTEL_COLLECTOR_URL" "VITE_OTEL_ENABLED")
 
@@ -151,7 +151,6 @@ add_secret "spring_profiles_active" "${SPRING_PROFILES_ACTIVE:-prod}"
 echo ""
 echo "Adding infrastructure secrets..."
 add_secret "otel_exporter_otlp_endpoint" "$OTEL_EXPORTER_OTLP_ENDPOINT"
-add_secret "nebula_lighthouse_external_ip" "$NEBULA_LIGHTHOUSE_EXTERNAL_IP"
 
 # Add frontend secrets
 echo ""
