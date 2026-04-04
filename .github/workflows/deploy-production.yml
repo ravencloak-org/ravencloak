@@ -20,48 +20,55 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy to production
+        env:
+          CONTAINER_NAME: sys-gw-01
         run: |
-          cd /home/ubuntu
-
-          # Copy updated docker-compose.yml from repo
-          cp ${{ github.workspace }}/docker-compose.yml docker-compose.yml
-
-          # Create .env file from secrets
-          cat > .env <<'EOF'
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          KEYCLOAK_BASE_URL=${{ secrets.KEYCLOAK_BASE_URL }}
-          KEYCLOAK_ISSUER_PREFIX=${{ secrets.KEYCLOAK_ISSUER_PREFIX }}
-          KEYCLOAK_SAAS_ISSUER_URI=${{ secrets.KEYCLOAK_SAAS_ISSUER_URI }}
-          KEYCLOAK_ADMIN_CLIENT_ID=${{ secrets.KEYCLOAK_ADMIN_CLIENT_ID }}
-          KEYCLOAK_ADMIN_CLIENT_SECRET=${{ secrets.KEYCLOAK_ADMIN_CLIENT_SECRET }}
-          SAAS_ADMIN_CLIENT_SECRET=${{ secrets.SAAS_ADMIN_CLIENT_SECRET }}
-          SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }}
-          OTEL_SDK_DISABLED=true
-          EOF
-
-          # Login to GHCR with token that has packages:read
+          # Login to GHCR
           echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          # Pull latest images
-          docker compose pull auth-backend
+          # Pull latest image
+          docker pull ghcr.io/ravencloak-org/ravencloak:latest
 
-          # Force remove existing container (created manually, not by compose)
+          # Stop and remove existing container (only this workflow knows the name)
+          docker stop $CONTAINER_NAME 2>/dev/null || true
+          docker rm -f $CONTAINER_NAME 2>/dev/null || true
+
+          # Also clean up legacy name if it exists
           docker stop auth-backend 2>/dev/null || true
           docker rm -f auth-backend 2>/dev/null || true
 
-          # Start with new image
-          docker compose up -d auth-backend
+          # Ensure network exists
+          docker network create auth-network 2>/dev/null || true
+
+          # Run with obscure name, restart policy, and no-new-privileges
+          docker run -d \
+            --name $CONTAINER_NAME \
+            --restart always \
+            --network auth-network \
+            --security-opt no-new-privileges:true \
+            --stop-signal SIGTERM \
+            --stop-timeout 30 \
+            -p 8091:8080 \
+            -p 9090:9090 \
+            -e DB_HOST="${{ secrets.DB_HOST }}" \
+            -e DB_PORT="${{ secrets.DB_PORT }}" \
+            -e DB_NAME="${{ secrets.DB_NAME }}" \
+            -e DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+            -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            -e KEYCLOAK_BASE_URL="${{ secrets.KEYCLOAK_BASE_URL }}" \
+            -e KEYCLOAK_ISSUER_PREFIX="${{ secrets.KEYCLOAK_ISSUER_PREFIX }}" \
+            -e KEYCLOAK_SAAS_ISSUER_URI="${{ secrets.KEYCLOAK_SAAS_ISSUER_URI }}" \
+            -e KEYCLOAK_ADMIN_CLIENT_ID="${{ secrets.KEYCLOAK_ADMIN_CLIENT_ID }}" \
+            -e KEYCLOAK_ADMIN_CLIENT_SECRET="${{ secrets.KEYCLOAK_ADMIN_CLIENT_SECRET }}" \
+            -e SAAS_ADMIN_CLIENT_SECRET="${{ secrets.SAAS_ADMIN_CLIENT_SECRET }}" \
+            -e SPRING_PROFILES_ACTIVE="${{ secrets.SPRING_PROFILES_ACTIVE }}" \
+            -e OTEL_SERVICE_NAME=kos-auth-spring \
+            -e OTEL_SDK_DISABLED=true \
+            -e SERVER_FORWARD_HEADERS_STRATEGY=framework \
+            ghcr.io/ravencloak-org/ravencloak:latest
 
           # Clean up old images
           docker image prune -f
 
-          # Show status
-          echo "=== Deployment Status ==="
-          docker compose ps
-          echo ""
-          echo "=== Recent Logs ==="
-          docker logs auth-backend --tail 30
+          echo "=== Deployed ==="
+          docker ps --filter name=$CONTAINER_NAME --format "{{.ID}} | {{.Status}} | {{.Ports}}"
