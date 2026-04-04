@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "938ecef0abc6",
+  "session_id": "31505fc3-7823-4449-9e43-09e3ff8b64c7",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T14:15:05.203705Z",
+  "branch": "feat/frontend-catalyst-redesign",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/components/ui/AppTable.vue",
+    "web/src/pages/realms/[name]/index.vue"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "db6da2e0-ad47-4ac7-b994-7420cda8f889",
+  "checkpoint_transcript_start": 899,
+  "transcript_lines_at_start": 899,
+  "token_usage": {
+    "input_tokens": 23,
+    "cache_creation_tokens": 50160,
+    "cache_read_tokens": 1562963,
+    "output_tokens": 5446,
+    "api_call_count": 15
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T14:15:04.970677Z",
+    "agent_lines": 0,
+    "human_added": 33,
+    "human_modified": 93,
+    "human_removed": 0,
+    "total_committed": 54,
+    "agent_percentage": 0
+  }
+}
